@@ -2,7 +2,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Universe (initialUniverse, startWorking, finishTurn, Universe, WorkerId, WorkplaceId) where
+module Universe (Universe, WorkerId, WorkplaceId,
+                 getScore, getWorkers,
+                 initialUniverse, startWorking, finishTurn) where
 
 import           Control.Lens
 import           Control.Lens.TH
@@ -34,6 +36,12 @@ data WorkplaceAction = IncreaseScore
 makeLenses ''Universe
 makeLenses ''WorkerState
 
+getScore :: Universe -> Int
+getScore = view score
+
+getWorkers :: Universe -> [WorkerId]
+getWorkers = keys . view workers
+
 workerState :: WorkerId -> Lens' Universe (Maybe WorkerState)
 workerState workerId = workers . at workerId
 
@@ -50,12 +58,21 @@ check :: MonadError e m => Bool -> e -> m ()
 check True _ = return ()
 check False e = throwError e
 
+checkMaybe :: MonadError e m => Maybe a -> e -> m a
+checkMaybe Nothing e = throwError e
+checkMaybe (Just x) _ = return x
+
+applyAction :: WorkplaceAction -> Universe -> Universe
+applyAction IncreaseScore = over score (+1)
+
 startWorking :: MonadError String m => WorkerId -> WorkplaceId -> Universe -> m Universe
 startWorking workerId workplaceId universe = do
   check workerExists "Worker does not exist"
   check workerIdle "Worker already working"
+  workplaceAction <- checkMaybe (workplaceId `M.lookup` view availableWorkplaces universe) "Workplace does not exist"
   check workplaceEmpty "Workplace occupied"
-  return $ over currentWorkerState setWorkplace universe
+  let withAssignedWorker = over currentWorkerState setWorkplace universe
+  return $ applyAction workplaceAction withAssignedWorker
   where currentWorkerState :: Lens' Universe (Maybe WorkerState)
         currentWorkerState = workerState workerId
         workerExists = isJust $ view currentWorkerState universe
