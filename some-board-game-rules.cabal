@@ -20,7 +20,7 @@ library
   -- other-modules:
   -- other-extensions:
   build-depends:       base >=4.8 && <4.9,
-                       lens >=4.12 && <4.13,
+                       lens >=4.7 && <4.13,
                        containers >=0.5.6 && <0.5.7,
                        mtl >=2.2.1 && <2.3
   hs-source-dirs:      src
@@ -35,6 +35,6 @@ test-suite tests
   build-depends:      base >=4.8 && <4.9,
                       tasty >=0.11 && <0.12,
                       tasty-hunit >=0.9.2 && <0.10,
-                      lens >=4.12 && <4.13,
+                      lens >=4.7 && <4.13,
                       containers >=0.5.6 && <0.5.7,
                       mtl >=2.2.1 && <2.3
