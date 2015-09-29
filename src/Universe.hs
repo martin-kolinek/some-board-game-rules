@@ -2,9 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Universe (Universe, WorkerId, WorkplaceId,
-                 getScore, getWorkers,
-                 initialUniverse, startWorking, finishTurn) where
+module Universe where
 
 import           Control.Lens
 import           Control.Lens.TH
@@ -19,19 +17,19 @@ data Universe = Universe {
   _availableWorkplaces :: Map WorkplaceId WorkplaceAction,
   _workers             :: Map WorkerId WorkerState,
   _score               :: Int
-}
+} deriving (Show)
 
-newtype WorkerId = WorkerId Int deriving (Eq, Ord)
+newtype WorkerId = WorkerId Int deriving (Eq, Ord, Show)
 
 data WorkerState = WorkerState {
   _currentWorkplace :: Maybe WorkplaceId
-}
+} deriving (Show)
 
 initialWorkerState = WorkerState Nothing
 
-newtype WorkplaceId = WorkplaceId Int deriving (Eq, Ord)
+newtype WorkplaceId = WorkplaceId Int deriving (Eq, Ord, Show)
 
-data WorkplaceAction = IncreaseScore
+data WorkplaceAction = IncreaseScore deriving (Eq, Show)
 
 makeLenses ''Universe
 makeLenses ''WorkerState
@@ -41,6 +39,14 @@ getScore = view score
 
 getWorkers :: Universe -> [WorkerId]
 getWorkers = keys . view workers
+
+getWorkplaces :: Universe -> Map WorkplaceId WorkplaceAction
+getWorkplaces = view availableWorkplaces
+
+getWorkerWorkplace :: Universe -> WorkerId -> Maybe WorkplaceId
+getWorkerWorkplace universe workerId = do
+  state <- workerId `M.lookup` view workers universe
+  view currentWorkplace state
 
 workerState :: WorkerId -> Lens' Universe (Maybe WorkerState)
 workerState workerId = workers . at workerId
