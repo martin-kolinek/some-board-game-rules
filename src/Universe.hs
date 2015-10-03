@@ -48,6 +48,9 @@ getWorkerWorkplace universe workerId = do
   state <- workerId `M.lookup` view workers universe
   view currentWorkplace state
 
+getWorkplaceOccupants :: Universe -> WorkplaceId -> [WorkerId]
+getWorkplaceOccupants universe workplace = [w | w <- getWorkers universe, getWorkerWorkplace universe w == Just workplace]
+
 workerState :: WorkerId -> Lens' Universe (Maybe WorkerState)
 workerState workerId = workers . at workerId
 

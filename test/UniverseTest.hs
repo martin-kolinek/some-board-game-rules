@@ -16,7 +16,8 @@ universeTests = testGroup "Universe" [
     startWorkingByInvalidWorkerCausesError,
     workingIncreaseScore,
     workingAssignsWorker,
-    finishingTurnNotPossibleWithUnassignedWorkers
+    finishingTurnNotPossibleWithUnassignedWorkers,
+    getWorkplaceOccupantsReturnsOccupants
   ]
 
 initialUniverseHasZeroScore = testCase "Initial universe has zero score" $ do
@@ -66,3 +67,10 @@ finishingTurnUnassignsWorkers = testCase "Finishing turn unassigns works" $ do
 finishingTurnNotPossibleWithUnassignedWorkers = testCase "Finishing turn unassigns works" $ do
   let universe = initialUniverse
   assertBool "No error" $ isLeft (finishTurn universe)
+
+getWorkplaceOccupantsReturnsOccupants = testCase "getWorkplaceOccupands returns occupants" $ do
+  let universe = Universe
+                    (fromList [(WorkplaceId 1, IncreaseScore)])
+                    (fromList [(WorkerId 1, WorkerState (Just (WorkplaceId 1))), (WorkerId 2, WorkerState Nothing), (WorkerId 3, WorkerState (Just (WorkplaceId 1)))])
+                    0
+  [WorkerId 1, WorkerId 3] @=? getWorkplaceOccupants universe (WorkplaceId 1)
