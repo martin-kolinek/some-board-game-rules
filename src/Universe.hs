@@ -91,7 +91,7 @@ startWorking workerId workplaceId universe = do
         workplaceEmpty = workplaceId `elem` freeWorkplaces universe
         setWorkplace = liftM $ set currentWorkplace $ Just workplaceId
 
-initialUniverse = Universe (fromList [(WorkplaceId 1, IncreaseScore)]) (fromList [(WorkerId 1, initialWorkerState)]) 0
+initialUniverse = Universe (fromList [(WorkplaceId 1, IncreaseScore), (WorkplaceId 2, IncreaseScore), (WorkplaceId 3, IncreaseScore)]) (fromList [(WorkerId 1, initialWorkerState), (WorkerId 2, initialWorkerState)]) 0
 
 finishTurn :: MonadError String m => Universe -> m Universe
 finishTurn universe = do
