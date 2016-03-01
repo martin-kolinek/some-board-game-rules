@@ -15,8 +15,15 @@ import           Control.Monad.Except
 
 data Universe = Universe {
   _availableWorkplaces :: Map WorkplaceId WorkplaceAction,
-  _workers             :: Map WorkerId WorkerState,
-  _score               :: Int
+  _players :: Map PlayerId PlayerData
+} deriving (Show)
+
+newtype PlayerId = PlayerId Int deriving (Eq, Ord, Show)
+
+data PlayerData = PlayerWorkers {
+  _playerId :: PlayerId,
+  _workers :: Map WorkerId WorkerState,
+  _score :: Int
 } deriving (Show)
 
 newtype WorkerId = WorkerId Int deriving (Eq, Ord, Show)
@@ -33,9 +40,10 @@ data WorkplaceAction = IncreaseScore deriving (Eq, Show)
 
 makeLenses ''Universe
 makeLenses ''WorkerState
+makeLenses ''PlayerData
 
-getScore :: Universe -> Int
-getScore = view score
+getScore :: Universe -> PlayerId -> Int
+getScore universe playerId = fromMaybe 0 $ universe ^? (players . ix playerId . score)
 
 getWorkers :: Universe -> [WorkerId]
 getWorkers = keys . view workers
@@ -51,8 +59,34 @@ getWorkerWorkplace universe workerId = do
 getWorkplaceOccupants :: Universe -> WorkplaceId -> [WorkerId]
 getWorkplaceOccupants universe workplace = [w | w <- getWorkers universe, getWorkerWorkplace universe w == Just workplace]
 
+getPlayerId :: Universe -> WorkerId -> Maybe PlayerId
+getPlayerId universe workerId = listToMaybe $ do
+  playerData <- elems $ view players universe
+  guard $ M.member workerId $ playerData ^. workers
+  return $ playerData ^. playerId
+
+{-func :: outer -> inner1 -> inner2
+existingLens :: inner2 -> Lens' outer a
+finalLens :: inner1 -> Lens' outer a
+
+finalLens inner1 = lens setter getter
+  where setter outer aVal = let inner2 = func outer inner1 in set (existingLens inner2) aVal outer
+        getter outer = let inner2 = func outer inner1 in view (existingLens inner2) outer-}
+
 workerState :: WorkerId -> Lens' Universe (Maybe WorkerState)
-workerState workerId = workers . at workerId
+workerState workerId =
+  let setter :: Universe -> Maybe WorkerState -> Universe
+      setter universe workerState = fromMaybe universe $ do
+        playerId <- getPlayerId universe workerId
+        playerData <- M.lookup playerId (universe ^. players)
+        let newPlayerData = set (workers . at workerId) workerState playerData
+        return $ set (players . at playerId) (Just newPlayerData) universe
+      getter :: Universe -> Maybe WorkerState
+      getter universe = do
+        playerId <- getPlayerId universe workerId
+        playerData <- M.lookup playerId (universe ^. players)
+        playerData ^. (workers . at workerId)
+  in lens getter setter
 
 workerWorking :: WorkerState -> Bool
 workerWorking = isJust . view currentWorkplace
@@ -61,7 +95,7 @@ freeWorkplaces :: Universe -> [WorkplaceId]
 freeWorkplaces universe = universeAvailableWorkplaces \\ universeOccupiedWorkplaces
   where universeOccupiedWorkplaces = catMaybes $ view currentWorkplace <$> workerStates
         universeAvailableWorkplaces = keys $ view availableWorkplaces universe
-        workerStates = elems (view workers universe)
+        workerStates = toListOf (players . folding M.elems . workers . folding M.elems) universe
 
 check :: MonadError e m => Bool -> e -> m ()
 check True _ = return ()
@@ -71,7 +105,7 @@ checkMaybe :: MonadError e m => Maybe a -> e -> m a
 checkMaybe Nothing e = throwError e
 checkMaybe (Just x) _ = return x
 
-applyAction :: WorkplaceAction -> Universe -> Universe
+applyAction :: WorkplaceAction -> PlayerData -> PlayerData
 applyAction IncreaseScore = over score (+1)
 
 startWorking :: MonadError String m => WorkerId -> WorkplaceId -> Universe -> m Universe
