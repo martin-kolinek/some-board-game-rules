@@ -46,15 +46,37 @@ getScore :: Universe -> PlayerId -> Int
 getScore universe playerId = fromMaybe 0 $ universe ^? (players . ix playerId . score)
 
 getWorkers :: Universe -> [WorkerId]
-getWorkers = keys . view workers
+getWorkers = toListOf (players . folding M.elems . workers . folding M.keys)
+--getWorkplaces :: Universe -> Map WorkplaceId WorkplaceAction
+--getWorkplaces = view availableWorkplaces
 
-getWorkplaces :: Universe -> Map WorkplaceId WorkplaceAction
-getWorkplaces = view availableWorkplaces
+--traverse :: Traversal' (Maybe a) a
+--    = Applicative f => (a -> f a) -> Maybe a -> f (Maybe a)
+
+--ix :: a -> Traversal' (Map a b) b
+--    = Applicative f => a -> (b -> f b) -> Map a b -> f (Map a b)
+
+ix2 :: Ord a => Maybe a -> Traversal' (Map a b) b
+--    = Applicative f => Maybe a -> (b -> f b) -> Map a b -> f (Map a b)
+ix2 maybeA f m = case (flip M.lookup) m =<< maybeA of
+                   Just v  -> f v <&> \v' -> M.insert (fromJust maybeA) v' m
+                   Nothing -> pure m
+
+ix3 :: (Ord a, Traversable t) => t a -> Traversal' (Map a b) b
+ix3 trav f m = undefined
+  where travFunc k = case M.lookup k m of
+                       Just v  -> f v <&> \v' -> M.insert k v' m
+                       Nothing -> pure m
+
+
+--workerState2 :: WorkerId -> Traversal' Universe WorkerState
+--workerState2 workerId fres universe = (getPlayerId universe workerId)
 
 getWorkerWorkplace :: Universe -> WorkerId -> Maybe WorkplaceId
-getWorkerWorkplace universe workerId = do
+{-getWorkerWorkplace universe workerId = do
   state <- workerId `M.lookup` view workers universe
-  view currentWorkplace state
+  view currentWorkplace state-}
+getWorkerWorkplace = undefined
 
 getWorkplaceOccupants :: Universe -> WorkplaceId -> [WorkerId]
 getWorkplaceOccupants universe workplace = [w | w <- getWorkers universe, getWorkerWorkplace universe w == Just workplace]
@@ -64,14 +86,6 @@ getPlayerId universe workerId = listToMaybe $ do
   playerData <- elems $ view players universe
   guard $ M.member workerId $ playerData ^. workers
   return $ playerData ^. playerId
-
-{-func :: outer -> inner1 -> inner2
-existingLens :: inner2 -> Lens' outer a
-finalLens :: inner1 -> Lens' outer a
-
-finalLens inner1 = lens setter getter
-  where setter outer aVal = let inner2 = func outer inner1 in set (existingLens inner2) aVal outer
-        getter outer = let inner2 = func outer inner1 in view (existingLens inner2) outer-}
 
 workerState :: WorkerId -> Lens' Universe (Maybe WorkerState)
 workerState workerId =
