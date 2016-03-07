@@ -15,22 +15,23 @@ import           Control.Monad.Except
 
 data Universe = Universe {
   _availableWorkplaces :: Map WorkplaceId WorkplaceAction,
-  _players :: Map PlayerId PlayerData
+  _players :: Map PlayerId PlayerData,
+  _currentPlayer :: Maybe PlayerId
 } deriving (Show)
 
 newtype PlayerId = PlayerId Int deriving (Eq, Ord, Show)
 
-data PlayerData = PlayerWorkers {
+data PlayerData = PlayerData {
   _playerId :: PlayerId,
   _workers :: Map WorkerId WorkerState,
   _score :: Int
-} deriving (Show)
+} deriving (Show, Eq)
 
 newtype WorkerId = WorkerId Int deriving (Eq, Ord, Show)
 
 data WorkerState = WorkerState {
   _currentWorkplace :: Maybe WorkplaceId
-} deriving (Show)
+} deriving (Show, Eq)
 
 initialWorkerState = WorkerState Nothing
 
@@ -47,36 +48,12 @@ getScore universe playerId = fromMaybe 0 $ universe ^? (players . ix playerId . 
 
 getWorkers :: Universe -> [WorkerId]
 getWorkers = toListOf (players . folding M.elems . workers . folding M.keys)
---getWorkplaces :: Universe -> Map WorkplaceId WorkplaceAction
---getWorkplaces = view availableWorkplaces
 
---traverse :: Traversal' (Maybe a) a
---    = Applicative f => (a -> f a) -> Maybe a -> f (Maybe a)
-
---ix :: a -> Traversal' (Map a b) b
---    = Applicative f => a -> (b -> f b) -> Map a b -> f (Map a b)
-
-ix2 :: Ord a => Maybe a -> Traversal' (Map a b) b
---    = Applicative f => Maybe a -> (b -> f b) -> Map a b -> f (Map a b)
-ix2 maybeA f m = case (flip M.lookup) m =<< maybeA of
-                   Just v  -> f v <&> \v' -> M.insert (fromJust maybeA) v' m
-                   Nothing -> pure m
-
-ix3 :: (Ord a, Traversable t) => t a -> Traversal' (Map a b) b
-ix3 trav f m = undefined
-  where travFunc k = case M.lookup k m of
-                       Just v  -> f v <&> \v' -> M.insert k v' m
-                       Nothing -> pure m
-
-
---workerState2 :: WorkerId -> Traversal' Universe WorkerState
---workerState2 workerId fres universe = (getPlayerId universe workerId)
+getWorkplaces :: Universe -> Map WorkplaceId WorkplaceAction
+getWorkplaces = view availableWorkplaces
 
 getWorkerWorkplace :: Universe -> WorkerId -> Maybe WorkplaceId
-{-getWorkerWorkplace universe workerId = do
-  state <- workerId `M.lookup` view workers universe
-  view currentWorkplace state-}
-getWorkerWorkplace = undefined
+getWorkerWorkplace universe workerId = universe ^? (workerState workerId . currentWorkplace . traverse)
 
 getWorkplaceOccupants :: Universe -> WorkplaceId -> [WorkerId]
 getWorkplaceOccupants universe workplace = [w | w <- getWorkers universe, getWorkerWorkplace universe w == Just workplace]
@@ -87,20 +64,21 @@ getPlayerId universe workerId = listToMaybe $ do
   guard $ M.member workerId $ playerData ^. workers
   return $ playerData ^. playerId
 
-workerState :: WorkerId -> Lens' Universe (Maybe WorkerState)
-workerState workerId =
-  let setter :: Universe -> Maybe WorkerState -> Universe
-      setter universe workerState = fromMaybe universe $ do
-        playerId <- getPlayerId universe workerId
-        playerData <- M.lookup playerId (universe ^. players)
-        let newPlayerData = set (workers . at workerId) workerState playerData
-        return $ set (players . at playerId) (Just newPlayerData) universe
-      getter :: Universe -> Maybe WorkerState
-      getter universe = do
-        playerId <- getPlayerId universe workerId
-        playerData <- M.lookup playerId (universe ^. players)
-        playerData ^. (workers . at workerId)
-  in lens getter setter
+currentPlayerData :: Traversal' Universe PlayerData
+currentPlayerData fres universe = (players . fromMaybe ignored (ix <$> (universe ^. currentPlayer))) fres universe
+
+nextPlayer :: Universe -> Maybe PlayerId -> Maybe PlayerId
+nextPlayer universe maybeCurrentPlayer = do
+  currentPlayer <- maybeCurrentPlayer
+  let playerIds = keys (universe ^. players)
+      hasWorkers =
+      cycled = cycle playerIds
+  return undefined
+
+workerState :: WorkerId -> Traversal' Universe WorkerState
+workerState workerId = byPlayerId . workers . ix workerId
+  where playerDataByMaybe plId =  players . fromMaybe ignored (ix <$> plId)
+        byPlayerId fres universe = playerDataByMaybe (getPlayerId universe workerId) fres universe
 
 workerWorking :: WorkerState -> Bool
 workerWorking = isJust . view currentWorkplace
@@ -129,15 +107,14 @@ startWorking workerId workplaceId universe = do
   workplaceAction <- checkMaybe (workplaceId `M.lookup` view availableWorkplaces universe) "Workplace does not exist"
   check workplaceEmpty "Workplace occupied"
   let withAssignedWorker = over currentWorkerState setWorkplace universe
-  return $ applyAction workplaceAction withAssignedWorker
-  where currentWorkerState :: Lens' Universe (Maybe WorkerState)
+      withAppliedAction = over currentPlayerData (applyAction workplaceAction) withAssignedWorker
+  return undefined
+  where currentWorkerState :: Traversal' Universe WorkerState
         currentWorkerState = workerState workerId
-        workerExists = isJust $ view currentWorkerState universe
-        workerIdle = isNothing $ do
-          workState <- view currentWorkerState universe
-          view currentWorkplace workState
+        workerExists = notNullOf currentWorkerState universe
+        workerIdle = nullOf (currentWorkerState . currentWorkplace) universe
         workplaceEmpty = workplaceId `elem` freeWorkplaces universe
-        setWorkplace = liftM $ set currentWorkplace $ Just workplaceId
+        setWorkplace = set currentWorkplace $ Just workplaceId
 
 initialUniverse = Universe (fromList [(WorkplaceId 1, IncreaseScore), (WorkplaceId 2, IncreaseScore), (WorkplaceId 3, IncreaseScore)]) (fromList [(WorkerId 1, initialWorkerState), (WorkerId 2, initialWorkerState)]) 0
 
