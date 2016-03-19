@@ -7,7 +7,7 @@ module Universe where
 import           Control.Lens
 import           Control.Lens.TH
 import           Control.Monad
-import           Data.Map.Strict as M hiding ((\\))
+import           Data.Map.Strict as M hiding ((\\), filter)
 import           Data.Maybe
 import           Data.List
 import           Prelude         hiding (lookup)
@@ -15,15 +15,23 @@ import           Control.Monad.Except
 
 data Universe = Universe {
   _availableWorkplaces :: Map WorkplaceId WorkplaceAction,
-  _workers             :: Map WorkerId WorkerState,
-  _score               :: Int
+  _players :: Map PlayerId PlayerData,
+  _currentPlayer :: Maybe PlayerId
 } deriving (Show)
+
+newtype PlayerId = PlayerId Int deriving (Eq, Ord, Show)
+
+data PlayerData = PlayerData {
+  _playerId :: PlayerId,
+  _workers :: Map WorkerId WorkerState,
+  _score :: Int
+} deriving (Show, Eq)
 
 newtype WorkerId = WorkerId Int deriving (Eq, Ord, Show)
 
 data WorkerState = WorkerState {
   _currentWorkplace :: Maybe WorkplaceId
-} deriving (Show)
+} deriving (Show, Eq)
 
 initialWorkerState = WorkerState Nothing
 
@@ -33,26 +41,44 @@ data WorkplaceAction = IncreaseScore deriving (Eq, Show)
 
 makeLenses ''Universe
 makeLenses ''WorkerState
+makeLenses ''PlayerData
 
-getScore :: Universe -> Int
-getScore = view score
+getScore :: Universe -> PlayerId -> Int
+getScore universe playerId = fromMaybe 0 $ universe ^? (players . ix playerId . score)
 
-getWorkers :: Universe -> [WorkerId]
-getWorkers = keys . view workers
+getWorkers :: Universe -> PlayerId -> [WorkerId]
+getWorkers universe playerId = toListOf (players . ix playerId . workers . folding M.keys) universe
 
 getWorkplaces :: Universe -> Map WorkplaceId WorkplaceAction
 getWorkplaces = view availableWorkplaces
 
 getWorkerWorkplace :: Universe -> WorkerId -> Maybe WorkplaceId
-getWorkerWorkplace universe workerId = do
-  state <- workerId `M.lookup` view workers universe
-  view currentWorkplace state
+getWorkerWorkplace universe workerId = universe ^? (workerState workerId . currentWorkplace . traverse)
 
 getWorkplaceOccupants :: Universe -> WorkplaceId -> [WorkerId]
-getWorkplaceOccupants universe workplace = [w | w <- getWorkers universe, getWorkerWorkplace universe w == Just workplace]
+getWorkplaceOccupants universe workplace = [w | w <- toListOf (players . folding M.elems . workers . folding M.keys) universe, getWorkerWorkplace universe w == Just workplace]
 
-workerState :: WorkerId -> Lens' Universe (Maybe WorkerState)
-workerState workerId = workers . at workerId
+getPlayerId :: Universe -> WorkerId -> Maybe PlayerId
+getPlayerId universe workerId = listToMaybe $ do
+  playerData <- elems $ view players universe
+  guard $ M.member workerId $ playerData ^. workers
+  return $ playerData ^. playerId
+
+currentPlayerData :: Traversal' Universe PlayerData
+currentPlayerData fres universe = (players . fromMaybe ignored (ix <$> (universe ^. currentPlayer))) fres universe
+
+nextPlayer :: Universe -> Maybe PlayerId
+nextPlayer universe = do
+  currentPlayer <- universe ^. currentPlayer
+  let playerIds = keys (universe ^. players)
+      hasFreeWorkers playerId = has (players . ix playerId . workers . folding M.elems . currentWorkplace . traverse) universe
+      candidatePlayers = (tail . dropWhile (/= currentPlayer)) $ playerIds ++ playerIds
+  listToMaybe $ filter hasFreeWorkers candidatePlayers
+
+workerState :: WorkerId -> Traversal' Universe WorkerState
+workerState workerId = byPlayerId . workers . ix workerId
+  where playerDataByMaybe plId =  players . fromMaybe ignored (ix <$> plId)
+        byPlayerId fres universe = playerDataByMaybe (getPlayerId universe workerId) fres universe
 
 workerWorking :: WorkerState -> Bool
 workerWorking = isJust . view currentWorkplace
@@ -61,7 +87,7 @@ freeWorkplaces :: Universe -> [WorkplaceId]
 freeWorkplaces universe = universeAvailableWorkplaces \\ universeOccupiedWorkplaces
   where universeOccupiedWorkplaces = catMaybes $ view currentWorkplace <$> workerStates
         universeAvailableWorkplaces = keys $ view availableWorkplaces universe
-        workerStates = elems (view workers universe)
+        workerStates = toListOf (players . folding M.elems . workers . folding M.elems) universe
 
 check :: MonadError e m => Bool -> e -> m ()
 check True _ = return ()
@@ -71,7 +97,7 @@ checkMaybe :: MonadError e m => Maybe a -> e -> m a
 checkMaybe Nothing e = throwError e
 checkMaybe (Just x) _ = return x
 
-applyAction :: WorkplaceAction -> Universe -> Universe
+applyAction :: WorkplaceAction -> PlayerData -> PlayerData
 applyAction IncreaseScore = over score (+1)
 
 startWorking :: MonadError String m => WorkerId -> WorkplaceId -> Universe -> m Universe
@@ -81,20 +107,26 @@ startWorking workerId workplaceId universe = do
   workplaceAction <- checkMaybe (workplaceId `M.lookup` view availableWorkplaces universe) "Workplace does not exist"
   check workplaceEmpty "Workplace occupied"
   let withAssignedWorker = over currentWorkerState setWorkplace universe
-  return $ applyAction workplaceAction withAssignedWorker
-  where currentWorkerState :: Lens' Universe (Maybe WorkerState)
+      withAppliedAction = over currentPlayerData (applyAction workplaceAction) withAssignedWorker
+      withNextPlayer = set currentPlayer (nextPlayer withAppliedAction) withAppliedAction
+  return withNextPlayer
+  where currentWorkerState :: Traversal' Universe WorkerState
         currentWorkerState = workerState workerId
-        workerExists = isJust $ view currentWorkerState universe
-        workerIdle = isNothing $ do
-          workState <- view currentWorkerState universe
-          view currentWorkplace workState
+        workerExists = notNullOf currentWorkerState universe
+        workerIdle = nullOf (currentWorkerState . currentWorkplace) universe
         workplaceEmpty = workplaceId `elem` freeWorkplaces universe
-        setWorkplace = liftM $ set currentWorkplace $ Just workplaceId
+        setWorkplace = set currentWorkplace $ Just workplaceId
 
-initialUniverse = Universe (fromList [(WorkplaceId 1, IncreaseScore), (WorkplaceId 2, IncreaseScore), (WorkplaceId 3, IncreaseScore)]) (fromList [(WorkerId 1, initialWorkerState), (WorkerId 2, initialWorkerState)]) 0
+createWorkplaces count = fromList [(WorkplaceId i, IncreaseScore) | i <- [0 .. count - 1]]
+
+createWorkers count = fromList [(WorkerId i, initialWorkerState) | i <- [0 .. count - 1]]
+
+createPlayers numbersOfWorkers = fromList [(PlayerId i, PlayerData (PlayerId i) (createWorkers count) 0) | (i, count) <- zip [0..] numbersOfWorkers]
+
+initialUniverse = Universe (createWorkplaces 6) (createPlayers [1, 2]) (Just (PlayerId 1))
 
 finishTurn :: MonadError String m => Universe -> m Universe
 finishTurn universe = do
   check allWorkersBusy "Not all workers are busy"
-  return $ over workers (M.map (const initialWorkerState)) universe
-  where allWorkersBusy = all workerWorking (elems (view workers universe))
+  return $ set (players . traverse . workers . traverse) initialWorkerState universe
+  where allWorkersBusy = isNothing $ universe ^. currentPlayer
