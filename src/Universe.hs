@@ -12,6 +12,7 @@ import           Data.Maybe
 import           Data.List
 import           Prelude         hiding (lookup)
 import           Control.Monad.Except
+import Debug.Trace
 
 data Universe = Universe {
   _availableWorkplaces :: Map WorkplaceId WorkplaceAction,
@@ -42,6 +43,9 @@ data WorkplaceAction = IncreaseScore deriving (Eq, Show)
 makeLenses ''Universe
 makeLenses ''WorkerState
 makeLenses ''PlayerData
+
+getPlayers :: Universe -> [PlayerId]
+getPlayers = toListOf (players . folding M.keys)
 
 getScore :: Universe -> PlayerId -> Int
 getScore universe playerId = fromMaybe 0 $ universe ^? (players . ix playerId . score)
@@ -98,7 +102,7 @@ checkMaybe Nothing e = throwError e
 checkMaybe (Just x) _ = return x
 
 applyAction :: WorkplaceAction -> PlayerData -> PlayerData
-applyAction IncreaseScore = over score (+1)
+applyAction IncreaseScore plId = over score (+1) (traceShowId plId)
 
 startWorking :: MonadError String m => WorkerId -> WorkplaceId -> Universe -> m Universe
 startWorking workerId workplaceId universe = do
@@ -113,17 +117,17 @@ startWorking workerId workplaceId universe = do
   where currentWorkerState :: Traversal' Universe WorkerState
         currentWorkerState = workerState workerId
         workerExists = notNullOf currentWorkerState universe
-        workerIdle = nullOf (currentWorkerState . currentWorkplace) universe
+        workerIdle = nullOf (currentWorkerState . currentWorkplace . traverse) universe
         workplaceEmpty = workplaceId `elem` freeWorkplaces universe
         setWorkplace = set currentWorkplace $ Just workplaceId
 
 createWorkplaces count = fromList [(WorkplaceId i, IncreaseScore) | i <- [0 .. count - 1]]
 
-createWorkers count = fromList [(WorkerId i, initialWorkerState) | i <- [0 .. count - 1]]
+createWorkers initial count = fromList [(WorkerId i, initialWorkerState) | i <- [initial .. initial + count - 1]]
 
-createPlayers numbersOfWorkers = fromList [(PlayerId i, PlayerData (PlayerId i) (createWorkers count) 0) | (i, count) <- zip [0..] numbersOfWorkers]
+createPlayers numbersOfWorkers = fromList [(PlayerId i, PlayerData (PlayerId i) (createWorkers initial count) 0) | (i, count, initial) <- zip3 [0..] numbersOfWorkers (scanl (+) 0 numbersOfWorkers)]
 
-initialUniverse = Universe (createWorkplaces 6) (createPlayers [1, 2]) (Just (PlayerId 1))
+initialUniverse = Universe (createWorkplaces 6) (createPlayers [1, 2]) (Just (PlayerId 0))
 
 finishTurn :: MonadError String m => Universe -> m Universe
 finishTurn universe = do
