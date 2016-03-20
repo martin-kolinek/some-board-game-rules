@@ -43,6 +43,9 @@ makeLenses ''Universe
 makeLenses ''WorkerState
 makeLenses ''PlayerData
 
+getCurrentPlayer :: Universe -> Maybe PlayerId
+getCurrentPlayer = view currentPlayer
+
 getPlayers :: Universe -> [PlayerId]
 getPlayers = toListOf (players . folding M.keys)
 

@@ -24,7 +24,10 @@ universeTests = testGroup "Universe" [
     workingAssignsWorker,
     finishingTurnNotPossibleWithUnassignedWorkers,
     getWorkplaceOccupantsReturnsOccupants,
-    movingSamePlayerTwiceCausesError
+    movingSamePlayerTwiceCausesError,
+    getCurrentPlayerStartWithFirstPlayer,
+    getCurrentPlayerReturnsOtherPlayerAfterMove,
+    getCurrentPlayerReturnsNothingWhenAllMovementsWereDone
   ]
 
 initialUniverseHasTwoPlayers = testCase "Initial universe has two players" $
@@ -82,12 +85,15 @@ workingAssignsWorker = testCase "Start working assigns worker" $ do
       Right nextUniverse = startWorking worker workplace2 initialUniverse
   Just workplace2 @=? getWorkerWorkplace nextUniverse worker
 
-finishingTurnUnassignsWorkers = testCase "Finishing turn unassigns works" $ do
+afterAllMoves =
   let workers = (concat . transpose) [getWorkers initialUniverse player1, getWorkers initialUniverse player2]
       workplaces = keys $ getWorkplaces initialUniverse
       workersWithWorkplaces = zip workers workplaces
       Right afterWorking = foldM (flip $ uncurry startWorking) initialUniverse workersWithWorkplaces
-      Right afterFinishingTurn = finishTurn afterWorking
+  in afterWorking
+
+finishingTurnUnassignsWorkers = testCase "Finishing turn unassigns works" $ do
+  let Right afterFinishingTurn = finishTurn afterAllMoves
   assertBool "Occupied workplace" $ all (Data.List.null . getWorkplaceOccupants afterFinishingTurn) (keys $ getWorkplaces afterFinishingTurn)
   let allWorkersFree playerId = all (isNothing . getWorkerWorkplace afterFinishingTurn) (getWorkers afterFinishingTurn playerId)
   assertBool "Worker on a workplace" $ all allWorkersFree (getPlayers afterFinishingTurn)
@@ -113,3 +119,13 @@ getWorkplaceOccupantsReturnsOccupants = testCase "getWorkplaceOccupands returns 
       workplace1 = head workplaces
       Right startedWorking = startWorking worker1 workplace1 initialUniverse
   [worker1] @=? getWorkplaceOccupants startedWorking workplace1
+
+getCurrentPlayerStartWithFirstPlayer = testCase "getCurrentPlayer starts with first player" $
+  Just player1 @=? getCurrentPlayer initialUniverse
+
+getCurrentPlayerReturnsOtherPlayerAfterMove = testCase "getCurrentPlayer returns other player after move" $ do
+  let Right afterMove = startWorking (head $ getWorkers initialUniverse player1) ((head . keys . getWorkplaces) initialUniverse) initialUniverse
+  Just player2 @=? getCurrentPlayer afterMove
+
+getCurrentPlayerReturnsNothingWhenAllMovementsWereDone = testCase "getCurrentPlayer returns nothing when all movements were done" $
+  Nothing @=? getCurrentPlayer afterAllMoves
