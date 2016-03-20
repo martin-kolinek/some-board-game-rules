@@ -12,7 +12,6 @@ import           Data.Maybe
 import           Data.List
 import           Prelude         hiding (lookup)
 import           Control.Monad.Except
-import Debug.Trace
 
 data Universe = Universe {
   _availableWorkplaces :: Map WorkplaceId WorkplaceAction,
@@ -75,7 +74,7 @@ nextPlayer :: Universe -> Maybe PlayerId
 nextPlayer universe = do
   currentPlayer <- universe ^. currentPlayer
   let playerIds = keys (universe ^. players)
-      hasFreeWorkers playerId = has (players . ix playerId . workers . folding M.elems . currentWorkplace . traverse) universe
+      hasFreeWorkers playerId = has (players . ix playerId . workers . folding M.elems . currentWorkplace . filtered isNothing) universe
       candidatePlayers = (tail . dropWhile (/= currentPlayer)) $ playerIds ++ playerIds
   listToMaybe $ filter hasFreeWorkers candidatePlayers
 
@@ -102,7 +101,7 @@ checkMaybe Nothing e = throwError e
 checkMaybe (Just x) _ = return x
 
 applyAction :: WorkplaceAction -> PlayerData -> PlayerData
-applyAction IncreaseScore plId = over score (+1) (traceShowId plId)
+applyAction IncreaseScore = over score (+1)
 
 startWorking :: MonadError String m => WorkerId -> WorkplaceId -> Universe -> m Universe
 startWorking workerId workplaceId universe = do
@@ -129,7 +128,7 @@ createWorkers initial count = fromList [(WorkerId i, initialWorkerState) | i <- 
 
 createPlayers numbersOfWorkers = fromList [(PlayerId i, PlayerData (PlayerId i) (createWorkers initial count) 0) | (i, count, initial) <- zip3 [0..] numbersOfWorkers (scanl (+) 0 numbersOfWorkers)]
 
-initialUniverse = Universe (createWorkplaces 6) (createPlayers [1, 2]) (Just (PlayerId 0))
+initialUniverse = Universe (createWorkplaces 6) (createPlayers [2, 3]) (Just (PlayerId 0))
 
 finishTurn :: MonadError String m => Universe -> m Universe
 finishTurn universe = do
