@@ -5,6 +5,7 @@ module Rules (
                 PlayerId,
                 WorkplaceAction(IncreaseScore),
                 getPlayers,
+                getCurrentPlayer,
                 getScore,
                 getWorkers,
                 getWorkplaces,
