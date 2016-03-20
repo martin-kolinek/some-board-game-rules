@@ -27,7 +27,9 @@ universeTests = testGroup "Universe" [
     movingSamePlayerTwiceCausesError,
     getCurrentPlayerStartWithFirstPlayer,
     getCurrentPlayerReturnsOtherPlayerAfterMove,
-    getCurrentPlayerReturnsNothingWhenAllMovementsWereDone
+    getCurrentPlayerReturnsNothingWhenAllMovementsWereDone,
+    getCurrentPlayerReturnsFirstPlayerAfterFullTurn,
+    firstPlayerCanMoveAfterFinishTurn
   ]
 
 initialUniverseHasTwoPlayers = testCase "Initial universe has two players" $
@@ -129,3 +131,11 @@ getCurrentPlayerReturnsOtherPlayerAfterMove = testCase "getCurrentPlayer returns
 
 getCurrentPlayerReturnsNothingWhenAllMovementsWereDone = testCase "getCurrentPlayer returns nothing when all movements were done" $
   Nothing @=? getCurrentPlayer afterAllMoves
+
+getCurrentPlayerReturnsFirstPlayerAfterFullTurn = testCase "getCurrentPlayer returns first player after complete turn" $ do
+  let Right afterFullTurn = finishTurn afterAllMoves
+  Just player1 @=? getCurrentPlayer afterFullTurn
+
+firstPlayerCanMoveAfterFinishTurn = testCase "First player can move after finish turn" $ do
+  let Right afterFullTurn = finishTurn afterAllMoves
+  assertBool "Cannot move" $ isRight $ startWorking (head $ getWorkers afterFullTurn player1) (head $ keys $ getWorkplaces afterFullTurn) afterFullTurn

@@ -136,5 +136,6 @@ initialUniverse = Universe (createWorkplaces 6) (createPlayers [2, 3]) (Just (Pl
 finishTurn :: MonadError String m => Universe -> m Universe
 finishTurn universe = do
   check allWorkersBusy "Not all workers are busy"
-  return $ set (players . traverse . workers . traverse) initialWorkerState universe
+  let withWorkersFreed = set (players . traverse . workers . traverse) initialWorkerState universe
+  return $ set currentPlayer (listToMaybe $ getPlayers withWorkersFreed) withWorkersFreed
   where allWorkersBusy = isNothing $ universe ^. currentPlayer
