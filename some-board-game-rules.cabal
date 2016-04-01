@@ -2,7 +2,7 @@
 -- further documentation, see http://haskell.org/cabal/users-guide/
 
 name:                some-board-game-rules
-version:             0.1.2.2
+version:             0.1.2.3
 -- synopsis:
 -- description:
 license:             MIT
@@ -27,9 +27,9 @@ library
   default-language:    Haskell2010
 
 test-suite tests
-
   type:               exitcode-stdio-1.0
   main-is:            Main.hs
+  other-modules:      Rules, Universe, TestFramework, UniverseTest
   hs-source-dirs:     test src
   default-language:   Haskell2010
   build-depends:      base,
@@ -37,4 +37,5 @@ test-suite tests
                       tasty-hunit,
                       lens,
                       containers,
-                      mtl
+                      mtl,
+                      transformers
