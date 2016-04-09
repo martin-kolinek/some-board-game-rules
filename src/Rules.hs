@@ -16,3 +16,6 @@ module Rules (
                 finishTurn) where
 
 import           Universe
+import           Worker
+import           Workplace
+import           Building

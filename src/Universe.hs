@@ -13,6 +13,9 @@ import           Data.List
 import           Prelude         hiding (lookup)
 import           Control.Monad.Except
 import           Util
+import           Worker
+import           Workplace
+import           Building
 
 data Universe = Universe {
   _availableWorkplaces :: Map WorkplaceId WorkplaceAction,
@@ -28,20 +31,7 @@ data PlayerData = PlayerData {
   _score :: Int
 } deriving (Show, Eq)
 
-newtype WorkerId = WorkerId Int deriving (Eq, Ord, Show)
-
-data WorkerState = WorkerState {
-  _currentWorkplace :: Maybe WorkplaceId
-} deriving (Show, Eq)
-
-initialWorkerState = WorkerState Nothing
-
-newtype WorkplaceId = WorkplaceId Int deriving (Eq, Ord, Show)
-
-data WorkplaceAction = IncreaseScore deriving (Eq, Show)
-
 makeLenses ''Universe
-makeLenses ''WorkerState
 makeLenses ''PlayerData
 
 getCurrentPlayer :: Universe -> Maybe PlayerId

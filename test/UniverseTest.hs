@@ -13,6 +13,8 @@ import Data.Maybe
 import TestFramework
 import Control.Monad.IO.Class
 import Control.Monad.State
+import Workplace
+import Worker
 
 universeTests = testGroup "Universe" [
     universeTestCase "Initial universe has two players" $ do
