@@ -12,6 +12,7 @@ import           Data.Maybe
 import           Data.List
 import           Prelude         hiding (lookup)
 import           Control.Monad.Except
+import           Util
 
 data Universe = Universe {
   _availableWorkplaces :: Map WorkplaceId WorkplaceAction,
@@ -94,14 +95,6 @@ freeWorkplaces universe = universeAvailableWorkplaces \\ universeOccupiedWorkpla
   where universeOccupiedWorkplaces = catMaybes $ view currentWorkplace <$> workerStates
         universeAvailableWorkplaces = keys $ view availableWorkplaces universe
         workerStates = toListOf (players . folding M.elems . workers . folding M.elems) universe
-
-check :: MonadError e m => Bool -> e -> m ()
-check True _ = return ()
-check False e = throwError e
-
-checkMaybe :: MonadError e m => Maybe a -> e -> m a
-checkMaybe Nothing e = throwError e
-checkMaybe (Just x) _ = return x
 
 applyAction :: WorkplaceAction -> PlayerData -> PlayerData
 applyAction IncreaseScore = over score (+1)
