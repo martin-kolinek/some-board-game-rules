@@ -28,6 +28,8 @@ newtype PlayerId = PlayerId Int deriving (Eq, Ord, Show)
 data PlayerData = PlayerData {
   _playerId :: PlayerId,
   _workers :: Map WorkerId WorkerState,
+  _buildingSpace :: BuildingSpace,
+  _buildingOccupants :: BuildingOccupants,
   _score :: Int
 } deriving (Show, Eq)
 
@@ -112,7 +114,7 @@ createWorkplaces count = fromList [(WorkplaceId i, IncreaseScore) | i <- [0 .. c
 
 createWorkers initial count = fromList [(WorkerId i, initialWorkerState) | i <- [initial .. initial + count - 1]]
 
-createPlayers numbersOfWorkers = fromList [(PlayerId i, PlayerData (PlayerId i) (createWorkers initial count) 0) | (i, count, initial) <- zip3 [0..] numbersOfWorkers (scanl (+) 0 numbersOfWorkers)]
+createPlayers numbersOfWorkers = fromList [(PlayerId i, PlayerData (PlayerId i) (createWorkers initial count) initialBuildingSpace M.empty 0) | (i, count, initial) <- zip3 [0..] numbersOfWorkers (scanl (+) 0 numbersOfWorkers)]
 
 initialUniverse = Universe (createWorkplaces 6) (createPlayers [2, 3]) (Just (PlayerId 0))
 

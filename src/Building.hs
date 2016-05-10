@@ -28,7 +28,7 @@ buildingPositions (InitialRoom pos) = [pos]
 
 newtype BuildingSpace = BuildingSpace [Building] deriving (Show, Eq)
 
-initialBuildingSpace = [Forest (0, 0), Forest (1, 0), Forest (0, 1), Forest (1, 1), Rock (2, 0), Rock (3, 0), Rock (3, 1), InitialRoom (2, 1)]
+initialBuildingSpace = BuildingSpace [Forest (0, 0), Forest (1, 0), Forest (0, 1), Forest (1, 1), Rock (2, 0), Rock (3, 0), InitialRoom (3, 1), InitialRoom (2, 1)]
 
 getBuildings (BuildingSpace buildings) = buildings
 
@@ -53,7 +53,7 @@ cutForest position buildingSpace = do
   check (isForest building) "Cutting forest not in a forest"
   return $ build (Grass position) buildingSpace
 
-data BuildingOccupant = WorkerOccupant WorkerId deriving Eq
+data BuildingOccupant = WorkerOccupant WorkerId deriving (Eq, Show)
 
 type BuildingOccupants = M.Map Position [BuildingOccupant]
 
