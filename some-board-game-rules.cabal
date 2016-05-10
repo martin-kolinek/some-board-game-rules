@@ -29,7 +29,7 @@ library
 test-suite tests
   type:               exitcode-stdio-1.0
   main-is:            Main.hs
-  other-modules:      Rules, Universe, TestFramework, UniverseTest
+  other-modules:      Rules, Universe, TestFramework, UniverseTest, BuildingTest
   hs-source-dirs:     test src
   default-language:   Haskell2010
   build-depends:      base,
@@ -38,4 +38,5 @@ test-suite tests
                       lens,
                       containers,
                       mtl,
-                      transformers
+                      transformers,
+                      data-default

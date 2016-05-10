@@ -15,52 +15,56 @@ import Control.Monad.IO.Class
 import Control.Monad.State
 import Workplace
 import Worker
+import Data.Default
+
+instance Default Universe where
+  def = initialUniverse
 
 universeTests = testGroup "Universe" [
-    universeTestCase "Initial universe has two players" $ do
-      universe <- readUniverse
+    flowTestCase "Initial universe has two players" $ do
+      universe <- get
       liftIO $ 2 @=? (length . getPlayers) universe
     ,
-    universeTestCase "Initial universe has zero score" $ do
-      universe <- readUniverse
+    flowTestCase "Initial universe has zero score" $ do
+      universe <- get
       liftIO $ forM_ (getPlayers universe) $ \player -> 0 @=? getScore universe player
     ,
-    universeTestCase "Initial universe has two workers for player 1" $ do
-      workers <- getWorkers <$> readUniverse <*> player1
+    flowTestCase "Initial universe has two workers for player 1" $ do
+      workers <- getWorkers <$> get <*> player1
       liftIO $ 2 @=? length workers
     ,
-    universeTestCase "Initial universe has three worker for player 2" $ do
-      workers <- getWorkers <$> readUniverse <*> player2
+    flowTestCase "Initial universe has three worker for player 2" $ do
+      workers <- getWorkers <$> get <*> player2
       liftIO $ 3 @=? length workers
     ,
-    universeTestCase "Initial universe has six increase score workplaces" $ do
-      workplaces <- getWorkplaces <$> readUniverse
+    flowTestCase "Initial universe has six increase score workplaces" $ do
+      workplaces <- getWorkplaces <$> get
       liftIO $ replicate 6 IncreaseScore @=? elems workplaces
     ,
-    universeTestCaseFailure "Start working in invalid workplace causes error" $ do
+    flowTestCaseFailure "Start working in invalid workplace causes error" $ do
       worker <- getWorker 0 0
-      startWorking worker (WorkplaceId 50) =<< readUniverse
+      startWorking worker (WorkplaceId 50) =<< get
       return ()
     ,
-    universeTestCaseFailure "Start working by invalid worker causes error" $ do
+    flowTestCaseFailure "Start working by invalid worker causes error" $ do
       workplace <- getWorkplace 0
-      startWorking (WorkerId 50) workplace =<< readUniverse
+      startWorking (WorkerId 50) workplace =<< get
       return ()
     ,
-    universeTestCase "Start working in increate score, then score is incresed" $ do
+    flowTestCase "Start working in increate score, then score is incresed" $ do
       startWorkingFirstWorker
-      player1Score <- getScore <$> readUniverse <*> player1
+      player1Score <- getScore <$> get <*> player1
       liftIO $ 1 @=? player1Score
     ,
-    universeTestCase "Start working assigns worker" $ do
+    flowTestCase "Start working assigns worker" $ do
       startWorkingFirstWorker
-      workerWorkplace <- getWorkerWorkplace <$> readUniverse <*> getWorker 0 0
+      workerWorkplace <- getWorkerWorkplace <$> get <*> getWorker 0 0
       firstWorkplace <- getWorkplace 0
       liftIO $ Just firstWorkplace @=? workerWorkplace
     ,
-    universeTestCase "Finishing turn unassigns works" $ do
+    flowTestCase "Finishing turn unassigns works" $ do
       makeAllMovesInTurn1
-      applyToUniverse finishTurn
+      apply finishTurn
       workplaceOccupantsFunc <- gets getWorkplaceOccupants
       workplaces <- gets $ keys . getWorkplaces
       liftIO $ assertBool "Occupied workplace" $ all (Data.List.null . workplaceOccupantsFunc) workplaces
@@ -70,61 +74,61 @@ universeTests = testGroup "Universe" [
       players <- gets getPlayers
       liftIO $ assertBool "Worker on a workplace" $ all allWorkersFree players
     ,
-    universeTestCaseFailure "Finishing turn is not possible without assigned workers" $
-      applyToUniverse finishTurn
+    flowTestCaseFailure "Finishing turn is not possible without assigned workers" $
+      apply finishTurn
     ,
-    universeTestCaseFailure "Moving the same player twice causes error" $ do
+    flowTestCaseFailure "Moving the same player twice causes error" $ do
       worker1 <- getWorker 0 0
       workplace1 <- getWorkplace 0
       workplace2 <- getWorkplace 2
-      applyToUniverse $ startWorking worker1 workplace1
-      applyToUniverse $ startWorking worker1 workplace2
+      apply $ startWorking worker1 workplace1
+      apply $ startWorking worker1 workplace2
     ,
-    universeTestCase "Workplace occupants can be found" $ do
+    flowTestCase "Workplace occupants can be found" $ do
       startWorkingFirstWorker
       workplaceOccupants <- gets getWorkplaceOccupants <*> getWorkplace 0
       worker <- getWorker 0 0
       liftIO $ [worker] @=? workplaceOccupants
     ,
-    universeTestCase "Current player is the first player in the beginning" $ do
+    flowTestCase "Current player is the first player in the beginning" $ do
       player <- getPlayer 0
       currentPlayer <- gets getCurrentPlayer
       liftIO $ Just player @=? currentPlayer
     ,
-    universeTestCase "Current player is second player after first move" $ do
+    flowTestCase "Current player is second player after first move" $ do
       startWorkingFirstWorker
       player <- getPlayer 1
       currentPlayer <- gets getCurrentPlayer
       liftIO $ Just player @=? currentPlayer
     ,
-    universeTestCase "There is no current player after all moves in turn" $ do
+    flowTestCase "There is no current player after all moves in turn" $ do
       makeAllMovesInTurn1
       currentPlayer <- gets getCurrentPlayer
       liftIO $ Nothing @=? currentPlayer
     ,
-    universeTestCase "Current player is first player after finishing first turn" $ do
+    flowTestCase "Current player is first player after finishing first turn" $ do
       makeAllMovesInTurn1
-      applyToUniverse finishTurn
+      apply finishTurn
       player <- getPlayer 0
       currentPlayer <- gets getCurrentPlayer
       liftIO $ Just player @=? currentPlayer
     ,
-    universeTestCase "First player can move after finishing first turn" $ do
+    flowTestCase "First player can move after finishing first turn" $ do
       makeAllMovesInTurn1
-      applyToUniverse finishTurn
+      apply finishTurn
       startWorkingFirstWorker
   ]
 
 startWorkingFirstWorker = do
   workplace <- getWorkplace 0
   worker <- getWorker 0 0
-  applyToUniverse $ startWorking worker workplace
+  apply $ startWorking worker workplace
 
-makeAllMovesInTurn1 :: UniverseTest ()
+makeAllMovesInTurn1 :: FlowTest Universe ()
 makeAllMovesInTurn1 = do
-  universe <- readUniverse
+  universe <- get
   let players = getPlayers universe
       workers = (concat . transpose) (getWorkers universe <$> players)
       workplaces = keys $ getWorkplaces universe
-      startWorkingCurried x = applyToUniverse (uncurry startWorking x)
+      startWorkingCurried x = apply (uncurry startWorking x)
   forM_ (zip workers workplaces) startWorkingCurried

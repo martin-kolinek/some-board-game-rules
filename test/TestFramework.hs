@@ -8,35 +8,35 @@ import Control.Monad.State
 import Rules
 import Data.Map.Strict
 import Control.Monad.Except
+import Building
+import Data.Default
 
-type UniverseTest = ExceptT String (StateT Universe IO)
+type FlowTest t = ExceptT String (StateT t IO)
 
-universeTestCase :: String -> UniverseTest () -> TestTree
-universeTestCase = universeTestCaseWithCheck check
+flowTestCase :: Default a => String -> FlowTest a () -> TestTree
+flowTestCase = flowTestCaseWithCheck check
   where check (Left msg) = assertFailure $ "No error expected, but got: " ++ msg
         check _ = return ()
 
-universeTestCaseFailure :: String -> UniverseTest () -> TestTree
-universeTestCaseFailure = universeTestCaseWithCheck check
+flowTestCaseFailure :: Default a => String -> FlowTest a () -> TestTree
+flowTestCaseFailure = flowTestCaseWithCheck check
   where check (Right _) = assertFailure "Expected error, but got none"
         check _ = return ()
 
-universeTestCaseWithCheck check name action = testCase name $ do
-  (result, s) <- runStateT (runExceptT action) initialUniverse
+flowTestCaseWithCheck check name action = testCase name $ do
+  (result, s) <- runStateT (runExceptT action) def
   check result
   return ()
 
-readUniverse :: UniverseTest Universe
-readUniverse = get
-
-getPlayer number = (!! number) . getPlayers <$> readUniverse
+getPlayer :: Int -> FlowTest Universe PlayerId
+getPlayer number = (!! number) . getPlayers <$> get
 
 player1 = getPlayer 0
 player2 = getPlayer 1
 
-getWorker playerNumber workerNumber = (!! workerNumber) <$> (getWorkers <$> readUniverse <*> getPlayer playerNumber)
+getWorker playerNumber workerNumber = (!! workerNumber) <$> (getWorkers <$> get <*> getPlayer playerNumber)
 
-getWorkplace number = (!! number) . keys . getWorkplaces <$> readUniverse
+getWorkplace number = (!! number) . keys . getWorkplaces <$> get
 
-applyToUniverse :: (forall m. MonadError String m => (Universe -> m Universe)) -> UniverseTest ()
-applyToUniverse action = put =<< action =<< readUniverse
+apply :: (forall m. MonadError String m => (a -> m a)) -> FlowTest a ()
+apply action = put =<< action =<< get
