@@ -19,8 +19,7 @@ import           Building
 
 data Universe = Universe {
   _availableWorkplaces :: Map WorkplaceId WorkplaceAction,
-  _players :: Map PlayerId PlayerData,
-  _currentPlayer :: Maybe PlayerId
+  _players :: Map PlayerId PlayerData
 } deriving (Show)
 
 newtype PlayerId = PlayerId Int deriving (Eq, Ord, Show)
@@ -30,14 +29,18 @@ data PlayerData = PlayerData {
   _workers :: Map WorkerId WorkerState,
   _buildingSpace :: BuildingSpace,
   _buildingOccupants :: BuildingOccupants,
-  _score :: Int
+  _score :: Int,
+  _playerStatus :: PlayerStatus
 } deriving (Show, Eq)
+
+data PlayerStatus = MovingWorker | Waiting deriving (Show, Eq)
 
 makeLenses ''Universe
 makeLenses ''PlayerData
 
 getCurrentPlayer :: Universe -> Maybe PlayerId
-getCurrentPlayer = view currentPlayer
+getCurrentPlayer universe =
+  listToMaybe [view playerId player | player <- toListOf (players . traverse) universe, view playerStatus player /= Waiting]
 
 getPlayers :: Universe -> [PlayerId]
 getPlayers = toListOf (players . folding M.keys)
@@ -64,11 +67,11 @@ getPlayerId universe workerId = listToMaybe $ do
   return $ playerData ^. playerId
 
 currentPlayerData :: Traversal' Universe PlayerData
-currentPlayerData fres universe = (players . fromMaybe ignored (ix <$> (universe ^. currentPlayer))) fres universe
+currentPlayerData fres universe = (players . fromMaybe ignored (ix <$> getCurrentPlayer universe)) fres universe
 
 nextPlayer :: Universe -> Maybe PlayerId
 nextPlayer universe = do
-  currentPlayer <- universe ^. currentPlayer
+  currentPlayer <- getCurrentPlayer universe
   let playerIds = keys (universe ^. players)
       hasFreeWorkers playerId = has (players . ix playerId . workers . folding M.elems . currentWorkplace . filtered isNothing) universe
       candidatePlayers = (tail . dropWhile (/= currentPlayer)) $ playerIds ++ playerIds
@@ -76,7 +79,7 @@ nextPlayer universe = do
 
 workerState :: WorkerId -> Traversal' Universe WorkerState
 workerState workerId = byPlayerId . workers . ix workerId
-  where playerDataByMaybe plId =  players . fromMaybe ignored (ix <$> plId)
+  where playerDataByMaybe plId =  players . ixMaybe plId
         byPlayerId fres universe = playerDataByMaybe (getPlayerId universe workerId) fres universe
 
 workerWorking :: WorkerState -> Bool
@@ -100,7 +103,8 @@ startWorking workerId workplaceId universe = do
   check workplaceEmpty "Workplace occupied"
   let withAssignedWorker = over currentWorkerState setWorkplace universe
       withAppliedAction = over currentPlayerData (applyAction workplaceAction) withAssignedWorker
-      withNextPlayer = set currentPlayer (nextPlayer withAppliedAction) withAppliedAction
+      withCurrentPlayerWaiting = set (players . ixMaybe (getPlayerId withAppliedAction workerId) . playerStatus) Waiting withAppliedAction
+      withNextPlayer = set (players . ixMaybe (nextPlayer withAppliedAction) . playerStatus) MovingWorker withCurrentPlayerWaiting
   return withNextPlayer
   where currentWorkerState :: Traversal' Universe WorkerState
         currentWorkerState = workerState workerId
@@ -114,13 +118,16 @@ createWorkplaces count = fromList [(WorkplaceId i, IncreaseScore) | i <- [0 .. c
 
 createWorkers initial count = fromList [(WorkerId i, initialWorkerState) | i <- [initial .. initial + count - 1]]
 
-createPlayers numbersOfWorkers = fromList [(PlayerId i, PlayerData (PlayerId i) (createWorkers initial count) initialBuildingSpace M.empty 0) | (i, count, initial) <- zip3 [0..] numbersOfWorkers (scanl (+) 0 numbersOfWorkers)]
+createPlayers numbersOfWorkers = fromList
+  [(PlayerId i,
+    PlayerData (PlayerId i) (createWorkers initial count) initialBuildingSpace M.empty 0 $ if i == 0 then MovingWorker else Waiting)
+      | (i, count, initial) <- zip3 [0..] numbersOfWorkers (scanl (+) 0 numbersOfWorkers)]
 
-initialUniverse = Universe (createWorkplaces 6) (createPlayers [2, 3]) (Just (PlayerId 0))
+initialUniverse = Universe (createWorkplaces 6) (createPlayers [2, 3])
 
 finishTurn :: MonadError String m => Universe -> m Universe
 finishTurn universe = do
-  check allWorkersBusy "Not all workers are busy"
+  check allPlayersWaiting "Not every player finished"
   let withWorkersFreed = set (players . traverse . workers . traverse) initialWorkerState universe
-  return $ set currentPlayer (listToMaybe $ getPlayers withWorkersFreed) withWorkersFreed
-  where allWorkersBusy = isNothing $ universe ^. currentPlayer
+  return $ set (taking 1 (players . traverse) . playerStatus) MovingWorker withWorkersFreed
+  where allPlayersWaiting = hasn't (players . traverse . playerStatus . filtered (/= Waiting)) universe
