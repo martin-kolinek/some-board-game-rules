@@ -91,8 +91,11 @@ freeWorkplaces universe = universeAvailableWorkplaces \\ universeOccupiedWorkpla
         universeAvailableWorkplaces = keys $ view availableWorkplaces universe
         workerStates = toListOf (players . folding M.elems . workers . folding M.elems) universe
 
+stopTurn :: PlayerData -> PlayerData
+stopTurn = set playerStatus Waiting
+
 applyAction :: WorkplaceAction -> PlayerData -> PlayerData
-applyAction IncreaseScore = over score (+1)
+applyAction IncreaseScore = stopTurn . over score (+1)
 
 startWorking :: MonadError String m => WorkerId -> WorkplaceId -> Universe -> m Universe
 startWorking workerId workplaceId universe = do
@@ -103,9 +106,9 @@ startWorking workerId workplaceId universe = do
   check workplaceEmpty "Workplace occupied"
   let withAssignedWorker = over currentWorkerState setWorkplace universe
       withAppliedAction = over currentPlayerData (applyAction workplaceAction) withAssignedWorker
-      withCurrentPlayerWaiting = set (players . ixMaybe (getPlayerId withAppliedAction workerId) . playerStatus) Waiting withAppliedAction
-      withNextPlayer = set (players . ixMaybe (nextPlayer withAppliedAction) . playerStatus) MovingWorker withCurrentPlayerWaiting
-  return withNextPlayer
+      changePlayer = hasn't (currentPlayerData . playerStatus . filtered (/= Waiting)) withAppliedAction
+      withNextPlayer = set (players . ixMaybe (nextPlayer withAssignedWorker) . playerStatus) MovingWorker withAppliedAction
+  return $ if changePlayer then withNextPlayer else withAppliedAction
   where currentWorkerState :: Traversal' Universe WorkerState
         currentWorkerState = workerState workerId
         workerExists = notNullOf currentWorkerState universe
