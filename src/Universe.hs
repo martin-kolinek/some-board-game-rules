@@ -33,7 +33,7 @@ data PlayerData = PlayerData {
   _playerStatus :: PlayerStatus
 } deriving (Show, Eq)
 
-data PlayerStatus = MovingWorker | Waiting deriving (Show, Eq)
+data PlayerStatus = MovingWorker | Waiting | OccupantsInvalid deriving (Show, Eq)
 
 makeLenses ''Universe
 makeLenses ''PlayerData
@@ -59,6 +59,9 @@ getWorkerWorkplace universe workerId = universe ^? (workerState workerId . curre
 
 getWorkplaceOccupants :: Universe -> WorkplaceId -> [WorkerId]
 getWorkplaceOccupants universe workplace = [w | w <- toListOf (players . folding M.elems . workers . folding M.keys) universe, getWorkerWorkplace universe w == Just workplace]
+
+getOccupantErrors :: Universe -> PlayerId -> [OccupantError]
+getOccupantErrors universe playerId = toListOf (players . ix playerId . folding verifyOccupants) universe
 
 getPlayerId :: Universe -> WorkerId -> Maybe PlayerId
 getPlayerId universe workerId = listToMaybe $ do
@@ -92,10 +95,36 @@ freeWorkplaces universe = universeAvailableWorkplaces \\ universeOccupiedWorkpla
         workerStates = toListOf (players . folding M.elems . workers . folding M.elems) universe
 
 stopTurn :: PlayerData -> PlayerData
-stopTurn = set playerStatus Waiting
+stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid
+
+checkOccupantsAfterTurn :: PlayerData -> PlayerData
+checkOccupantsAfterTurn plData =
+  let status = plData ^. playerStatus
+      occupantsValid = Prelude.null $ verifyOccupants plData
+  in if occupantsValid && status == OccupantsInvalid then set playerStatus Waiting plData else plData
 
 applyAction :: WorkplaceAction -> PlayerData -> PlayerData
 applyAction IncreaseScore = stopTurn . over score (+1)
+
+alterOccupants :: Universe -> PlayerId -> BuildingOccupants -> Universe
+alterOccupants universe player occupants =
+  let withNewOccupants = set (players . ix player . buildingOccupants) occupants universe
+      withCheckedOccupants = over (players . ix player) checkOccupantsAfterTurn withNewOccupants
+  in startNextPlayer universe withCheckedOccupants
+
+startNextPlayer :: Universe -> Universe -> Universe
+startNextPlayer originalUniverse updatedUniverse =
+  let changePlayer = hasn't (currentPlayerData . playerStatus . filtered (/= Waiting)) updatedUniverse
+      withNextPlayer = set (players . ixMaybe (nextPlayer originalUniverse) . playerStatus) MovingWorker updatedUniverse
+  in if changePlayer then withNextPlayer else updatedUniverse
+
+verifyOccupants :: PlayerData -> [OccupantError]
+verifyOccupants plData = areOccupantsValid (allOccupants plData) buildings occupants
+  where buildings = plData ^. buildingSpace
+        occupants = plData ^. buildingOccupants
+
+allOccupants :: PlayerData -> [BuildingOccupant]
+allOccupants plData = WorkerOccupant <$> M.keys (plData ^. workers)
 
 startWorking :: MonadError String m => WorkerId -> WorkplaceId -> Universe -> m Universe
 startWorking workerId workplaceId universe = do
@@ -106,9 +135,7 @@ startWorking workerId workplaceId universe = do
   check workplaceEmpty "Workplace occupied"
   let withAssignedWorker = over currentWorkerState setWorkplace universe
       withAppliedAction = over currentPlayerData (applyAction workplaceAction) withAssignedWorker
-      changePlayer = hasn't (currentPlayerData . playerStatus . filtered (/= Waiting)) withAppliedAction
-      withNextPlayer = set (players . ixMaybe (nextPlayer withAssignedWorker) . playerStatus) MovingWorker withAppliedAction
-  return $ if changePlayer then withNextPlayer else withAppliedAction
+  return $ startNextPlayer withAssignedWorker withAppliedAction
   where currentWorkerState :: Traversal' Universe WorkerState
         currentWorkerState = workerState workerId
         workerExists = notNullOf currentWorkerState universe
@@ -126,7 +153,10 @@ createPlayers numbersOfWorkers = fromList
     PlayerData (PlayerId i) (createWorkers initial count) initialBuildingSpace M.empty 0 $ if i == 0 then MovingWorker else Waiting)
       | (i, count, initial) <- zip3 [0..] numbersOfWorkers (scanl (+) 0 numbersOfWorkers)]
 
-initialUniverse = Universe (createWorkplaces 6) (createPlayers [2, 3])
+initialUniverse =
+  let withoutOccupants = Universe (createWorkplaces 6) (createPlayers [2, 3])
+      assignInitialWorkers plData = set buildingOccupants (initialOccupants (allOccupants plData) (plData ^. buildingSpace)) plData
+  in over (players . traverse) assignInitialWorkers withoutOccupants
 
 finishTurn :: MonadError String m => Universe -> m Universe
 finishTurn universe = do

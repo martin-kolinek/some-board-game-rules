@@ -117,6 +117,12 @@ universeTests = testGroup "Universe" [
       makeAllMovesInTurn1
       apply finishTurn
       startWorkingFirstWorker
+    ,
+    flowTestCase "Initial universe has valid occupants" $ do
+      players <- getPlayers <$> get
+      forM_ players $ \pl -> do
+        errors <- getOccupantErrors <$> get <*> pure pl
+        liftIO $ [] @=? errors
   ]
 
 startWorkingFirstWorker = do

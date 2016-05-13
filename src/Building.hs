@@ -70,5 +70,8 @@ areOccupantsValid allOccupants (BuildingSpace buildings) occupants = snd $ runWr
         buildingOccupants = concat $ catMaybes $ (`M.lookup` occupants) <$> positions
     areBuildingOccupantsValid building buildingOccupants
   let positionedOccupants = concat $ M.elems occupants
-  checkWriter (positionedOccupants `intersect` allOccupants == allOccupants) ("Not everyone has a place", (0, 0))
+  checkWriter (null $ positionedOccupants \\ allOccupants) ("Not everyone has a place", (0, 0))
   return ()
+
+initialOccupants :: [BuildingOccupant] -> BuildingSpace -> BuildingOccupants
+initialOccupants allOccupants (BuildingSpace buildings) = M.fromListWith mappend $ zip [(3, 1), (3, 1), (2, 1), (2, 1)] (pure <$> allOccupants)
