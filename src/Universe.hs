@@ -106,11 +106,11 @@ checkOccupantsAfterTurn plData =
 applyAction :: WorkplaceAction -> PlayerData -> PlayerData
 applyAction IncreaseScore = stopTurn . over score (+1)
 
-alterOccupants :: Universe -> PlayerId -> BuildingOccupants -> Universe
-alterOccupants universe player occupants =
+alterOccupants :: MonadError String m => PlayerId -> BuildingOccupants -> Universe -> m Universe
+alterOccupants player occupants universe =
   let withNewOccupants = set (players . ix player . buildingOccupants) occupants universe
       withCheckedOccupants = over (players . ix player) checkOccupantsAfterTurn withNewOccupants
-  in startNextPlayer universe withCheckedOccupants
+  in return $ startNextPlayer universe withCheckedOccupants
 
 startNextPlayer :: Universe -> Universe -> Universe
 startNextPlayer originalUniverse updatedUniverse =

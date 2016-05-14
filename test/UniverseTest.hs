@@ -16,6 +16,7 @@ import Control.Monad.State
 import Workplace
 import Worker
 import Data.Default
+import Building
 
 instance Default Universe where
   def = initialUniverse
@@ -123,7 +124,32 @@ universeTests = testGroup "Universe" [
       forM_ players $ \pl -> do
         errors <- getOccupantErrors <$> get <*> pure pl
         liftIO $ [] @=? errors
+    ,
+    flowTestCase "Altering to invalid occupants prevents ending turn" $ do
+      breakOccupantsOfPlayer1
+      startWorkingFirstWorker
+      currentPlayer <- gets getCurrentPlayer
+      pl <- player1
+      liftIO $ Just pl @=? currentPlayer
+    ,
+    flowTestCase "Fixing occupants finishes turn" $ do
+      breakOccupantsOfPlayer1
+      startWorkingFirstWorker
+      fixOccupantsOfPlayer1
+      pl <- player2
+      currentPlayer <- gets getCurrentPlayer
+      liftIO $ Just pl @=? currentPlayer
   ]
+
+breakOccupantsOfPlayer1 = do
+  workers <- getWorkers <$> get <*> player1
+  pl <- player1
+  apply $ alterOccupants pl (M.fromList [((1, 1), [WorkerOccupant (workers !! 1)])])
+
+fixOccupantsOfPlayer1 = do
+  workers <- getWorkers <$> get <*> player1
+  pl <- player1
+  apply $ alterOccupants pl (M.fromList [((3, 1), [WorkerOccupant (workers !! 0), WorkerOccupant (workers !! 1)])])
 
 startWorkingFirstWorker = do
   workplace <- getWorkplace 0
