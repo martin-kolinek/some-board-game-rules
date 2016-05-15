@@ -139,6 +139,13 @@ universeTests = testGroup "Universe" [
       pl <- player2
       currentPlayer <- gets getCurrentPlayer
       liftIO $ Just pl @=? currentPlayer
+    ,
+    flowTestCaseFailure "Player waiting for fixing occupants cannot move other worker" $ do
+      breakOccupantsOfPlayer1
+      startWorkingFirstWorker
+      worker <- getWorker 0 1
+      workplace <- getWorkplace 1
+      apply $ startWorking worker workplace
   ]
 
 breakOccupantsOfPlayer1 = do

@@ -143,6 +143,7 @@ startWorking workerId workplaceId universe = do
   check workerExists "Worker does not exist"
   check workerIdle "Worker already working"
   check workerBelongsToCurrentPlayer "Worker does not belong to current player"
+  check currentPlayerCanMoveWorker "Current player cannot start working a worker now"
   workplaceAction <- checkMaybe (workplaceId `M.lookup` view availableWorkplaces universe) "Workplace does not exist"
   check workplaceEmpty "Workplace occupied"
   let withAssignedWorker = over currentWorkerState setWorkplace universe
@@ -155,6 +156,7 @@ startWorking workerId workplaceId universe = do
         workplaceEmpty = workplaceId `elem` freeWorkplaces universe
         setWorkplace = set currentWorkplace $ Just workplaceId
         workerBelongsToCurrentPlayer = fromMaybe False $ member workerId <$> universe ^? (currentPlayerData . workers)
+        currentPlayerCanMoveWorker = has (currentPlayerData . playerStatus . filtered (MovingWorker ==)) universe
 
 createWorkplaces count = fromList [(WorkplaceId i, IncreaseScore) | i <- [0 .. count - 1]]
 
