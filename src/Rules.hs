@@ -4,6 +4,7 @@ module Rules (
                 WorkplaceId,
                 PlayerId,
                 WorkplaceAction(IncreaseScore),
+                BuildingOccupant(WorkerOccupant),
                 getPlayers,
                 getCurrentPlayer,
                 getScore,
@@ -11,9 +12,14 @@ module Rules (
                 getWorkplaces,
                 getWorkerWorkplace,
                 getWorkplaceOccupants,
+                getBuildingSpace,
+                getBuildingOccupants,
+                getAllOccupants,
+                getOccupantErrors,
                 initialUniverse,
                 startWorking,
-                finishTurn) where
+                finishTurn,
+                alterOccupants) where
 
 import           Universe
 import           Worker

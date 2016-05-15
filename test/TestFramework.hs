@@ -2,13 +2,13 @@
 
 module TestFramework where
 
+import Rules
+
 import           Test.Tasty
 import           Test.Tasty.HUnit as H
 import Control.Monad.State
-import Rules
 import Data.Map.Strict
 import Control.Monad.Except
-import Building
 import Data.Default
 
 type FlowTest t = ExceptT String (StateT t IO)
