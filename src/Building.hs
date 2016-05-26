@@ -12,6 +12,7 @@ import Worker
 import Control.Monad.Writer
 import qualified Data.Map as M
 import Control.Lens
+import Data.AdditiveGroup
 
 type Position = (Int, Int)
 
@@ -20,6 +21,13 @@ data Building =
   Grass Position |
   Rock Position |
   InitialRoom Position deriving (Show, Eq)
+
+data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight deriving (Show, Eq)
+
+directionAddition DirectionUp = (0, -1)
+directionAddition DirectionDown = (0, 1)
+directionAddition DirectionLeft = (-1, 0)
+directionAddition DirectionRight = (1, 0)
 
 buildingPositions (Forest pos) = [pos]
 buildingPositions (Grass pos) = [pos]
@@ -37,8 +45,8 @@ getBuilding (BuildingSpace buildings) position = listToMaybe [b | b <- buildings
 isForest (Forest _) = True
 isForest _ = False
 
-build :: Building -> BuildingSpace -> BuildingSpace
-build building (BuildingSpace buildings) =
+build :: BuildingSpace -> Building -> BuildingSpace
+build (BuildingSpace buildings) building =
   let positions = buildingPositions building
       filtered = filter (null . intersect positions . buildingPositions) buildings
       newBuildings = building : filtered
@@ -47,11 +55,14 @@ build building (BuildingSpace buildings) =
       originalPositionsOccupied = (buildingPositions =<< buildings) == newPositions
   in BuildingSpace $ assert (notOverlapping && originalPositionsOccupied) $ building : filtered
 
-cutForest :: MonadError String m => Position -> BuildingSpace -> m BuildingSpace
-cutForest position buildingSpace = do
-  building <- checkMaybe (getBuilding buildingSpace position) "Invalid position"
-  check (isForest building) "Cutting forest not in a forest"
-  return $ build (Grass position) buildingSpace
+cutForest :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
+cutForest position direction buildingSpace = do
+  let newPositions = [position, position ^+^ directionAddition direction]
+  buildings <- forM newPositions $ \newPosition -> do
+    building <- checkMaybe (getBuilding buildingSpace newPosition) "Invalid position"
+    check (isForest building) "Cutting forest not in a forest"
+    return $ Grass newPosition
+  return $ foldl' build buildingSpace buildings
 
 data BuildingOccupant = WorkerOccupant WorkerId deriving (Eq, Show)
 
