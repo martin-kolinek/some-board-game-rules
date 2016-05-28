@@ -3,8 +3,11 @@ module Rules (
                 WorkerId,
                 WorkplaceId,
                 PlayerId,
-                WorkplaceAction(IncreaseScore),
-                BuildingOccupant(WorkerOccupant),
+                WorkplaceAction(..),
+                BuildingOccupant(..),
+                PlayerStatus(..),
+                Building(..),
+                Direction(..),
                 getPlayers,
                 getCurrentPlayer,
                 getScore,
@@ -16,9 +19,11 @@ module Rules (
                 getBuildingOccupants,
                 getAllOccupants,
                 getOccupantErrors,
+                getPlayerStatus,
                 initialUniverse,
                 startWorking,
                 finishTurn,
+                selectPosition,
                 alterOccupants) where
 
 import           Universe

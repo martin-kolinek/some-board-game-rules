@@ -33,7 +33,7 @@ data PlayerData = PlayerData {
   _playerStatus :: PlayerStatus
 } deriving (Show, Eq)
 
-data PlayerStatus = MovingWorker | Waiting | OccupantsInvalid deriving (Show, Eq)
+data PlayerStatus = MovingWorker | Waiting | OccupantsInvalid | CuttingForest deriving (Show, Eq)
 
 makeLenses ''Universe
 makeLenses ''PlayerData
@@ -74,6 +74,9 @@ getAllOccupants universe playerId = toListOf (players . ix playerId . folding ge
 
 getPlayerPossibleOccupants :: PlayerData -> [BuildingOccupant]
 getPlayerPossibleOccupants playerData = WorkerOccupant <$> toListOf (workers . folding keys) playerData
+
+getPlayerStatus :: Universe -> PlayerId -> PlayerStatus
+getPlayerStatus universe playerId = fromMaybe Waiting $ universe ^? (players . ix playerId . playerStatus)
 
 getPlayerId :: Universe -> WorkerId -> Maybe PlayerId
 getPlayerId universe workerId = listToMaybe $ do
@@ -117,6 +120,16 @@ checkOccupantsAfterTurn plData =
 
 applyAction :: WorkplaceAction -> PlayerData -> PlayerData
 applyAction IncreaseScore = stopTurn . over score (+1)
+applyAction CutForest = set playerStatus CuttingForest
+
+selectPosition :: MonadError String m => Position -> Direction -> Universe -> m Universe
+selectPosition position direction universe = do
+  let currentPlayerStatus = universe ^? (currentPlayerData . playerStatus)
+  updatedUniverse <- mapMOf currentPlayerData (applyPosition currentPlayerStatus position direction) universe
+  return $ startNextPlayer universe updatedUniverse
+
+applyPosition (Just CuttingForest) position direction plData = stopTurn <$> mapMOf buildingSpace (cutForest position direction) plData
+applyPosition _ _ _ _ = throwError "Currently not needing position"
 
 alterOccupants :: MonadError String m => PlayerId -> BuildingOccupants -> Universe -> m Universe
 alterOccupants player occupants universe =
@@ -158,7 +171,7 @@ startWorking workerId workplaceId universe = do
         workerBelongsToCurrentPlayer = fromMaybe False $ member workerId <$> universe ^? (currentPlayerData . workers)
         currentPlayerCanMoveWorker = has (currentPlayerData . playerStatus . filtered (MovingWorker ==)) universe
 
-createWorkplaces count = fromList [(WorkplaceId i, IncreaseScore) | i <- [0 .. count - 1]]
+createWorkplaces count increaseScoreCount = fromList [(WorkplaceId i, if i < increaseScoreCount then IncreaseScore else CutForest) | i <- [0 .. count - 1]]
 
 createWorkers initial count = fromList [(WorkerId i, initialWorkerState) | i <- [initial .. initial + count - 1]]
 
@@ -168,7 +181,7 @@ createPlayers numbersOfWorkers = fromList
       | (i, count, initial) <- zip3 [0..] numbersOfWorkers (scanl (+) 0 numbersOfWorkers)]
 
 initialUniverse =
-  let withoutOccupants = Universe (createWorkplaces 6) (createPlayers [2, 3])
+  let withoutOccupants = Universe (createWorkplaces 12 6) (createPlayers [2, 3])
       assignInitialWorkers plData = set buildingOccupants (initialOccupants (allOccupants plData) (plData ^. buildingSpace)) plData
   in over (players . traverse) assignInitialWorkers withoutOccupants
 

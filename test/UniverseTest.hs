@@ -40,7 +40,7 @@ universeTests = testGroup "Universe" [
     ,
     flowTestCase "Initial universe has six increase score workplaces" $ do
       workplaces <- getWorkplaces <$> get
-      liftIO $ replicate 6 IncreaseScore @=? elems workplaces
+      liftIO $ replicate 6 IncreaseScore ++ replicate 6 CutForest @=? elems workplaces
     ,
     flowTestCaseFailure "Start working in invalid workplace causes error" $ do
       worker <- getWorker 0 0
@@ -146,6 +146,38 @@ universeTests = testGroup "Universe" [
       worker <- getWorker 0 1
       workplace <- getWorkplace 1
       apply $ startWorking worker workplace
+    ,
+    flowTestCase "Seventh workplace is cut forest" $ do
+      workplaceId <- getWorkplace 6
+      workplace <- gets ((M.! workplaceId) . getWorkplaces)
+      liftIO $ CutForest @=? workplace
+    ,
+    flowTestCase "Starting working in cut forest gets the player to cutting forest status" $ do
+      startCuttingForest
+      status <- getPlayerStatus <$> get <*> player1
+      liftIO $ CuttingForest @=? status
+    ,
+    flowTestCase "Selecting a position when cutting forest cuts forest" $ do
+      startCuttingForest
+      apply $ selectPosition (0, 0) DirectionDown
+      buildings <- getBuildingSpace <$> get <*> player1
+      liftIO $ assertBool "No grass in (0, 0)" $ Grass (0, 0) `elem` buildings
+      liftIO $ assertBool "No grass in (0, 1)" $ Grass (0, 1) `elem` buildings
+      return ()
+    ,
+    flowTestCaseFailure "Selecting an invalid position when cutting forest is not allowed" $ do
+      startCuttingForest
+      apply $ selectPosition (3, 3) DirectionUp
+    ,
+    flowTestCaseFailure "Selecting position when not cutting forest fails" $
+      apply $ selectPosition (0, 0) DirectionDown
+    ,
+    flowTestCase "Selecting a position when cutting forest ends turn" $ do
+      startCuttingForest
+      apply $ selectPosition (0, 0) DirectionDown
+      currentPlayer <- gets getCurrentPlayer
+      pl <- player2
+      liftIO $ Just pl @=? currentPlayer 
   ]
 
 breakOccupantsOfPlayer1 = do
@@ -162,6 +194,11 @@ startWorkingFirstWorker = do
   workplace <- getWorkplace 0
   worker <- getWorker 0 0
   apply $ startWorking worker workplace
+
+startCuttingForest = do
+  workplaceId <- getWorkplace 6
+  worker <- getWorker 0 0
+  apply $ startWorking worker workplaceId
 
 makeAllMovesInTurn1 :: FlowTest Universe ()
 makeAllMovesInTurn1 = do
