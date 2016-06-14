@@ -40,6 +40,9 @@ initialBuildingSpace = BuildingSpace [Forest (0, 0), Forest (1, 0), Forest (0, 1
 
 getBuildings (BuildingSpace buildings) = buildings
 
+availableBuildingPositions :: [Position]
+availableBuildingPositions = getBuildings initialBuildingSpace >>= buildingPositions
+
 getBuilding (BuildingSpace buildings) position = listToMaybe [b | b <- buildings, position `elem` buildingPositions b]
 
 isForest (Forest _) = True

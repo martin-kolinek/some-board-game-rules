@@ -60,5 +60,6 @@ rulesTests = testGroup "Rules" [
       liftIO $ CuttingForest @=? status
       apply $ selectPosition (0, 0) DirectionDown
       buildings <- gets getBuildingSpace <*> player1
+      liftIO $ 8 @=? length availableBuildingPositions
       liftIO $ assertBool "no grass" $ Grass (0, 0) `elem` buildings
   ]

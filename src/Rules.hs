@@ -20,6 +20,7 @@ module Rules (
                 getAllOccupants,
                 getOccupantErrors,
                 getPlayerStatus,
+                availableBuildingPositions,
                 initialUniverse,
                 startWorking,
                 finishTurn,

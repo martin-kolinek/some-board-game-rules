@@ -24,4 +24,7 @@ buildingTests = testGroup "Building" [
   ,
   flowTestCaseFailure "Cutting down not forest fails" $
     apply $ cutForest(2, 0) DirectionUp
+  ,
+  testCase "Available building positions returns 8 positions" $
+    liftIO $ 8 @=? length availableBuildingPositions
   ]
