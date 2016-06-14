@@ -3,6 +3,7 @@ module Rules (
                 WorkerId,
                 WorkplaceId,
                 PlayerId,
+                BuildingOccupants,
                 WorkplaceAction(..),
                 BuildingOccupant(..),
                 PlayerStatus(..),
