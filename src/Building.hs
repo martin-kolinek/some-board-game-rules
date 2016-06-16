@@ -67,7 +67,7 @@ cutForest position direction buildingSpace = do
     return $ Grass newPosition
   return $ foldl' build buildingSpace buildings
 
-data BuildingOccupant = WorkerOccupant WorkerId deriving (Eq, Show)
+data BuildingOccupant = WorkerOccupant WorkerId deriving (Eq, Show, Ord)
 
 type BuildingOccupants = M.Map Position [BuildingOccupant]
 
