@@ -28,7 +28,8 @@ module Rules (
                 startWorking,
                 finishTurn,
                 selectPosition,
-                alterOccupants) where
+                alterOccupants,
+                cancelSelection) where
 
 import           Universe
 import           Worker

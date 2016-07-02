@@ -177,7 +177,46 @@ universeTests = testGroup "Universe" [
       apply $ selectPosition (0, 0) DirectionDown
       currentPlayer <- gets getCurrentPlayer
       pl <- player2
-      liftIO $ Just pl @=? currentPlayer 
+      liftIO $ Just pl @=? currentPlayer
+    ,
+    flowTestCaseFailure "Cancelling selection when not cutting forest causes error" $
+      apply cancelSelection
+    ,
+    flowTestCase "Cancelling selection returns worker" $ do
+      startCuttingForest
+      apply cancelSelection
+      workplace <- getWorkerWorkplace <$> get <*> getWorker 0 0
+      liftIO $ Nothing @=? workplace
+    ,
+    flowTestCase "Cancelling selection sets player status to moving worker" $ do
+      startCuttingForest
+      apply cancelSelection
+      status <- getPlayerStatus <$> get <*> getPlayer 0
+      liftIO $ MovingWorker @=? status
+    ,
+    flowTestCase "Cancelling selection allows him to move worker again" $ do
+      worker <- getWorker 0 0
+      workplace <- getWorkplace 6
+      apply $ startWorking worker workplace
+      apply cancelSelection
+      apply $ startWorking worker workplace
+    ,
+    flowTestCase "Cancelling selection keeps occupant changes" $ do
+      startCuttingForest
+      player <- player1
+      apply $ alterOccupants player M.empty
+      apply cancelSelection
+      occupants <- getBuildingOccupants <$> get <*> player1
+      liftIO $ M.empty @=? occupants
+    ,
+    flowTestCase "Cancelling selection keeps other workers" $ do
+      applyStartWorking 0 0 0
+      applyStartWorking 1 0 1
+      applyStartWorking 0 1 6
+      apply cancelSelection
+      expectedWorkplace <- getWorkplace 0
+      workplace <- getWorkerWorkplace <$> get <*> getWorker 0 0
+      liftIO $ Just expectedWorkplace @=? workplace
   ]
 
 breakOccupantsOfPlayer1 = do
@@ -199,6 +238,11 @@ startCuttingForest = do
   workplaceId <- getWorkplace 6
   worker <- getWorker 0 0
   apply $ startWorking worker workplaceId
+
+applyStartWorking playerNum workerNum workplaceNum = do
+  worker <- getWorker playerNum workerNum
+  workplace <- getWorkplace workplaceNum
+  apply $ startWorking worker workplace
 
 makeAllMovesInTurn1 :: FlowTest Universe ()
 makeAllMovesInTurn1 = do

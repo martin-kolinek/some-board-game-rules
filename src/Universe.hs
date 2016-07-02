@@ -30,7 +30,8 @@ data PlayerData = PlayerData {
   _buildingSpace :: BuildingSpace,
   _buildingOccupants :: BuildingOccupants,
   _score :: Int,
-  _playerStatus :: PlayerStatus
+  _playerStatus :: PlayerStatus,
+  _mostRecentWorker :: Maybe WorkerId
 } deriving (Show, Eq)
 
 data PlayerStatus = MovingWorker | Waiting | OccupantsInvalid | CuttingForest deriving (Show, Eq)
@@ -110,7 +111,7 @@ freeWorkplaces universe = universeAvailableWorkplaces \\ universeOccupiedWorkpla
         workerStates = toListOf (players . folding M.elems . workers . folding M.elems) universe
 
 stopTurn :: PlayerData -> PlayerData
-stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid
+stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid . set mostRecentWorker Nothing
 
 checkOccupantsAfterTurn :: PlayerData -> PlayerData
 checkOccupantsAfterTurn plData =
@@ -119,14 +120,23 @@ checkOccupantsAfterTurn plData =
   in if occupantsValid && status == OccupantsInvalid then set playerStatus Waiting plData else plData
 
 applyAction :: WorkplaceAction -> PlayerData -> PlayerData
-applyAction IncreaseScore = stopTurn . over score (+1)
-applyAction CutForest = set playerStatus CuttingForest
+applyAction IncreaseScore playerData = (stopTurn . over score (+1)) playerData
+applyAction CutForest playerData = set playerStatus CuttingForest playerData
 
 selectPosition :: MonadError String m => Position -> Direction -> Universe -> m Universe
 selectPosition position direction universe = do
   let currentPlayerStatus = universe ^? (currentPlayerData . playerStatus)
   updatedUniverse <- mapMOf currentPlayerData (applyPosition currentPlayerStatus position direction) universe
   return $ startNextPlayer universe updatedUniverse
+
+cancelSelection :: MonadError String m => Universe -> m Universe
+cancelSelection universe =
+  checkMaybe "Nothing to cancel" $ do
+    currentPlayerStatus <- universe ^? (currentPlayerData . playerStatus)
+    guard (currentPlayerStatus == CuttingForest)
+    workerToRestore <- universe ^? (currentPlayerData . mostRecentWorker . traverse)
+    let playerDataModification = set (workers . ix workerToRestore) (WorkerState Nothing) . set playerStatus MovingWorker . set mostRecentWorker Nothing
+    return $ over currentPlayerData playerDataModification universe
 
 applyPosition (Just CuttingForest) position direction plData = stopTurn <$> mapMOf buildingSpace (cutForest position direction) plData
 applyPosition _ _ _ _ = throwError "Currently not needing position"
@@ -157,11 +167,12 @@ startWorking workerId workplaceId universe = do
   check workerIdle "Worker already working"
   check workerBelongsToCurrentPlayer "Worker does not belong to current player"
   check currentPlayerCanMoveWorker "Current player cannot start working a worker now"
-  workplaceAction <- checkMaybe (workplaceId `M.lookup` view availableWorkplaces universe) "Workplace does not exist"
+  workplaceAction <- checkMaybe "Workplace does not exist" (workplaceId `M.lookup` view availableWorkplaces universe)
   check workplaceEmpty "Workplace occupied"
   let withAssignedWorker = over currentWorkerState setWorkplace universe
-      withAppliedAction = over currentPlayerData (applyAction workplaceAction) withAssignedWorker
-  return $ startNextPlayer withAssignedWorker withAppliedAction
+      withLastWorker = set (currentPlayerData . mostRecentWorker) (Just workerId) withAssignedWorker
+      withAppliedAction = over currentPlayerData (applyAction workplaceAction) withLastWorker
+  return $ startNextPlayer withLastWorker withAppliedAction
   where currentWorkerState :: Traversal' Universe WorkerState
         currentWorkerState = workerState workerId
         workerExists = notNullOf currentWorkerState universe
@@ -177,7 +188,7 @@ createWorkers initial count = fromList [(WorkerId i, initialWorkerState) | i <- 
 
 createPlayers numbersOfWorkers = fromList
   [(PlayerId i,
-    PlayerData (PlayerId i) (createWorkers initial count) initialBuildingSpace M.empty 0 $ if i == 0 then MovingWorker else Waiting)
+    PlayerData (PlayerId i) (createWorkers initial count) initialBuildingSpace M.empty 0 (if i == 0 then MovingWorker else Waiting) Nothing)
       | (i, count, initial) <- zip3 [0..] numbersOfWorkers (scanl (+) 0 numbersOfWorkers)]
 
 initialUniverse =

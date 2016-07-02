@@ -56,6 +56,8 @@ rulesTests = testGroup "Rules" [
       worker <- getWorker 0 0
       workplace <- getWorkplace 6
       apply $ startWorking worker workplace
+      apply cancelSelection
+      apply $ startWorking worker workplace
       status <- getPlayerStatus <$> get <*> player1
       liftIO $ CuttingForest @=? status
       apply $ selectPosition (0, 0) DirectionDown

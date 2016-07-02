@@ -62,7 +62,7 @@ cutForest :: MonadError String m => Position -> Direction -> BuildingSpace -> m 
 cutForest position direction buildingSpace = do
   let newPositions = [position, position ^+^ directionAddition direction]
   buildings <- forM newPositions $ \newPosition -> do
-    building <- checkMaybe (getBuilding buildingSpace newPosition) "Invalid position"
+    building <- checkMaybe "Invalid position" (getBuilding buildingSpace newPosition) 
     check (isForest building) "Cutting forest not in a forest"
     return $ Grass newPosition
   return $ foldl' build buildingSpace buildings
