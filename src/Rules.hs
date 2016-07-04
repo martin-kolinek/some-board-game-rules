@@ -9,6 +9,7 @@ module Rules (
                 PlayerStatus(..),
                 Building(..),
                 Direction(..),
+                OccupantError,
                 Position,
                 getPlayers,
                 getCurrentPlayer,
