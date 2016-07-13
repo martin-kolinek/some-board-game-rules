@@ -227,7 +227,7 @@ breakOccupantsOfPlayer1 = do
 fixOccupantsOfPlayer1 = do
   workers <- getWorkers <$> get <*> player1
   pl <- player1
-  apply $ alterOccupants pl (M.fromList [((4, 3), [WorkerOccupant (workers !! 0), WorkerOccupant (workers !! 1)])])
+  apply $ alterOccupants pl (M.fromList [((3, 3), [WorkerOccupant (workers !! 0), WorkerOccupant (workers !! 1)])])
 
 startWorkingFirstWorker = do
   workplace <- getWorkplace 0
