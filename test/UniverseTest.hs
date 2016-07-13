@@ -167,7 +167,7 @@ universeTests = testGroup "Universe" [
     ,
     flowTestCaseFailure "Selecting an invalid position when cutting forest is not allowed" $ do
       startCuttingForest
-      apply $ selectPosition (3, 3) DirectionUp
+      apply $ selectPosition (5, 5) DirectionUp
     ,
     flowTestCaseFailure "Selecting position when not cutting forest fails" $
       apply $ selectPosition (0, 0) DirectionDown
@@ -227,7 +227,7 @@ breakOccupantsOfPlayer1 = do
 fixOccupantsOfPlayer1 = do
   workers <- getWorkers <$> get <*> player1
   pl <- player1
-  apply $ alterOccupants pl (M.fromList [((3, 1), [WorkerOccupant (workers !! 0), WorkerOccupant (workers !! 1)])])
+  apply $ alterOccupants pl (M.fromList [((4, 3), [WorkerOccupant (workers !! 0), WorkerOccupant (workers !! 1)])])
 
 startWorkingFirstWorker = do
   workplace <- getWorkplace 0

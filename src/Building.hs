@@ -36,7 +36,11 @@ buildingPositions (InitialRoom pos) = [pos]
 
 newtype BuildingSpace = BuildingSpace [Building] deriving (Show, Eq)
 
-initialBuildingSpace = BuildingSpace [Forest (0, 0), Forest (1, 0), Forest (0, 1), Forest (1, 1), Rock (2, 0), Rock (3, 0), InitialRoom (3, 1), InitialRoom (2, 1)]
+initialBuildingSpace =
+  let forests = [Forest (x, y) | x <- [0..3], y <- [0..3]]
+      rocks = [Rock (x, y) | x <- [4..7], y <- [0..3], (x, y) /= (4, 3), (x, y) /= (4, 2)]
+      initialRoom = [InitialRoom (4, 3), InitialRoom (4, 2)]
+  in BuildingSpace (forests ++ rocks ++ initialRoom)
 
 getBuildings (BuildingSpace buildings) = buildings
 
@@ -62,7 +66,7 @@ cutForest :: MonadError String m => Position -> Direction -> BuildingSpace -> m 
 cutForest position direction buildingSpace = do
   let newPositions = [position, position ^+^ directionAddition direction]
   buildings <- forM newPositions $ \newPosition -> do
-    building <- checkMaybe "Invalid position" (getBuilding buildingSpace newPosition) 
+    building <- checkMaybe "Invalid position" (getBuilding buildingSpace newPosition)
     check (isForest building) "Cutting forest not in a forest"
     return $ Grass newPosition
   return $ foldl' build buildingSpace buildings
@@ -88,4 +92,4 @@ areOccupantsValid allOccupants (BuildingSpace buildings) occupants = snd $ runWr
   return ()
 
 initialOccupants :: [BuildingOccupant] -> BuildingSpace -> BuildingOccupants
-initialOccupants allOccupants (BuildingSpace buildings) = M.fromListWith mappend $ zip [(3, 1), (3, 1), (2, 1), (2, 1)] (pure <$> allOccupants)
+initialOccupants allOccupants (BuildingSpace buildings) = M.fromListWith mappend $ zip [(4, 3), (4, 3), (4, 2), (4, 2)] (pure <$> allOccupants)

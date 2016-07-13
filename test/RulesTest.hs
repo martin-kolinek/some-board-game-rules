@@ -28,12 +28,12 @@ rulesTests = testGroup "Rules" [
       worker <- getWorker 1 0
       workplace <- getWorkplace 1
       buildings <- gets getBuildingSpace <*> getPlayer 1
-      liftIO $ 8 @=? length buildings
+      liftIO $ 32 @=? length buildings
       liftIO $ assertBool "no forest" $ Forest (0, 0) `elem` buildings
-      liftIO $ assertBool "no rock" $ Rock (3, 0) `elem` buildings
-      liftIO $ assertBool "no initial room" $ InitialRoom (3, 1) `elem` buildings
+      liftIO $ assertBool "no rock" $ Rock (5, 0) `elem` buildings
+      liftIO $ assertBool "no initial room" $ InitialRoom (4, 3) `elem` buildings
       occupants <- gets getBuildingOccupants <*> getPlayer 1
-      liftIO $ assertBool "Contains worker" $ WorkerOccupant worker `elem` (occupants M.! (3, 1))
+      liftIO $ assertBool "Contains worker" $ WorkerOccupant worker `elem` (occupants M.! (4, 3))
       allOccupants <- gets getAllOccupants <*> getPlayer 1
       player <- player2
       apply $ alterOccupants player (M.fromList [((2, 1), allOccupants)])
@@ -62,6 +62,6 @@ rulesTests = testGroup "Rules" [
       liftIO $ CuttingForest @=? status
       apply $ selectPosition (0, 0) DirectionDown
       buildings <- gets getBuildingSpace <*> player1
-      liftIO $ 8 @=? length availableBuildingPositions
+      liftIO $ 32 @=? length availableBuildingPositions
       liftIO $ assertBool "no grass" $ Grass (0, 0) `elem` buildings
   ]
