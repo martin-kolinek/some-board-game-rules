@@ -16,7 +16,6 @@ data PlayerData = PlayerData {
   _workers :: Map WorkerId WorkerState,
   _buildingSpace :: BuildingSpace,
   _buildingOccupants :: BuildingOccupants,
-  _score :: Int,
   _playerStatus :: PlayerStatus,
   _mostRecentWorker :: Maybe WorkerId,
   _playerResources :: Resources
@@ -44,5 +43,4 @@ stopTurn :: PlayerData -> PlayerData
 stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid . set mostRecentWorker Nothing
 
 applyAction :: WorkplaceAction -> PlayerData -> PlayerData
-applyAction IncreaseScore playerData = (stopTurn . over score (+1)) playerData
 applyAction CutForest playerData = set playerStatus CuttingForest playerData

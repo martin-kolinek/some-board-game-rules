@@ -13,7 +13,6 @@ module Rules (
                 Position,
                 getPlayers,
                 getCurrentPlayer,
-                getScore,
                 getWorkers,
                 getWorkplaces,
                 getWorkerWorkplace,

@@ -23,6 +23,7 @@ rulesTests = testGroup "Rules" [
       worker <- getWorker 0 0
       workplace <- getWorkplace 0
       apply $ startWorking worker workplace
+      apply $ selectPosition (0, 0) DirectionDown
       workers <- gets getWorkplaceOccupants <*> pure workplace
       liftIO $ [worker] @=? workers
       worker <- getWorker 1 0
@@ -40,18 +41,22 @@ rulesTests = testGroup "Rules" [
       errors <- gets getOccupantErrors <*> player2
       liftIO $ 1 @=? length errors
       apply $ startWorking worker workplace
+      apply $ selectPosition (1, 0) DirectionDown
       curPlayer <- gets getCurrentPlayer
       liftIO $ Just player @=? curPlayer
       apply $ alterOccupants player occupants
       worker <- getWorker 0 1
       workplace <- getWorkplace 2
       apply $ startWorking worker workplace
+      apply $ selectPosition (2, 0) DirectionDown
       worker <- getWorker 1 1
       workplace <- getWorkplace 3
       apply $ startWorking worker workplace
+      apply $ selectPosition (0, 2) DirectionDown
       worker <- getWorker 1 2
       workplace <- getWorkplace 4
       apply $ startWorking worker workplace
+      apply $ selectPosition (1, 2) DirectionDown
       apply finishTurn
       worker <- getWorker 0 0
       workplace <- getWorkplace 6
@@ -60,7 +65,7 @@ rulesTests = testGroup "Rules" [
       apply $ startWorking worker workplace
       status <- getPlayerStatus <$> get <*> player1
       liftIO $ CuttingForest @=? status
-      apply $ selectPosition (0, 0) DirectionDown
+      apply $ selectPosition (1, 0) DirectionDown
       buildings <- gets getBuildingSpace <*> player1
       liftIO $ 24 @=? length availableBuildingPositions
       liftIO $ assertBool "no grass" $ Grass (0, 0) `elem` buildings

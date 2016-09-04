@@ -19,9 +19,6 @@ getCurrentPlayer universe =
 getPlayers :: Universe -> [PlayerId]
 getPlayers = toListOf (players . folding keys)
 
-getScore :: Universe -> PlayerId -> Int
-getScore universe playerId = fromMaybe 0 $ universe ^? (players . ix playerId . score)
-
 getPlayerStatus :: Universe -> PlayerId -> PlayerStatus
 getPlayerStatus universe playerId = fromMaybe Waiting $ universe ^? (players . ix playerId . playerStatus)
 

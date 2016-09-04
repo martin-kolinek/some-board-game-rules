@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ScopedTypeVariables, ImpredicativeTypes #-}
 
 module UniverseTest where
@@ -35,10 +37,6 @@ universeTests = testGroup "Universe" [
       universe <- get
       liftIO $ 2 @=? (length . getPlayers) universe
     ,
-    flowTestCase "Initial universe has zero score" $ do
-      universe <- get
-      liftIO $ forM_ (getPlayers universe) $ \player -> 0 @=? getScore universe player
-    ,
     flowTestCase "Initial universe has two workers for player 1" $ do
       workers <- getWorkers <$> get <*> player1
       liftIO $ 2 @=? length workers
@@ -49,7 +47,7 @@ universeTests = testGroup "Universe" [
     ,
     flowTestCase "Initial universe has six increase score workplaces" $ do
       workplaces <- getWorkplaces <$> get
-      liftIO $ replicate 6 IncreaseScore ++ replicate 6 CutForest @=? elems workplaces
+      liftIO $ replicate 12 CutForest @=? elems workplaces
     ,
     flowTestCaseFailure "Start working in invalid workplace causes error" $ do
       worker <- getWorker 0 0
@@ -61,18 +59,13 @@ universeTests = testGroup "Universe" [
       startWorking (WorkerId 50) workplace =<< get
       return ()
     ,
-    flowTestCase "Start working in increate score, then score is incresed" $ do
-      startWorkingFirstWorker
-      player1Score <- getScore <$> get <*> player1
-      liftIO $ 1 @=? player1Score
-    ,
     flowTestCase "Start working assigns worker" $ do
       startWorkingFirstWorker
       workerWorkplace <- getWorkerWorkplace <$> get <*> getWorker 0 0
       firstWorkplace <- getWorkplace 0
       liftIO $ Just firstWorkplace @=? workerWorkplace
     ,
-    flowTestCase "Finishing turn unassigns works" $ do
+    flowTestCase "Finishing turn unassigns workers" $ do
       makeAllMovesInTurn1
       apply finishTurn
       workplaceOccupantsFunc <- gets getWorkplaceOccupants
@@ -220,7 +213,9 @@ universeTests = testGroup "Universe" [
     ,
     flowTestCase "Cancelling selection keeps other workers" $ do
       applyStartWorking 0 0 0
+      buildInFirstFreeSpace =<< getPlayer 0
       applyStartWorking 1 0 1
+      buildInFirstFreeSpace =<< getPlayer 1
       applyStartWorking 0 1 6
       apply cancelSelection
       expectedWorkplace <- getWorkplace 0
@@ -247,6 +242,7 @@ startWorkingFirstWorker = do
   workplace <- getWorkplace 0
   worker <- getWorker 0 0
   apply $ startWorking worker workplace
+  buildInFirstFreeSpace =<< getPlayer 0
 
 startCuttingForest = do
   workplaceId <- getWorkplace 6
@@ -262,7 +258,22 @@ makeAllMovesInTurn1 :: FlowTest Universe ()
 makeAllMovesInTurn1 = do
   universe <- get
   let players = getPlayers universe
-      workers = (concat . transpose) (getWorkers universe <$> players)
+      getWorkersWithPlayer player = (player, ) <$> getWorkers universe player
+      workers = (concat . transpose) (getWorkersWithPlayer <$> players)
       workplaces = keys $ getWorkplaces universe
-      startWorkingCurried x = apply (uncurry startWorking x)
-  forM_ (zip workers workplaces) startWorkingCurried
+      makeSingleTurn :: ((PlayerId, WorkerId), WorkplaceId) -> FlowTest Universe ()
+      makeSingleTurn ((player, worker), workplace) = do
+        apply (startWorking worker workplace)
+        buildInFirstFreeSpace player
+  forM_ (zip workers workplaces) makeSingleTurn
+
+buildInFirstFreeSpace :: PlayerId -> FlowTest Universe ()
+buildInFirstFreeSpace player = do
+  let isFreeSpace :: [Building] -> Position -> Bool
+      isFreeSpace buildings position = elem (Forest position) buildings
+      getFreeSpace :: [Building] -> Position
+      getFreeSpace buildings =
+        let candidates = [(0, 0), (1, 0), (2, 0), (0, 2), (1, 2), (2, 2)]
+        in head $ Prelude.filter (isFreeSpace buildings) candidates
+  buildingSpace <- gets getBuildingSpace <*> pure player
+  apply $ selectPosition (getFreeSpace buildingSpace) DirectionDown
