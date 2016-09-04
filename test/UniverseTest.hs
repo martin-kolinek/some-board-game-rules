@@ -6,17 +6,24 @@ import Data.Either
 import Data.Map         as M
 import Test.Tasty
 import Test.Tasty.HUnit as H
-import Universe
 import Data.List
 import Control.Monad
 import Data.Maybe
 import TestFramework
 import Control.Monad.IO.Class
 import Control.Monad.State
+import Data.Default
+
 import Workplace
 import Worker
-import Data.Default
 import Building
+import Player
+import Universe
+import Universe.Player
+import Universe.Worker
+import Universe.Workplace
+import Universe.Actions
+import Universe.Building
 
 instance Default Universe where
   def = initialUniverse

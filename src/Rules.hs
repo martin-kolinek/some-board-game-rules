@@ -32,7 +32,13 @@ module Rules (
                 alterOccupants,
                 cancelSelection) where
 
-import           Universe
-import           Worker
-import           Workplace
-import           Building
+import Worker
+import Workplace
+import Building
+import Player
+import Universe
+import Universe.Actions
+import Universe.Player
+import Universe.Workplace
+import Universe.Worker
+import Universe.Building
