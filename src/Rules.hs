@@ -30,13 +30,27 @@ module Rules (
                 finishTurn,
                 selectPosition,
                 alterOccupants,
-                cancelSelection) where
+                cancelSelection,
+                getPlayerResources,
+                getWoodAmount,
+                getStoneAmount,
+                getGoldAmount,
+                getIronAmount,
+                getWheatAmount,
+                getPotatoAmount,
+                getDogAmount,
+                getSheepAmount,
+                getPigAmount,
+                getMoney,
+                getFoodAmount
+             ) where
 
 import Worker
 import Workplace
 import Building
 import Player
 import Universe
+import Resources
 import Universe.Actions
 import Universe.Player
 import Universe.Workplace

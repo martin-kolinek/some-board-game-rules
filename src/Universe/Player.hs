@@ -8,6 +8,7 @@ import Player
 import Universe
 import Worker
 import Workplace
+import Resources
 import Universe.Building
 import Universe.Workplace
 
@@ -23,6 +24,9 @@ getScore universe playerId = fromMaybe 0 $ universe ^? (players . ix playerId . 
 
 getPlayerStatus :: Universe -> PlayerId -> PlayerStatus
 getPlayerStatus universe playerId = fromMaybe Waiting $ universe ^? (players . ix playerId . playerStatus)
+
+getPlayerResources :: Universe -> PlayerId -> Resources
+getPlayerResources universe playerId = fromMaybe initialResources $ universe ^? (players . ix playerId . playerResources)
 
 currentPlayerData :: Traversal' Universe PlayerData
 currentPlayerData fres universe = (players . fromMaybe ignored (ix <$> getCurrentPlayer universe)) fres universe

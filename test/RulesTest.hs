@@ -64,4 +64,7 @@ rulesTests = testGroup "Rules" [
       buildings <- gets getBuildingSpace <*> player1
       liftIO $ 24 @=? length availableBuildingPositions
       liftIO $ assertBool "no grass" $ Grass (0, 0) `elem` buildings
+      resources <- gets getPlayerResources <*> getPlayer 0
+      liftIO $ 0 @=? getWoodAmount resources
+      return ()
   ]

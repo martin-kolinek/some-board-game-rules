@@ -13,11 +13,13 @@ import TestFramework
 import Control.Monad.IO.Class
 import Control.Monad.State
 import Data.Default
+import Control.Lens
 
 import Workplace
 import Worker
 import Building
 import Player
+import Resources
 import Universe
 import Universe.Player
 import Universe.Worker
@@ -224,6 +226,11 @@ universeTests = testGroup "Universe" [
       expectedWorkplace <- getWorkplace 0
       workplace <- getWorkerWorkplace <$> get <*> getWorker 0 0
       liftIO $ Just expectedWorkplace @=? workplace
+    ,
+    flowTestCase "Initial player has zero wood" $ do
+      resources <- getPlayerResources <$> get <*> player1
+      let wood = resources ^. woodAmount
+      liftIO $ 0 @=? wood
   ]
 
 breakOccupantsOfPlayer1 = do

@@ -8,6 +8,7 @@ import Player
 import Workplace
 import Building
 import Worker
+import Resources
 
 import Data.Map
 import Control.Lens
@@ -25,7 +26,7 @@ createWorkers initial count = fromList [(WorkerId i, initialWorkerState) | i <- 
 
 createPlayers numbersOfWorkers = fromList
   [(PlayerId i,
-    PlayerData (PlayerId i) (createWorkers initial count) initialBuildingSpace empty 0 (if i == 0 then MovingWorker else Waiting) Nothing)
+    PlayerData (PlayerId i) (createWorkers initial count) initialBuildingSpace empty 0 (if i == 0 then MovingWorker else Waiting) Nothing initialResources)
       | (i, count, initial) <- zip3 [0..] numbersOfWorkers (scanl (+) 0 numbersOfWorkers)]
 
 initialUniverse =

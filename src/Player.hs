@@ -4,6 +4,7 @@ module Player where
 import Worker
 import Building
 import Workplace
+import Resources
 
 import Data.Map
 import Control.Lens
@@ -17,7 +18,8 @@ data PlayerData = PlayerData {
   _buildingOccupants :: BuildingOccupants,
   _score :: Int,
   _playerStatus :: PlayerStatus,
-  _mostRecentWorker :: Maybe WorkerId
+  _mostRecentWorker :: Maybe WorkerId,
+  _playerResources :: Resources
 } deriving (Show, Eq)
 
 data PlayerStatus = MovingWorker | Waiting | OccupantsInvalid | CuttingForest deriving (Show, Eq)
