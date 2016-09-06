@@ -11,7 +11,6 @@ import Control.Exception
 import Worker
 import Control.Monad.Writer
 import qualified Data.Map as M
-import Control.Lens
 import Data.AdditiveGroup
 
 type Position = (Int, Int)
@@ -24,11 +23,13 @@ data Building =
 
 data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight deriving (Show, Eq)
 
+directionAddition :: Direction -> (Int, Int)
 directionAddition DirectionUp = (0, -1)
 directionAddition DirectionDown = (0, 1)
 directionAddition DirectionLeft = (-1, 0)
 directionAddition DirectionRight = (1, 0)
 
+buildingPositions :: Building -> [Position]
 buildingPositions (Forest pos) = [pos]
 buildingPositions (Grass pos) = [pos]
 buildingPositions (Rock pos) = [pos]
@@ -36,19 +37,23 @@ buildingPositions (InitialRoom pos) = [pos]
 
 newtype BuildingSpace = BuildingSpace [Building] deriving (Show, Eq)
 
+initialBuildingSpace :: BuildingSpace
 initialBuildingSpace =
   let forests = [Forest (x, y) | x <- [0..2], y <- [0..3]]
       rocks = [Rock (x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)]
       initialRoom = [InitialRoom (3, 3), InitialRoom (3, 2)]
   in BuildingSpace (forests ++ rocks ++ initialRoom)
 
+getBuildings :: BuildingSpace -> [Building]
 getBuildings (BuildingSpace buildings) = buildings
 
 availableBuildingPositions :: [Position]
 availableBuildingPositions = getBuildings initialBuildingSpace >>= buildingPositions
 
+getBuilding :: BuildingSpace -> Position -> Maybe Building
 getBuilding (BuildingSpace buildings) position = listToMaybe [b | b <- buildings, position `elem` buildingPositions b]
 
+isForest :: Building -> Bool
 isForest (Forest _) = True
 isForest _ = False
 
@@ -92,4 +97,4 @@ areOccupantsValid allOccupants (BuildingSpace buildings) occupants = snd $ runWr
   return ()
 
 initialOccupants :: [BuildingOccupant] -> BuildingSpace -> BuildingOccupants
-initialOccupants allOccupants (BuildingSpace buildings) = M.fromListWith mappend $ zip [(3, 3), (3, 3), (3, 2), (3, 2)] (pure <$> allOccupants)
+initialOccupants allOccupants _ = M.fromListWith mappend $ zip [(3, 3), (3, 3), (3, 2), (3, 2)] (pure <$> allOccupants)

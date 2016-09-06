@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 module Universe.Worker where
 
-import Control.Lens
+import Control.Lens hiding (universe)
 import Data.Map
 import Data.Maybe
 import Control.Monad
@@ -13,7 +13,7 @@ import Worker
 import Workplace
 
 getWorkers :: Universe -> PlayerId -> [WorkerId]
-getWorkers universe playerId = toListOf (players . ix playerId . workers . folding keys) universe
+getWorkers universe player = toListOf (players . ix player . workers . folding keys) universe
 
 getWorkerWorkplace :: Universe -> WorkerId -> Maybe WorkplaceId
 getWorkerWorkplace universe workerId = universe ^? (workerState workerId . currentWorkplace . traverse)

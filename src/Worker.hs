@@ -11,6 +11,7 @@ data WorkerState = WorkerState {
   _currentWorkplace :: Maybe WorkplaceId
 } deriving (Show, Eq)
 
+initialWorkerState :: WorkerState
 initialWorkerState = WorkerState Nothing
 
 makeLenses ''WorkerState

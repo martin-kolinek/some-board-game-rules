@@ -3,7 +3,7 @@ module Universe.Actions where
 
 import Prelude hiding (lookup)
 import Control.Monad.Except
-import Control.Lens
+import Control.Lens hiding (universe)
 import Data.Map
 import Data.Maybe
 

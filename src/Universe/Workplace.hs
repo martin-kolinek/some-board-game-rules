@@ -2,7 +2,7 @@ module Universe.Workplace where
 
 import Data.Map hiding ((\\))
 import Data.List ((\\))
-import Control.Lens
+import Control.Lens hiding (universe)
 import Data.Maybe
 
 import Universe

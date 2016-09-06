@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 module Util where
@@ -19,5 +20,6 @@ checkWriter :: MonadWriter [a] m => Bool -> a -> m ()
 checkWriter True _ = return ()
 checkWriter False a = tell [a]
 
+ixMaybe :: Ixed m => Maybe (Index m) -> Traversal' m (IxValue m)
 ixMaybe (Just x) = ix x
 ixMaybe _ = ignored

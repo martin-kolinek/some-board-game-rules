@@ -20,15 +20,19 @@ data Universe = Universe {
 
 makeLenses ''Universe
 
+createWorkplaces :: Int -> Map WorkplaceId WorkplaceAction
 createWorkplaces count = fromList [(WorkplaceId i, CutForest) | i <- [0 .. count - 1]]
 
+createWorkers :: Int -> Int -> Map WorkerId WorkerState
 createWorkers initial count = fromList [(WorkerId i, initialWorkerState) | i <- [initial .. initial + count - 1]]
 
+createPlayers :: [Int] -> Map PlayerId PlayerData
 createPlayers numbersOfWorkers = fromList
   [(PlayerId i,
     PlayerData (PlayerId i) (createWorkers initial count) initialBuildingSpace empty (if i == 0 then MovingWorker else Waiting) Nothing initialResources)
       | (i, count, initial) <- zip3 [0..] numbersOfWorkers (scanl (+) 0 numbersOfWorkers)]
 
+initialUniverse :: Universe
 initialUniverse =
   let withoutOccupants = Universe (createWorkplaces 12) (createPlayers [2, 3])
       assignInitialWorkers plData = set buildingOccupants (initialOccupants (allOccupants plData) (plData ^. buildingSpace)) plData
