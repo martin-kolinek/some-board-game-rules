@@ -4,7 +4,6 @@
 
 module UniverseTest where
 
-import Data.Either
 import Data.Map         as M
 import Test.Tasty
 import Test.Tasty.HUnit as H
@@ -14,58 +13,55 @@ import Data.Maybe
 import TestFramework
 import Control.Monad.IO.Class
 import Control.Monad.State
-import Data.Default
-import Control.Lens
+import Control.Lens hiding (universe)
 
 import Workplace
 import Worker
 import Building
-import Player
+import Player hiding (workers, playerId, buildingSpace)
 import Resources
-import Universe
+import Universe hiding (players)
 import Universe.Player
 import Universe.Worker
 import Universe.Workplace
 import Universe.Actions
 import Universe.Building
 
-instance Default Universe where
-  def = initialUniverse
-
+universeTests :: TestTree
 universeTests = testGroup "Universe" [
-    flowTestCase "Initial universe has two players" $ do
+    flowTestCase initialUniverse "Initial universe has two players" $ do
       universe <- get
       liftIO $ 2 @=? (length . getPlayers) universe
     ,
-    flowTestCase "Initial universe has two workers for player 1" $ do
+    flowTestCase initialUniverse "Initial universe has two workers for player 1" $ do
       workers <- getWorkers <$> get <*> player1
       liftIO $ 2 @=? length workers
     ,
-    flowTestCase "Initial universe has three worker for player 2" $ do
+    flowTestCase initialUniverse "Initial universe has three worker for player 2" $ do
       workers <- getWorkers <$> get <*> player2
       liftIO $ 3 @=? length workers
     ,
-    flowTestCase "Initial universe has six increase score workplaces" $ do
+    flowTestCase initialUniverse "Initial universe has six increase score workplaces" $ do
       workplaces <- getWorkplaces <$> get
       liftIO $ replicate 12 CutForest @=? elems workplaces
     ,
-    flowTestCaseFailure "Start working in invalid workplace causes error" $ do
+    flowTestCaseFailure initialUniverse "Start working in invalid workplace causes error" $ do
       worker <- getWorker 0 0
-      startWorking worker (WorkplaceId 50) =<< get
+      _ <- startWorking worker (WorkplaceId 50) =<< get
       return ()
     ,
-    flowTestCaseFailure "Start working by invalid worker causes error" $ do
+    flowTestCaseFailure initialUniverse "Start working by invalid worker causes error" $ do
       workplace <- getWorkplace 0
-      startWorking (WorkerId 50) workplace =<< get
+      _ <- startWorking (WorkerId 50) workplace =<< get
       return ()
     ,
-    flowTestCase "Start working assigns worker" $ do
+    flowTestCase initialUniverse "Start working assigns worker" $ do
       startWorkingFirstWorker
       workerWorkplace <- getWorkerWorkplace <$> get <*> getWorker 0 0
       firstWorkplace <- getWorkplace 0
       liftIO $ Just firstWorkplace @=? workerWorkplace
     ,
-    flowTestCase "Finishing turn unassigns workers" $ do
+    flowTestCase initialUniverse "Finishing turn unassigns workers" $ do
       makeAllMovesInTurn1
       apply finishTurn
       workplaceOccupantsFunc <- gets getWorkplaceOccupants
@@ -77,64 +73,64 @@ universeTests = testGroup "Universe" [
       players <- gets getPlayers
       liftIO $ assertBool "Worker on a workplace" $ all allWorkersFree players
     ,
-    flowTestCaseFailure "Finishing turn is not possible without assigned workers" $
+    flowTestCaseFailure initialUniverse "Finishing turn is not possible without assigned workers" $
       apply finishTurn
     ,
-    flowTestCaseFailure "Moving the same player twice causes error" $ do
+    flowTestCaseFailure initialUniverse "Moving the same player twice causes error" $ do
       worker1 <- getWorker 0 0
       workplace1 <- getWorkplace 0
       workplace2 <- getWorkplace 2
       apply $ startWorking worker1 workplace1
       apply $ startWorking worker1 workplace2
     ,
-    flowTestCase "Workplace occupants can be found" $ do
+    flowTestCase initialUniverse "Workplace occupants can be found" $ do
       startWorkingFirstWorker
       workplaceOccupants <- gets getWorkplaceOccupants <*> getWorkplace 0
       worker <- getWorker 0 0
       liftIO $ [worker] @=? workplaceOccupants
     ,
-    flowTestCase "Current player is the first player in the beginning" $ do
+    flowTestCase initialUniverse "Current player is the first player in the beginning" $ do
       player <- getPlayer 0
       currentPlayer <- gets getCurrentPlayer
       liftIO $ Just player @=? currentPlayer
     ,
-    flowTestCase "Current player is second player after first move" $ do
+    flowTestCase initialUniverse "Current player is second player after first move" $ do
       startWorkingFirstWorker
       player <- getPlayer 1
       currentPlayer <- gets getCurrentPlayer
       liftIO $ Just player @=? currentPlayer
     ,
-    flowTestCase "There is no current player after all moves in turn" $ do
+    flowTestCase initialUniverse "There is no current player after all moves in turn" $ do
       makeAllMovesInTurn1
       currentPlayer <- gets getCurrentPlayer
       liftIO $ Nothing @=? currentPlayer
     ,
-    flowTestCase "Current player is first player after finishing first turn" $ do
+    flowTestCase initialUniverse "Current player is first player after finishing first turn" $ do
       makeAllMovesInTurn1
       apply finishTurn
       player <- getPlayer 0
       currentPlayer <- gets getCurrentPlayer
       liftIO $ Just player @=? currentPlayer
     ,
-    flowTestCase "First player can move after finishing first turn" $ do
+    flowTestCase initialUniverse "First player can move after finishing first turn" $ do
       makeAllMovesInTurn1
       apply finishTurn
       startWorkingFirstWorker
     ,
-    flowTestCase "Initial universe has valid occupants" $ do
+    flowTestCase initialUniverse "Initial universe has valid occupants" $ do
       players <- getPlayers <$> get
       forM_ players $ \pl -> do
         errors <- getOccupantErrors <$> get <*> pure pl
         liftIO $ [] @=? errors
     ,
-    flowTestCase "Altering to invalid occupants prevents ending turn" $ do
+    flowTestCase initialUniverse "Altering to invalid occupants prevents ending turn" $ do
       breakOccupantsOfPlayer1
       startWorkingFirstWorker
       currentPlayer <- gets getCurrentPlayer
       pl <- player1
       liftIO $ Just pl @=? currentPlayer
     ,
-    flowTestCase "Fixing occupants finishes turn" $ do
+    flowTestCase initialUniverse "Fixing occupants finishes turn" $ do
       breakOccupantsOfPlayer1
       startWorkingFirstWorker
       fixOccupantsOfPlayer1
@@ -142,24 +138,24 @@ universeTests = testGroup "Universe" [
       currentPlayer <- gets getCurrentPlayer
       liftIO $ Just pl @=? currentPlayer
     ,
-    flowTestCaseFailure "Player waiting for fixing occupants cannot move other worker" $ do
+    flowTestCaseFailure initialUniverse "Player waiting for fixing occupants cannot move other worker" $ do
       breakOccupantsOfPlayer1
       startWorkingFirstWorker
       worker <- getWorker 0 1
       workplace <- getWorkplace 1
       apply $ startWorking worker workplace
     ,
-    flowTestCase "Seventh workplace is cut forest" $ do
+    flowTestCase initialUniverse "Seventh workplace is cut forest" $ do
       workplaceId <- getWorkplace 6
       workplace <- gets ((M.! workplaceId) . getWorkplaces)
       liftIO $ CutForest @=? workplace
     ,
-    flowTestCase "Starting working in cut forest gets the player to cutting forest status" $ do
+    flowTestCase initialUniverse "Starting working in cut forest gets the player to cutting forest status" $ do
       startCuttingForest
       status <- getPlayerStatus <$> get <*> player1
       liftIO $ CuttingForest @=? status
     ,
-    flowTestCase "Selecting a position when cutting forest cuts forest" $ do
+    flowTestCase initialUniverse "Selecting a position when cutting forest cuts forest" $ do
       startCuttingForest
       apply $ selectPosition (0, 0) DirectionDown
       buildings <- getBuildingSpace <$> get <*> player1
@@ -167,43 +163,43 @@ universeTests = testGroup "Universe" [
       liftIO $ assertBool "No grass in (0, 1)" $ Field (0, 1) `elem` buildings
       return ()
     ,
-    flowTestCaseFailure "Selecting an invalid position when cutting forest is not allowed" $ do
+    flowTestCaseFailure initialUniverse "Selecting an invalid position when cutting forest is not allowed" $ do
       startCuttingForest
       apply $ selectPosition (5, 5) DirectionUp
     ,
-    flowTestCaseFailure "Selecting position when not cutting forest fails" $
+    flowTestCaseFailure initialUniverse "Selecting position when not cutting forest fails" $
       apply $ selectPosition (0, 0) DirectionDown
     ,
-    flowTestCase "Selecting a position when cutting forest ends turn" $ do
+    flowTestCase initialUniverse "Selecting a position when cutting forest ends turn" $ do
       startCuttingForest
       apply $ selectPosition (0, 0) DirectionDown
       currentPlayer <- gets getCurrentPlayer
       pl <- player2
       liftIO $ Just pl @=? currentPlayer
     ,
-    flowTestCaseFailure "Cancelling selection when not cutting forest causes error" $
+    flowTestCaseFailure initialUniverse "Canceling selection when not cutting forest causes error" $
       apply cancelSelection
     ,
-    flowTestCase "Cancelling selection returns worker" $ do
+    flowTestCase initialUniverse "Canceling selection returns worker" $ do
       startCuttingForest
       apply cancelSelection
       workplace <- getWorkerWorkplace <$> get <*> getWorker 0 0
       liftIO $ Nothing @=? workplace
     ,
-    flowTestCase "Cancelling selection sets player status to moving worker" $ do
+    flowTestCase initialUniverse "Canceling selection sets player status to moving worker" $ do
       startCuttingForest
       apply cancelSelection
       status <- getPlayerStatus <$> get <*> getPlayer 0
       liftIO $ MovingWorker @=? status
     ,
-    flowTestCase "Cancelling selection allows him to move worker again" $ do
+    flowTestCase initialUniverse "Canceling selection allows him to move worker again" $ do
       worker <- getWorker 0 0
       workplace <- getWorkplace 6
       apply $ startWorking worker workplace
       apply cancelSelection
       apply $ startWorking worker workplace
     ,
-    flowTestCase "Cancelling selection keeps occupant changes" $ do
+    flowTestCase initialUniverse "Canceling selection keeps occupant changes" $ do
       startCuttingForest
       player <- player1
       apply $ alterOccupants player M.empty
@@ -211,7 +207,7 @@ universeTests = testGroup "Universe" [
       occupants <- getBuildingOccupants <$> get <*> player1
       liftIO $ M.empty @=? occupants
     ,
-    flowTestCase "Cancelling selection keeps other workers" $ do
+    flowTestCase initialUniverse "Canceling selection keeps other workers" $ do
       applyStartWorking 0 0 0
       buildInFirstFreeSpace =<< getPlayer 0
       applyStartWorking 1 0 1
@@ -222,33 +218,38 @@ universeTests = testGroup "Universe" [
       workplace <- getWorkerWorkplace <$> get <*> getWorker 0 0
       liftIO $ Just expectedWorkplace @=? workplace
     ,
-    flowTestCase "Initial player has zero wood" $ do
+    flowTestCase initialUniverse "Initial player has zero wood" $ do
       resources <- getPlayerResources <$> get <*> player1
       let wood = resources ^. woodAmount
       liftIO $ 0 @=? wood
   ]
 
+breakOccupantsOfPlayer1 :: FlowTest Universe ()
 breakOccupantsOfPlayer1 = do
   workers <- getWorkers <$> get <*> player1
   pl <- player1
   apply $ alterOccupants pl (M.fromList [((1, 1), [WorkerOccupant (workers !! 1)])])
 
+fixOccupantsOfPlayer1  :: FlowTest Universe ()
 fixOccupantsOfPlayer1 = do
   workers <- getWorkers <$> get <*> player1
   pl <- player1
   apply $ alterOccupants pl (M.fromList [((3, 3), [WorkerOccupant (workers !! 0), WorkerOccupant (workers !! 1)])])
 
+startWorkingFirstWorker :: FlowTest Universe ()
 startWorkingFirstWorker = do
   workplace <- getWorkplace 0
   worker <- getWorker 0 0
   apply $ startWorking worker workplace
   buildInFirstFreeSpace =<< getPlayer 0
 
+startCuttingForest :: FlowTest Universe ()
 startCuttingForest = do
   workplaceId <- getWorkplace 6
   worker <- getWorker 0 0
   apply $ startWorking worker workplaceId
 
+applyStartWorking :: Int -> Int -> Int -> FlowTest Universe ()
 applyStartWorking playerNum workerNum workplaceNum = do
   worker <- getWorker playerNum workerNum
   workplace <- getWorkplace workplaceNum
