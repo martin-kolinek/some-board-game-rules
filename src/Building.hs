@@ -19,6 +19,7 @@ data Building =
   Forest Position |
   Grass Position |
   Rock Position |
+  Field Position |
   InitialRoom Position deriving (Show, Eq)
 
 data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight deriving (Show, Eq)
@@ -33,6 +34,7 @@ buildingPositions :: Building -> [Position]
 buildingPositions (Forest pos) = [pos]
 buildingPositions (Grass pos) = [pos]
 buildingPositions (Rock pos) = [pos]
+buildingPositions (Field pos) = [pos]
 buildingPositions (InitialRoom pos) = [pos]
 
 newtype BuildingSpace = BuildingSpace [Building] deriving (Show, Eq)
@@ -69,11 +71,11 @@ build (BuildingSpace buildings) building =
 
 cutForest :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
 cutForest position direction buildingSpace = do
-  let newPositions = [position, position ^+^ directionAddition direction]
-  buildings <- forM newPositions $ \newPosition -> do
+  let newBuildings = [(position, Grass), (position ^+^ directionAddition direction, Field)]
+  buildings <- forM newBuildings $ \(newPosition, buildingConstructor) -> do
     building <- checkMaybe "Invalid position" (getBuilding buildingSpace newPosition)
     check (isForest building) "Cutting forest not in a forest"
-    return $ Grass newPosition
+    return $ buildingConstructor newPosition
   return $ foldl' build buildingSpace buildings
 
 data BuildingOccupant = WorkerOccupant WorkerId deriving (Eq, Show, Ord)

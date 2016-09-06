@@ -17,7 +17,7 @@ buildingTests = testGroup "Building" [
     building <- getBuilding <$> get <*> pure (0, 0)
     liftIO $ Just (Grass (0, 0)) @=? building
     building <- getBuilding <$> get <*> pure (0, 1)
-    liftIO $ Just (Grass (0, 1)) @=? building
+    liftIO $ Just (Field (0, 1)) @=? building
     return ()
   ,
   flowTestCaseFailure "Building out of bounds fails" $

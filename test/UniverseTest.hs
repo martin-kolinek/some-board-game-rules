@@ -164,7 +164,7 @@ universeTests = testGroup "Universe" [
       apply $ selectPosition (0, 0) DirectionDown
       buildings <- getBuildingSpace <$> get <*> player1
       liftIO $ assertBool "No grass in (0, 0)" $ Grass (0, 0) `elem` buildings
-      liftIO $ assertBool "No grass in (0, 1)" $ Grass (0, 1) `elem` buildings
+      liftIO $ assertBool "No grass in (0, 1)" $ Field (0, 1) `elem` buildings
       return ()
     ,
     flowTestCaseFailure "Selecting an invalid position when cutting forest is not allowed" $ do
