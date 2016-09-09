@@ -11,7 +11,7 @@ import Workplace
 import Worker
 import Player
 
-getWorkplaces :: Universe -> Map WorkplaceId WorkplaceAction
+getWorkplaces :: Universe -> Map WorkplaceId WorkplaceData
 getWorkplaces = view availableWorkplaces
 
 getWorkplaceOccupants :: Universe -> WorkplaceId -> [WorkerId]
@@ -22,3 +22,6 @@ freeWorkplaces universe = universeAvailableWorkplaces \\ universeOccupiedWorkpla
   where universeOccupiedWorkplaces = catMaybes $ view currentWorkplace <$> workerStates
         universeAvailableWorkplaces = keys $ view availableWorkplaces universe
         workerStates = toListOf (players . folding elems . workers . folding elems) universe
+
+updateWorkplacesAfterTurn :: Universe -> Universe
+updateWorkplacesAfterTurn = over (availableWorkplaces . traverse) updateWorkplaceAfterTurn

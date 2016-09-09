@@ -42,5 +42,5 @@ checkOccupantsAfterTurn plData =
 stopTurn :: PlayerData -> PlayerData
 stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid . set mostRecentWorker Nothing
 
-applyAction :: WorkplaceAction -> PlayerData -> PlayerData
-applyAction CutForest playerData = set playerStatus CuttingForest playerData
+applyAction :: WorkplaceData -> PlayerData -> PlayerData
+applyAction (CutForest _) playerData = set playerStatus CuttingForest playerData

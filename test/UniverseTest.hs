@@ -43,7 +43,7 @@ universeTests = testGroup "Universe" [
     ,
     flowTestCase initialUniverse "Initial universe has six increase score workplaces" $ do
       workplaces <- getWorkplaces <$> get
-      liftIO $ replicate 12 CutForest @=? elems workplaces
+      liftIO $ replicate 12 (CutForest 3) @=? elems workplaces
     ,
     flowTestCaseFailure initialUniverse "Start working in invalid workplace causes error" $ do
       worker <- getWorker 0 0
@@ -148,7 +148,7 @@ universeTests = testGroup "Universe" [
     flowTestCase initialUniverse "Seventh workplace is cut forest" $ do
       workplaceId <- getWorkplace 6
       workplace <- gets ((M.! workplaceId) . getWorkplaces)
-      liftIO $ CutForest @=? workplace
+      liftIO $ (CutForest 3) @=? workplace
     ,
     flowTestCase initialUniverse "Starting working in cut forest gets the player to cutting forest status" $ do
       startCuttingForest
@@ -222,7 +222,37 @@ universeTests = testGroup "Universe" [
       resources <- getPlayerResources <$> get <*> player1
       let wood = resources ^. woodAmount
       liftIO $ 0 @=? wood
+    ,
+    flowTestCase initialUniverse "After selecting position wood is assigned to player" $ do
+      applyStartWorking 0 0 0
+      buildInFirstFreeSpace =<< getPlayer 0
+      resources <- getPlayerResources <$> get <*> getPlayer 0
+      let wood = resources ^. woodAmount
+      liftIO $ 3 @=? wood
+    ,
+    flowTestCase initialUniverse "After selecting position wood is removed from workplace" $ do
+      applyStartWorking 0 0 0
+      buildInFirstFreeSpace =<< getPlayer 0
+      workplaceId <- getWorkplace 0
+      workplaceMap <- gets getWorkplaces
+      liftIO $ Just (CutForest 0) @=? M.lookup workplaceId workplaceMap
+    ,
+    flowTestCase initialUniverse "After finishing single turn wood is added to workplaces" $ do
+      makeAllMovesInTurn1
+      workplaceAfterMoves <- getWorkplaceData 0
+      liftIO $ CutForest 0 @=? workplaceAfterMoves
+      apply finishTurn
+      workplaceAfterFinish <- getWorkplaceData 0
+      liftIO $ CutForest 3 @=? workplaceAfterFinish
+      lastWorkplaceAfterFinish <- getWorkplaceData 11
+      liftIO $ CutForest 4 @=? lastWorkplaceAfterFinish
   ]
+
+getWorkplaceData :: MonadState Universe m => Int -> m WorkplaceData
+getWorkplaceData workplaceNum = do
+  workplaceId <- getWorkplace workplaceNum
+  workplaceMap <- gets getWorkplaces
+  return $ workplaceMap M.! workplaceId
 
 breakOccupantsOfPlayer1 :: FlowTest Universe ()
 breakOccupantsOfPlayer1 = do

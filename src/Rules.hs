@@ -4,7 +4,7 @@ module Rules (
                 WorkplaceId,
                 PlayerId,
                 BuildingOccupants,
-                WorkplaceAction(..),
+                WorkplaceData(..),
                 BuildingOccupant(..),
                 PlayerStatus(..),
                 Building(..),

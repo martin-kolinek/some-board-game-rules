@@ -19,6 +19,9 @@ rulesTests = testGroup "Rules" [
         workplace <- gets getWorkerWorkplace <*> getWorker 0 0
         liftIO $ Nothing @=? workplace
       do
+        resources <- gets getPlayerResources <*> getPlayer 0
+        liftIO $ 0 @=? getWoodAmount resources
+      do
         worker <- getWorker 0 0
         workplace <- getWorkplace 0
         apply $ startWorking worker workplace
@@ -73,7 +76,5 @@ rulesTests = testGroup "Rules" [
         buildings <- gets getBuildingSpace <*> player1
         liftIO $ 24 @=? length availableBuildingPositions
         liftIO $ assertBool "no grass" $ Grass (0, 0) `elem` buildings
-        resources <- gets getPlayerResources <*> getPlayer 0
-        liftIO $ 0 @=? getWoodAmount resources
       return ()
   ]

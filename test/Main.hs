@@ -1,5 +1,5 @@
-import           Test.Tasty
-import           UniverseTest
+import Test.Tasty
+import UniverseTest
 import BuildingTest
 import RulesTest
 

@@ -20,8 +20,15 @@ import Workplace
 selectPosition :: MonadError String m => Position -> Direction -> Universe -> m Universe
 selectPosition position direction universe = do
   let currentPlayerStatus = universe ^? (currentPlayerData . playerStatus)
-  updatedUniverse <- mapMOf currentPlayerData (applyPosition currentPlayerStatus position direction) universe
-  return $ startNextPlayer universe updatedUniverse
+      workerToProcess = universe ^? (currentPlayerData . mostRecentWorker . traverse)
+      maybeWorkplaceToProcess = getWorkerWorkplace universe =<< workerToProcess
+  workplaceToProcess <- checkMaybe "No recent worker" maybeWorkplaceToProcess
+  let resourcesAssigned = fromMaybe undefined $ do
+        workplace <- universe ^? availableWorkplaces . ix workplaceToProcess
+        return $ over (currentPlayerData . playerResources) (assignResources workplace) universe
+  playerUpdated <- mapMOf currentPlayerData (applyPosition currentPlayerStatus position direction) resourcesAssigned
+  let clearedWorkplace = over (availableWorkplaces . ix workplaceToProcess) clearWorkspace playerUpdated
+  return $ startNextPlayer universe clearedWorkplace
 
 applyPosition :: MonadError String m => Maybe PlayerStatus -> Position -> Direction -> PlayerData -> m PlayerData
 applyPosition (Just CuttingForest) position direction plData = stopTurn <$> mapMOf buildingSpace (cutForest position direction) plData
@@ -71,7 +78,9 @@ startWorking workerId workplaceId universe = do
 
 finishTurn :: MonadError String m => Universe -> m Universe
 finishTurn universe = do
+  let allPlayersWaiting = hasn't (players . traverse . playerStatus . filtered (/= Waiting)) universe
   check allPlayersWaiting "Not every player finished"
   let withWorkersFreed = set (players . traverse . workers . traverse) initialWorkerState universe
-  return $ set (taking 1 (players . traverse) . playerStatus) MovingWorker withWorkersFreed
-  where allPlayersWaiting = hasn't (players . traverse . playerStatus . filtered (/= Waiting)) universe
+      withFirstPlayerMovingWorker = set (taking 1 (players . traverse) . playerStatus) MovingWorker withWorkersFreed
+      withUpdatedWorkplaces = updateWorkplacesAfterTurn withFirstPlayerMovingWorker
+  return withUpdatedWorkplaces

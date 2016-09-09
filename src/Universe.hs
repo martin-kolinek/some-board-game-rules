@@ -14,14 +14,14 @@ import Data.Map
 import Control.Lens
 
 data Universe = Universe {
-  _availableWorkplaces :: Map WorkplaceId WorkplaceAction,
+  _availableWorkplaces :: Map WorkplaceId WorkplaceData,
   _players :: Map PlayerId PlayerData
 } deriving (Show)
 
 makeLenses ''Universe
 
-createWorkplaces :: Int -> Map WorkplaceId WorkplaceAction
-createWorkplaces count = fromList [(WorkplaceId i, CutForest) | i <- [0 .. count - 1]]
+createWorkplaces :: Int -> Map WorkplaceId WorkplaceData
+createWorkplaces count = fromList [(WorkplaceId i, updateWorkplaceAfterTurn (CutForest 0)) | i <- [0 .. count - 1]]
 
 createWorkers :: Int -> Int -> Map WorkerId WorkerState
 createWorkers initial count = fromList [(WorkerId i, initialWorkerState) | i <- [initial .. initial + count - 1]]
