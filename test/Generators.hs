@@ -3,8 +3,10 @@ module Generators where
 import Prelude hiding (lookup)
 import Test.QuickCheck
 import Data.Map.Strict (fromList, Map, keys, fromListWith, lookup)
+import qualified Data.Set as S
 import Data.List ((\\))
 import Control.Monad (forM, join, foldM)
+import Text.Show.Pretty
 
 import Universe hiding (players)
 import Workplace
@@ -12,8 +14,12 @@ import Worker
 import Player hiding (playerId, workers, playerResources)
 import Building
 import Resources
+import Universe.Player (getPlayers)
 
 newtype ArbitraryUniverse = ArbitraryUniverse Universe
+
+instance Show ArbitraryUniverse where
+  show (ArbitraryUniverse u) = ppShow u
 
 generateWorkplaceData :: Gen WorkplaceData
 generateWorkplaceData = do
@@ -30,17 +36,20 @@ generateWorkplaces minNumber = do
 generateBuildingSpace :: Gen BuildingSpace
 generateBuildingSpace = do
   cutForestCount <- choose (0, 12) :: Gen Int
-  let findNextCandidates (sx, sy) = filter isValid [(sx+1, sy), (sx-1, sy), (sx, sy+1), (sx, sy-1)]
+  let findNextCandidates (sx, sy) = S.filter isValid $ S.fromList [(sx+1, sy), (sx-1, sy), (sx, sy+1), (sx, sy-1)]
         where isValid (x, y) = x >=0 && x <=2 && y >= 0 && y <= 3
       expand (candidates, current) _ = do
-        chosen <- elements candidates
-        return ((candidates \\ [chosen]) ++ findNextCandidates chosen, chosen : current)
-  (_, cutPositions) <- foldM expand ([(2, 3)], []) [1..cutForestCount]
-  forestBuildings <- forM cutPositions $ \position ->
+        chosen <- elements $ S.toList candidates
+        let nextCurrent = S.insert chosen current
+        let nextCandidates = (candidates `S.union` findNextCandidates chosen) `S.difference` nextCurrent
+        return (nextCandidates, nextCurrent)
+  (_, cutPositions) <- foldM expand (S.singleton (2, 3), S.empty) [1..cutForestCount]
+  cutForestBuildings <- forM (S.toList cutPositions) $ \position ->
     elements [Field position, Grass position]
   let rocks = [Rock (x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)]
       initialRoom = [InitialRoom (3, 3), InitialRoom (3, 2)]
-  return $ BuildingSpace (forestBuildings ++ rocks ++ initialRoom)
+      forestBuildings = Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
+  return $ BuildingSpace (cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom)
 
 generateValidOccupants :: [WorkerId] -> Gen BuildingOccupants
 generateValidOccupants workerIds = do
@@ -77,6 +86,9 @@ generateResources = Resources
   <*> choose (0, 1000)
   <*> choose (0, 1000)
 
+genPlayers :: Universe -> Gen PlayerId
+genPlayers universe = elements $ getPlayers universe
+
 instance Arbitrary ArbitraryUniverse where
   arbitrary = do
     playerCount <- choose (1, 7) :: Gen Int
@@ -96,7 +108,7 @@ instance Arbitrary ArbitraryUniverse where
     otherPlayerData <- forM (playerIds \\ [currentPlayerId]) $ \playerId@(PlayerId num) -> do
       workerCount <- choose (1, 4)
       workerIds <- shuffle $ WorkerId <$> [num*4 + 1..num*4 + workerCount]
-      freeWorkerCount <- choose (if currentPlayerStatus == Waiting then workerCount else 0, workerCount)
+      freeWorkerCount <- choose (0, if currentPlayerStatus == Waiting then 0 else workerCount)
       let (freeWorkers, busyWorkers) = splitAt freeWorkerCount workerIds
       return (playerId, freeWorkers, busyWorkers)
     let allBusyWorkers = busyCurrentPlayerWorkers ++ join ((\(_, _, x) -> x) <$> otherPlayerData)
