@@ -20,15 +20,9 @@ import Workplace
 selectPosition :: MonadError String m => Position -> Direction -> Universe -> m Universe
 selectPosition position direction universe = do
   let currentPlayerStatus = universe ^? (currentPlayerData . playerStatus)
-      workerToProcess = universe ^? (currentPlayerData . mostRecentWorker . traverse)
-      maybeWorkplaceToProcess = getWorkerWorkplace universe =<< workerToProcess
-  workplaceToProcess <- checkMaybe "No recent worker" maybeWorkplaceToProcess
-  let resourcesAssigned = fromMaybe undefined $ do
-        workplace <- universe ^? availableWorkplaces . ix workplaceToProcess
-        return $ over (currentPlayerData . playerResources) (assignResources workplace) universe
-  playerUpdated <- mapMOf currentPlayerData (applyPosition currentPlayerStatus position direction) resourcesAssigned
-  let clearedWorkplace = over (availableWorkplaces . ix workplaceToProcess) clearWorkspace playerUpdated
-  return $ startNextPlayer universe clearedWorkplace
+  check (has currentPlayerData universe) "Currently not needing position"
+  playerUpdated <- mapMOf currentPlayerData (applyPosition currentPlayerStatus position direction) universe
+  return $ startNextPlayer universe playerUpdated
 
 applyPosition :: MonadError String m => Maybe PlayerStatus -> Position -> Direction -> PlayerData -> m PlayerData
 applyPosition (Just CuttingForest) position direction plData = stopTurn <$> mapMOf buildingSpace (cutForest position direction) plData
@@ -39,9 +33,8 @@ cancelSelection universe =
   checkMaybe "Nothing to cancel" $ do
     currentPlayerStatus <- universe ^? (currentPlayerData . playerStatus)
     guard (currentPlayerStatus == CuttingForest)
-    workerToRestore <- universe ^? (currentPlayerData . mostRecentWorker . traverse)
-    let playerDataModification = set (workers . ix workerToRestore) (WorkerState Nothing) . set playerStatus MovingWorker . set mostRecentWorker Nothing
-    return $ over currentPlayerData playerDataModification universe
+    let universeWithPlayerWaiting = set (currentPlayerData . playerStatus) Waiting universe
+    return $ startNextPlayer universe universeWithPlayerWaiting
 
 alterOccupants :: MonadError String m => PlayerId -> BuildingOccupants -> Universe -> m Universe
 alterOccupants player occupants universe =
@@ -66,7 +59,8 @@ startWorking workerId workplaceId universe = do
   let withAssignedWorker = over currentWorkerState setWorkplace universe
       withLastWorker = set (currentPlayerData . mostRecentWorker) (Just workerId) withAssignedWorker
       withAppliedAction = over currentPlayerData (applyAction workplaceAction) withLastWorker
-  return $ startNextPlayer withLastWorker withAppliedAction
+      withClearedWorkplace = over (availableWorkplaces . ix workplaceId) clearWorkspace withAppliedAction
+  return $ startNextPlayer withLastWorker withClearedWorkplace
   where currentWorkerState :: Traversal' Universe WorkerState
         currentWorkerState = workerState workerId
         workerExists = notNullOf currentWorkerState universe

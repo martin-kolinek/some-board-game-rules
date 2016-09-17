@@ -108,7 +108,7 @@ instance Arbitrary ArbitraryUniverse where
     otherPlayerData <- forM (playerIds \\ [currentPlayerId]) $ \playerId@(PlayerId num) -> do
       workerCount <- choose (1, 4)
       workerIds <- shuffle $ WorkerId <$> [num*4 + 1..num*4 + workerCount]
-      freeWorkerCount <- choose (0, if currentPlayerStatus == Waiting then 0 else workerCount)
+      freeWorkerCount <- oneof [elements [0], choose (0, if currentPlayerStatus == Waiting then 0 else workerCount)]
       let (freeWorkers, busyWorkers) = splitAt freeWorkerCount workerIds
       return (playerId, freeWorkers, busyWorkers)
     let allBusyWorkers = busyCurrentPlayerWorkers ++ join ((\(_, _, x) -> x) <$> otherPlayerData)

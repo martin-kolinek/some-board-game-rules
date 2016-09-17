@@ -22,7 +22,10 @@ data Building =
   Field Position |
   InitialRoom Position deriving (Show, Eq)
 
-data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight deriving (Show, Eq)
+data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight deriving (Show, Eq, Enum, Ord)
+
+allDirections :: [Direction]
+allDirections = [DirectionUp .. DirectionRight]
 
 directionAddition :: Direction -> (Int, Int)
 directionAddition DirectionUp = (0, -1)
@@ -95,7 +98,8 @@ areOccupantsValid allOccupants (BuildingSpace buildings) occupants = snd $ runWr
         buildingOccupants = concat $ catMaybes $ (`M.lookup` occupants) <$> positions
     areBuildingOccupantsValid building buildingOccupants
   let positionedOccupants = concat $ M.elems occupants
-  checkWriter (null $ positionedOccupants \\ allOccupants) ("Not everyone has a place", (0, 0))
+  checkWriter (null $ allOccupants \\ positionedOccupants) ("Not everyone has a place", (0, 0))
+  checkWriter (nub positionedOccupants == positionedOccupants) ("Occupant in multiple places", (0, 0))
   return ()
 
 initialOccupants :: [BuildingOccupant] -> BuildingSpace -> BuildingOccupants

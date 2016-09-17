@@ -180,44 +180,6 @@ universeTests = testGroup "Universe" [
     flowTestCaseFailure initialUniverse "Canceling selection when not cutting forest causes error" $
       apply cancelSelection
     ,
-    flowTestCase initialUniverse "Canceling selection returns worker" $ do
-      startCuttingForest
-      apply cancelSelection
-      workplace <- getWorkerWorkplace <$> get <*> getWorker 0 0
-      liftIO $ Nothing @=? workplace
-    ,
-    flowTestCase initialUniverse "Canceling selection sets player status to moving worker" $ do
-      startCuttingForest
-      apply cancelSelection
-      status <- getPlayerStatus <$> get <*> getPlayer 0
-      liftIO $ MovingWorker @=? status
-    ,
-    flowTestCase initialUniverse "Canceling selection allows him to move worker again" $ do
-      worker <- getWorker 0 0
-      workplace <- getWorkplace 6
-      apply $ startWorking worker workplace
-      apply cancelSelection
-      apply $ startWorking worker workplace
-    ,
-    flowTestCase initialUniverse "Canceling selection keeps occupant changes" $ do
-      startCuttingForest
-      player <- player1
-      apply $ alterOccupants player M.empty
-      apply cancelSelection
-      occupants <- getBuildingOccupants <$> get <*> player1
-      liftIO $ M.empty @=? occupants
-    ,
-    flowTestCase initialUniverse "Canceling selection keeps other workers" $ do
-      applyStartWorking 0 0 0
-      buildInFirstFreeSpace =<< getPlayer 0
-      applyStartWorking 1 0 1
-      buildInFirstFreeSpace =<< getPlayer 1
-      applyStartWorking 0 1 6
-      apply cancelSelection
-      expectedWorkplace <- getWorkplace 0
-      workplace <- getWorkerWorkplace <$> get <*> getWorker 0 0
-      liftIO $ Just expectedWorkplace @=? workplace
-    ,
     flowTestCase initialUniverse "Initial player has zero wood" $ do
       resources <- getPlayerResources <$> get <*> player1
       let wood = resources ^. woodAmount

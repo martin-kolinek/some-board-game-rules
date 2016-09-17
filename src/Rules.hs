@@ -23,6 +23,7 @@ module Rules (
                 getOccupantErrors,
                 getPlayerStatus,
                 directionAddition,
+                allDirections,
                 availableBuildingPositions,
                 initialUniverse,
                 startWorking,

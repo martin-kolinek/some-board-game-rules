@@ -1,12 +1,13 @@
 module ArbitraryUniverseTest where
 
-import Control.Lens hiding (universe)
+import Control.Lens hiding (universe, elements)
 import Test.Tasty.QuickCheck
 import Test.Tasty
-import Data.List (nub)
+import Data.List (nub, (\\))
 import Data.Map (toList, keys)
 import Data.Maybe (isJust, fromJust, fromMaybe, isNothing)
 import qualified Data.Set as S
+import Data.Either (isLeft)
 
 import Universe
 import Building
@@ -15,6 +16,7 @@ import Generators
 import Worker
 import Workplace
 import Universe.Building
+import Universe.Actions
 
 arbitraryUniverseTests :: TestTree
 arbitraryUniverseTests = testGroup "Arbitrary universe tests" [
@@ -40,8 +42,7 @@ arbitraryUniverseTests = testGroup "Arbitrary universe tests" [
           prop (ArbitraryUniverse universe) = allOf (players . traverse . buildingSpace) noBuildingsOverlap universe
       in prop,
     testProperty "When all players are waiting then all workers are busy" $
-      let allPlayersWaiting = allOf (players . traverse . playerStatus) (==Waiting)
-          allWorkersBusy = allOf (players . traverse . workers . traverse . currentWorkplace) isJust
+      let allWorkersBusy = allOf (players . traverse . workers . traverse . currentWorkplace) isJust
           prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> allWorkersBusy universe
       in prop,
     testProperty "If a player is in InvalidOccupants state then he has invalid occupants" $
@@ -70,6 +71,49 @@ arbitraryUniverseTests = testGroup "Arbitrary universe tests" [
       in prop,
     testProperty "WorkerIds are unique" $
       let prop (ArbitraryUniverse universe) = nub workerIds == workerIds
-            where workerIds = toListOf (players . traverse . workers . to keys) universe
+            where workerIds = toListOf (players . traverse . workers . to keys . traverse) universe
+      in prop,
+    testProperty "WorkerIds are positive" $
+      let isWorkerIdPositive (WorkerId number) = number > 0
+          prop (ArbitraryUniverse universe) = allOf (players . traverse . workers . to keys . traverse) isWorkerIdPositive universe
+      in prop,
+    testProperty "WorkplaceIds are unique" $
+      let prop (ArbitraryUniverse universe) = nub workplaceIds == workplaceIds
+            where workplaceIds = toListOf (availableWorkplaces . to keys . traverse) universe
+      in prop,
+    testProperty "WorkplaceIds are positive" $
+      let isWorkplaceIdPositive (WorkplaceId number) = number > 0
+          prop (ArbitraryUniverse universe) = allOf (availableWorkplaces . to keys . traverse) isWorkplaceIdPositive universe
+      in prop,
+    testProperty "Start working with invalid worker causes error" $
+      let prop (ArbitraryUniverse universe) = emptyWorkplaceAvailable ==> isLeft $ startWorking (WorkerId (-5)) emptyWorkplace universe
+            where emptyWorkplaceAvailable = not . null $ findEmptyWorkplaces universe
+                  emptyWorkplace = head $ findEmptyWorkplaces universe
+      in prop,
+    testProperty "Start working in invalid workplace causes error" $
+      let prop (ArbitraryUniverse universe) = movableWorkerAvailable ==> isLeft $ startWorking workerToMove (WorkplaceId (-5)) universe
+            where movableWorkerAvailable = not . null $ findWorkersToMove universe
+                  workerToMove = head $ findWorkersToMove universe
       in prop
   ]
+
+findEmptyWorkplaces :: Universe -> [WorkplaceId]
+findEmptyWorkplaces universe = availableWorkplaceIds \\ (findOccupiedWorkplaces universe)
+  where availableWorkplaceIds = toListOf (availableWorkplaces . to keys . traverse) universe
+
+findOccupiedWorkplaces :: Universe -> [WorkplaceId]
+findOccupiedWorkplaces = toListOf (players . traverse . workers . traverse . currentWorkplace . traverse)
+
+findWorkersToMove :: Universe -> [WorkerId]
+findWorkersToMove universe =
+  toListOf (players
+            . traverse
+            . filtered (has $ playerStatus . filtered (==MovingWorker))
+            . workers
+            . to toList
+            . traverse
+            . filtered (has $ _2 . currentWorkplace . filtered isNothing)
+            . _1) universe
+
+allPlayersWaiting :: Universe -> Bool
+allPlayersWaiting = allOf (players . traverse . playerStatus) (==Waiting)
