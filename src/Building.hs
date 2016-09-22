@@ -99,6 +99,7 @@ areOccupantsValid allOccupants (BuildingSpace buildings) occupants = snd $ runWr
     areBuildingOccupantsValid building buildingOccupants
   let positionedOccupants = concat $ M.elems occupants
   checkWriter (null $ allOccupants \\ positionedOccupants) ("Not everyone has a place", (0, 0))
+  checkWriter (null $ positionedOccupants \\ allOccupants) ("There's someone who shouldn't be there", (0, 0))
   checkWriter (nub positionedOccupants == positionedOccupants) ("Occupant in multiple places", (0, 0))
   return ()
 

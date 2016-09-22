@@ -244,6 +244,19 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
               return $ not $ null errors
             where playersWithFreeBuilding = [plId | plId <- getPlayers universe, length (getWorkers universe plId) <= 3]
                   originalOccupants playerId = join $ elems $ getBuildingOccupants universe playerId
+      in prop,
+    testProperty "Having same occupant multiple times causes an error" $
+      let prop (ArbitraryUniverse universe) = playersWithFreeBuilding /= [] ==>
+            forAll (elements $ playersWithFreeBuilding) $ \playerId ->
+            forAll (elements $ getPlayers universe \\ [playerId]) $ \otherPlayerId ->
+            forAll (elements $ originalOccupants otherPlayerId) $ \occupant ->
+            either (const False) id $ do
+              let newOccupants = fromList $ zip [(3, 2), (3, 3)] (chunksOf 2 (originalOccupants playerId ++ [occupant]))
+              nextUniverse <- alterOccupants playerId newOccupants universe
+              let errors = getOccupantErrors nextUniverse playerId
+              return $ not $ null errors
+            where playersWithFreeBuilding = [plId | plId <- getPlayers universe, length (getWorkers universe plId) <= 3]
+                  originalOccupants playerId = join $ elems $ getBuildingOccupants universe playerId
       in prop
   ]
 
