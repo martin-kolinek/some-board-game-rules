@@ -20,6 +20,8 @@ data Building =
   Grass Position |
   Rock Position |
   Field Position |
+  Cave Position |
+  Passage Position |
   InitialRoom Position deriving (Show, Eq)
 
 data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight deriving (Show, Eq, Enum, Ord)
@@ -39,6 +41,8 @@ buildingPositions (Grass pos) = [pos]
 buildingPositions (Rock pos) = [pos]
 buildingPositions (Field pos) = [pos]
 buildingPositions (InitialRoom pos) = [pos]
+buildingPositions (Cave pos) = [pos]
+buildingPositions (Passage pos) = [pos]
 
 newtype BuildingSpace = BuildingSpace [Building] deriving (Show, Eq)
 
@@ -78,11 +82,24 @@ isDevelopedOutside (Grass _) = True
 isDevelopedOutside (InitialRoom _) = True
 isDevelopedOutside _ = False
 
+isDevelopedInside :: Building -> Bool
+isDevelopedInside (Cave _) = True
+isDevelopedInside (Passage _) = True
+isDevelopedInside (InitialRoom _) = True
+isDevelopedInside _ = False
+
 cutForest :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
-cutForest position direction buildingSpace = do
-  let newBuildings = [(position, Grass), (position ^+^ directionAddition direction, Field)]
-      neighbourBuildings pos = catMaybes $ getBuilding buildingSpace <$> [pos ^+^ directionAddition dir | dir <- allDirections]
-      hasDevelopedNeighbours pos = any isDevelopedOutside (neighbourBuildings pos)
+cutForest position direction buildingSpace =
+  buildNewBuildings buildingSpace isDevelopedOutside [(position, Grass), (position ^+^ directionAddition direction, Field)]
+
+buildPassage :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
+buildPassage position direction buildingSpace =
+  buildNewBuildings buildingSpace isDevelopedInside [(position, Cave), (position ^+^ directionAddition direction, Passage)]
+
+buildNewBuildings :: MonadError String m => BuildingSpace -> (Building -> Bool) -> [(Position, Position -> Building)] -> m BuildingSpace
+buildNewBuildings buildingSpace developmentCheck newBuildings = do
+  let neighbourBuildings pos = catMaybes $ getBuilding buildingSpace <$> [pos ^+^ directionAddition dir | dir <- allDirections]
+      hasDevelopedNeighbours pos = any developmentCheck (neighbourBuildings pos)
   check (any (hasDevelopedNeighbours . fst) newBuildings) "Cannot reach yet"
   buildings <- forM newBuildings $ \(newPosition, buildingConstructor) -> do
     building <- checkMaybe "Invalid position" (getBuilding buildingSpace newPosition)
