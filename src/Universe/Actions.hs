@@ -57,10 +57,9 @@ startWorking workerId workplaceId universe = do
   workplaceAction <- checkMaybe "Workplace does not exist" (workplaceId `lookup` view availableWorkplaces universe)
   check workplaceEmpty "Workplace occupied"
   let withAssignedWorker = over currentWorkerState setWorkplace universe
-      withLastWorker = set (currentPlayerData . mostRecentWorker) (Just workerId) withAssignedWorker
-      withAppliedAction = over currentPlayerData (applyAction workplaceAction) withLastWorker
+      withAppliedAction = over currentPlayerData (applyAction workplaceAction) withAssignedWorker
       withClearedWorkplace = over (availableWorkplaces . ix workplaceId) clearWorkspace withAppliedAction
-  return $ startNextPlayer withLastWorker withClearedWorkplace
+  return $ startNextPlayer withAssignedWorker withClearedWorkplace
   where currentWorkerState :: Traversal' Universe WorkerState
         currentWorkerState = workerState workerId
         workerExists = notNullOf currentWorkerState universe

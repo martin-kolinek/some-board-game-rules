@@ -29,7 +29,7 @@ createWorkers initial count = fromList [(WorkerId i, initialWorkerState) | i <- 
 createPlayers :: [Int] -> Map PlayerId PlayerData
 createPlayers numbersOfWorkers = fromList
   [(PlayerId i,
-    PlayerData (PlayerId i) (createWorkers initial count) initialBuildingSpace empty (if i == 0 then MovingWorker else Waiting) Nothing initialResources)
+    PlayerData (PlayerId i) (createWorkers initial count) initialBuildingSpace empty (if i == 0 then MovingWorker else Waiting) initialResources)
       | (i, count, initial) <- zip3 [0..] numbersOfWorkers (scanl (+) 0 numbersOfWorkers)]
 
 initialUniverse :: Universe

@@ -17,7 +17,6 @@ data PlayerData = PlayerData {
   _buildingSpace :: BuildingSpace,
   _buildingOccupants :: BuildingOccupants,
   _playerStatus :: PlayerStatus,
-  _mostRecentWorker :: Maybe WorkerId,
   _playerResources :: Resources
 } deriving (Show, Eq)
 
@@ -40,7 +39,7 @@ checkOccupantsAfterTurn plData =
   in if occupantsValid && status == OccupantsInvalid then set playerStatus Waiting plData else plData
 
 stopTurn :: PlayerData -> PlayerData
-stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid . set mostRecentWorker Nothing
+stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid
 
 applyAction :: WorkplaceData -> PlayerData -> PlayerData
 applyAction workplaceData@(CutForest _) = over playerResources (assignResources workplaceData) . set playerStatus CuttingForest

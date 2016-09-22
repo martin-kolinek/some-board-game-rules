@@ -110,7 +110,6 @@ instance Arbitrary ArbitraryUniverse where
     freeCurrentPlayerWorkerCount <- choose (minWorkersFree, length currentPlayerWorkers - minWorkersCuttingForest)
     otherPlayersFinished <- frequency [(1, elements [False]), (4, elements [True])]
     let (freeCurrentPlayerWorkers, busyCurrentPlayerWorkers) = splitAt freeCurrentPlayerWorkerCount currentPlayerWorkers
-    mostRecentWorkerId <- if currentPlayerStatus == CuttingForest then elements (Just <$> busyCurrentPlayerWorkers) else return Nothing
     otherPlayerData <- forM (playerIds \\ [currentPlayerId]) $ \playerId@(PlayerId num) -> do
       workerCount <- choose (1, 4)
       workerIds <- shuffle $ WorkerId <$> [num*4 + 1..num*4 + workerCount]
@@ -133,7 +132,6 @@ instance Arbitrary ArbitraryUniverse where
                        currentPlayerBuildingSpace
                        currentPlayerOccupants
                        currentPlayerStatus
-                       mostRecentWorkerId
                        currentPlayerResources)
     otherPlayers <- forM (playerIds \\ [currentPlayerId]) $ \playerId -> do
       let playerWorkers = [workerId | (plId, busyWorkers, freeWorkers) <- otherPlayerData, plId == playerId, workerId <- busyWorkers ++ freeWorkers]
@@ -146,7 +144,6 @@ instance Arbitrary ArbitraryUniverse where
                             playerBuildingSpace
                             playerOccupants
                             Waiting
-                            Nothing
                             playerResources)
     let players = fromList $ otherPlayers ++ [currentPlayerData]
     return $ ArbitraryUniverse $ Universe workplaces players
