@@ -94,6 +94,18 @@ arbitraryUniverseTests = testGroup "Arbitrary universe tests" [
       let prop (ArbitraryUniverse universe) = movableWorkerAvailable ==> isLeft $ startWorking workerToMove (WorkplaceId (-5)) universe
             where movableWorkerAvailable = not . null $ findWorkersToMove universe
                   workerToMove = head $ findWorkersToMove universe
+      in prop,
+    testProperty "Caves exist" $
+      let prop (ArbitraryUniverse universe) =
+            has (players . traverse . buildingSpace . to getBuildings . traverse . filtered isCave) universe ==> True
+            where isCave (Cave _) = True
+                  isCave _ = False
+      in prop,
+    testProperty "Passages exist" $
+      let prop (ArbitraryUniverse universe) =
+            has (players . traverse . buildingSpace . to getBuildings . traverse . filtered isPassage) universe ==> True
+            where isPassage (Passage _) = True
+                  isPassage _ = False
       in prop
   ]
 

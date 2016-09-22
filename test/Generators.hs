@@ -36,20 +36,25 @@ generateWorkplaces minNumber = do
 generateBuildingSpace :: Gen BuildingSpace
 generateBuildingSpace = do
   cutForestCount <- choose (0, 12) :: Gen Int
-  let findNextCandidates (sx, sy) = S.filter isValid $ S.fromList [(sx+1, sy), (sx-1, sy), (sx, sy+1), (sx, sy-1)]
-        where isValid (x, y) = x >=0 && x <=2 && y >= 0 && y <= 3
-      expand (candidates, current) _ = do
+  dugRockCount <- choose (0, 10) :: Gen Int
+  let isValidForest (x, y) = x >=0 && x <=2 && y >= 0 && y <= 3
+      isValidRock (x, y) = x >= 3 && x <= 5 && y >= 0 && y <= 3 && (x, y) /= (3, 3) && (x, y) /= (3, 2)
+      findNextCandidates isValid (sx, sy) = S.filter isValid $ S.fromList [(sx+1, sy), (sx-1, sy), (sx, sy+1), (sx, sy-1)]
+      expand isValid (candidates, current) _ = do
         chosen <- elements $ S.toList candidates
         let nextCurrent = S.insert chosen current
-        let nextCandidates = (candidates `S.union` findNextCandidates chosen) `S.difference` nextCurrent
+        let nextCandidates = (candidates `S.union` findNextCandidates isValid chosen) `S.difference` nextCurrent
         return (nextCandidates, nextCurrent)
-  (_, cutPositions) <- foldM expand (S.singleton (2, 3), S.empty) [1..cutForestCount]
+  (_, cutPositions) <- foldM (expand isValidForest) (S.singleton (2, 3), S.empty) [1..cutForestCount]
+  (_, dugPositions) <- foldM (expand isValidRock) (S.fromList [(4, 3), (4, 2), (3, 1)], S.empty) [1..dugRockCount]
   cutForestBuildings <- forM (S.toList cutPositions) $ \position ->
     elements [Field position, Grass position]
-  let rocks = [Rock (x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)]
+  dugRockBuildings <- forM (S.toList dugPositions) $ \position ->
+    elements [Passage position, Cave position]
+  let rocks = Rock <$> S.toList (S.fromList [(x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)] S.\\ dugPositions)
       initialRoom = [InitialRoom (3, 3), InitialRoom (3, 2)]
       forestBuildings = Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
-  return $ BuildingSpace (cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom)
+  return $ BuildingSpace (cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom ++ dugRockBuildings)
 
 generateValidOccupants :: [WorkerId] -> Gen BuildingOccupants
 generateValidOccupants workerIds = do
