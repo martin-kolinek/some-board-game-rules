@@ -72,9 +72,18 @@ build (BuildingSpace buildings) building =
       originalPositionsOccupied = (buildingPositions =<< buildings) == newPositions
   in BuildingSpace $ assert (notOverlapping && originalPositionsOccupied) $ building : filtered
 
+isDevelopedOutside :: Building -> Bool
+isDevelopedOutside (Field _) = True
+isDevelopedOutside (Grass _) = True
+isDevelopedOutside (InitialRoom _) = True
+isDevelopedOutside _ = False
+
 cutForest :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
 cutForest position direction buildingSpace = do
   let newBuildings = [(position, Grass), (position ^+^ directionAddition direction, Field)]
+      neighbourBuildings pos = catMaybes $ getBuilding buildingSpace <$> [pos ^+^ directionAddition dir | dir <- allDirections]
+      hasDevelopedNeighbours pos = any isDevelopedOutside (neighbourBuildings pos)
+  check (any (hasDevelopedNeighbours . fst) newBuildings) "Cannot reach yet"
   buildings <- forM newBuildings $ \(newPosition, buildingConstructor) -> do
     building <- checkMaybe "Invalid position" (getBuilding buildingSpace newPosition)
     check (isForest building) "Cutting forest not in a forest"

@@ -9,16 +9,6 @@ import Test.Tasty.HUnit as H
 
 buildingTests :: TestTree
 buildingTests = testGroup "Building" [
-  flowTestCase initialBuildingSpace "Cutting down a forest results in grass" $ do
-    do
-      apply $ cutForest (0, 0) DirectionDown
-      building <- getBuilding <$> get <*> pure (0, 0)
-      liftIO $ Just (Grass (0, 0)) @=? building
-    do
-      building <- getBuilding <$> get <*> pure (0, 1)
-      liftIO $ Just (Field (0, 1)) @=? building
-    return ()
-  ,
   flowTestCaseFailure initialBuildingSpace "Building out of bounds fails" $
     apply $ cutForest (-5, -5) DirectionUp
   ,

@@ -65,24 +65,26 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             in workplaceIsNotEmpty && allWorkersWorkInWorkplace
       in prop,
     testProperty "Next player moves worker after cutting forest" $
-      let prop (ArbitraryUniverse universe) = currentPlayerCanPlaceForest universe && nextPlayerHasWorker && currentPlayerHasValidOccupants universe
-                                                ==> nextPlayerMovesWorkerAfterTurn
+      let prop (ArbitraryUniverse universe) = cutForestLocations /= [] && nextPlayerHasWorker && currentPlayerHasValidOccupants universe
+            ==> forAll (elements cutForestLocations) $ \(pos, dir) ->
+            either (const False) id $ do
+              universeAfterSelect <- selectPosition pos dir universe
+              return $ (getPlayerStatus universeAfterSelect <$> nextPlayerId) == Just MovingWorker
             where nextPlayerHasWorker = any (isNothing . getWorkerWorkplace universe) $ (join . maybeToList) $ getWorkers universe <$> nextPlayerId
-                  nextPlayerMovesWorkerAfterTurn = either (const False) id $ do
-                    universeAfterSelect <- selectPosition (0, 0) DirectionDown universe
-                    return $ (getPlayerStatus universeAfterSelect <$> nextPlayerId) == Just MovingWorker
                   currentPlayerId = getCurrentPlayer universe
                   nextPlayerId = (head . tail) $ dropWhile (/= currentPlayerId) $ Just <$> (cycle $ getPlayers universe)
+                  cutForestLocations = currentPlayerCutForestLocations universe
       in prop,
     testProperty "No next player after moving last worker" $
       let prop (ArbitraryUniverse universe) =
-            allWorkersPlayersWorking && currentPlayerCanPlaceForest universe && currentPlayerHasValidOccupants universe
-            ==> noNextPlayerAfterTurn
+            allWorkersPlayersWorking && cutForestLocations /= [] && currentPlayerHasValidOccupants universe
+            ==> forAll (elements cutForestLocations) $ \(pos, dir) ->
+                  either (const False) id $ do
+                    nextUniverse <- selectPosition pos dir universe
+                    return $ getCurrentPlayer nextUniverse == Nothing
             where allWorkersPlayersWorking =
                     null [wId | pId <- getPlayers universe, wId <- getWorkers universe pId, getWorkerWorkplace universe wId == Nothing]
-                  noNextPlayerAfterTurn = either (const False) id $ do
-                    nextUniverse <- selectPosition (0, 0) DirectionDown universe
-                    return $ getCurrentPlayer nextUniverse == Nothing
+                  cutForestLocations = currentPlayerCutForestLocations universe
       in prop,
     testProperty "Next player is first player after finishing turn" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> firstPlayerTurnAfterFinish
@@ -91,11 +93,14 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                     return $ getPlayerStatus nextUniverse (head $ getPlayers nextUniverse) == MovingWorker
       in prop,
     testProperty "Cutting a forest with invalid occupants makes OccupantsInvalid status" $
-      let prop (ArbitraryUniverse universe) = currentPlayerCanPlaceForest universe && not (currentPlayerHasValidOccupants universe) ==> either (const False) id $ do
-            nextUniverse <- selectPosition (0, 0) DirectionDown universe
-            let currentPlayerId = getCurrentPlayer universe
-                nextStatus = getPlayerStatus nextUniverse <$> currentPlayerId
-            return $ nextStatus == Just OccupantsInvalid
+      let prop (ArbitraryUniverse universe) = cutForestPositions /= [] && not (currentPlayerHasValidOccupants universe) ==>
+            forAll (elements cutForestPositions) $ \(pos, dir) ->
+            either (const False) id $ do
+              nextUniverse <- selectPosition pos dir universe
+              let currentPlayerId = getCurrentPlayer universe
+                  nextStatus = getPlayerStatus nextUniverse <$> currentPlayerId
+              return $ nextStatus == Just OccupantsInvalid
+            where cutForestPositions = currentPlayerCutForestLocations universe
       in prop,
     testProperty "Fixing occupants in invalid occupants starts next player" $
       let prop (ArbitraryUniverse universe) = currentPlayerIsInInvalidOccupantsState ==> either (error) id $ do
@@ -260,20 +265,24 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       in prop
   ]
 
-currentPlayerCanPlaceForest :: Universe -> Bool
-currentPlayerCanPlaceForest universe = fromMaybe False $ do
+currentPlayerCutForestLocations :: Universe -> [(Position, Direction)]
+currentPlayerCutForestLocations universe = do
   let currentPlayerId = getCurrentPlayer universe
-  cPlId <- currentPlayerId
-  let buildingSpace = getBuildingSpace universe cPlId
-      currentPlayerCuttingForest = (getPlayerStatus universe <$> currentPlayerId) == Just CuttingForest
-  return $ currentPlayerCuttingForest && Forest (0, 0) `elem` buildingSpace && Forest (0, 1) `elem` buildingSpace
+  cPlId <- maybeToList currentPlayerId
+  let currentPlayerCuttingForest = (getPlayerStatus universe <$> currentPlayerId) == Just CuttingForest
+  guard currentPlayerCuttingForest
+  availableForestPositions universe cPlId
 
-availableForestPositions :: Universe -> PlayerId -> [((Int, Int), Direction)]
+availableForestPositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableForestPositions universe playerId = [(pos, direction) |
                              direction <- allDirections,
                              pos <- availableBuildingPositions,
-                             Forest pos `elem` currentPlayerBuildingSpace universe playerId,
-                             Forest (pos ^+^ directionAddition direction) `elem` currentPlayerBuildingSpace universe playerId]
+                             Forest pos `elem` buildingSpace,
+                             Forest (pos ^+^ directionAddition direction) `elem` buildingSpace,
+                             neighbourPositionsReachable [pos, pos ^+^ directionAddition direction]]
+  where neighbourPositionsReachable positions = any positionDeveloped [pos ^+^ directionAddition dir | pos <- positions, dir <- allDirections]
+        positionDeveloped position = Field position `elem` buildingSpace || Grass position `elem` buildingSpace || InitialRoom position `elem` buildingSpace
+        buildingSpace = currentPlayerBuildingSpace universe playerId
 
 currentPlayerBuildingSpace :: Universe -> PlayerId -> [Building]
 currentPlayerBuildingSpace universe playerId = getBuildingSpace universe playerId
