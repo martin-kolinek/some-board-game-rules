@@ -61,6 +61,7 @@ arbitraryUniverseTests = testGroup "Arbitrary universe tests" [
                     workplaceData <- universe ^? (availableWorkplaces . ix recentWorkerWorkplace)
                     return $ case workplaceData of
                                CutForest _ -> True
+                               _ -> False
       in prop,
     testProperty "If a player is in MovingWorker state, then he has a free worker" $
       let prop (ArbitraryUniverse universe) = isCurrentPlayerMovingWorker ==> hasFreeWorker

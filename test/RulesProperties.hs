@@ -157,6 +157,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                 newWorkplaces = getWorkplaces nextUniverse
                 isWorkplaceId workplaceId = areWorkplaceDataOk (originalWorkplaces ! workplaceId) (newWorkplaces ! workplaceId)
                 areWorkplaceDataOk (CutForest orig) (CutForest new) = if orig == 0 then new == 3 else new == orig + 1
+                areWorkplaceDataOk _ _ = False
             return $ all isWorkplaceId (keys originalWorkplaces)
       in prop,
     testProperty "Canceling selection starts next worker" $
@@ -187,6 +188,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                 origWoodAmount = getWoodAmount $ getPlayerResources universe playerId
                 newWoodAmount = getWoodAmount $ getPlayerResources nextUniverse playerId
                 getWorkplaceWoodAmount (CutForest n) = n
+                getWorkplaceWoodAmount _ = 0
                 origWorkplaceWoodAmount = getWorkplaceWoodAmount $ (getWorkplaces universe) ! workplaceId
             return $ newWoodAmount - origWoodAmount == origWorkplaceWoodAmount
       in prop,
