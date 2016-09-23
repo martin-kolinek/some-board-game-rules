@@ -38,6 +38,17 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                   hasWorkerToMove = not . null $ findWorkersToMove universe
                   currentPlayerId = getCurrentPlayer universe
       in prop,
+    testProperty "Starting working in dig passage sets DiggingPassage status" $
+      let prop (ArbitraryUniverse universe) = hasEmptyWorkplace && hasWorkerToMove ==>
+            forAll (elements $ findEmptyDigPassageWorkplaces universe) $ \workplaceId ->
+            forAll (elements $ findWorkersToMove universe) $ \workerId ->
+            either (const False) id $ do
+              updatedUniverse <- startWorking workerId workplaceId universe
+              return $ (getPlayerStatus updatedUniverse <$> currentPlayerId) == Just DiggingPassage
+            where hasEmptyWorkplace = not . null $ findEmptyDigPassageWorkplaces universe
+                  hasWorkerToMove = not . null $ findWorkersToMove universe
+                  currentPlayerId = getCurrentPlayer universe
+      in prop,
     testProperty "Finishing turn unassigns all workers" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> either (const False) id $ do
             updatedUniverse <- finishTurn universe
