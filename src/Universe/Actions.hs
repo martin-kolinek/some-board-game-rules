@@ -27,13 +27,14 @@ selectPosition position direction universe = do
 applyPosition :: MonadError String m => Maybe PlayerStatus -> Position -> Direction -> PlayerData -> m PlayerData
 applyPosition (Just CuttingForest) position direction plData = stopTurn <$> mapMOf buildingSpace (cutForest position direction) plData
 applyPosition (Just DiggingPassage) position direction plData = stopTurn <$> mapMOf buildingSpace (digPassage position direction) plData
+applyPosition (Just DiggingCave) position direction plData = stopTurn <$> mapMOf buildingSpace (digCave position direction) plData
 applyPosition _ _ _ _ = throwError "Currently not needing position"
 
 cancelSelection :: MonadError String m => Universe -> m Universe
 cancelSelection universe =
   checkMaybe "Nothing to cancel" $ do
     currentPlayerStatus <- universe ^? (currentPlayerData . playerStatus)
-    guard (currentPlayerStatus == CuttingForest)
+    guard (currentPlayerStatus `elem` [CuttingForest, DiggingPassage, DiggingCave])
     let universeWithPlayerWaiting = set (currentPlayerData . playerStatus) Waiting universe
     return $ startNextPlayer universe universeWithPlayerWaiting
 

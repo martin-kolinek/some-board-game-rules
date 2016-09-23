@@ -100,6 +100,10 @@ digPassage :: MonadError String m => Position -> Direction -> BuildingSpace -> m
 digPassage position direction buildingSpace =
   buildNewBuildings buildingSpace isDevelopedInside isRock [(position, Cave), (position ^+^ directionAddition direction, Passage)]
 
+digCave :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
+digCave position direction buildingSpace =
+  buildNewBuildings buildingSpace isDevelopedInside isRock [(position, Cave), (position ^+^ directionAddition direction, Cave)]
+
 type DevelopmentCheck = Building -> Bool
 type SuitabilityCheck = Building -> Bool
 

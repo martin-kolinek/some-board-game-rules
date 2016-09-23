@@ -20,7 +20,7 @@ data PlayerData = PlayerData {
   _playerResources :: Resources
 } deriving (Show, Eq)
 
-data PlayerStatus = MovingWorker | Waiting | OccupantsInvalid | CuttingForest | DiggingPassage deriving (Show, Eq)
+data PlayerStatus = MovingWorker | Waiting | OccupantsInvalid | CuttingForest | DiggingPassage | DiggingCave deriving (Show, Eq)
 
 makeLenses ''PlayerData
 
@@ -44,7 +44,7 @@ stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid
 applyAction :: WorkplaceData -> PlayerData -> PlayerData
 applyAction workplaceData@(CutForest _) = over playerResources (assignResources workplaceData) . set playerStatus CuttingForest
 applyAction workplaceData@(DigPassage _) = applyWorkplaceData workplaceData . set playerStatus DiggingPassage
-applyAction workplaceData@(DigCave _) = applyWorkplaceData workplaceData . set playerStatus DiggingPassage
+applyAction workplaceData@(DigCave _) = applyWorkplaceData workplaceData . set playerStatus DiggingCave
 
 applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
 applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)
