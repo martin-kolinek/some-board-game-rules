@@ -22,6 +22,7 @@ data Building =
   Field Position |
   Cave Position |
   Passage Position |
+  LivingRoom Position |
   InitialRoom Position deriving (Show, Eq)
 
 data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight deriving (Show, Eq, Enum, Ord)
@@ -43,6 +44,7 @@ buildingPositions (Field pos) = [pos]
 buildingPositions (InitialRoom pos) = [pos]
 buildingPositions (Cave pos) = [pos]
 buildingPositions (Passage pos) = [pos]
+buildingPositions (LivingRoom pos) = [pos]
 
 newtype BuildingSpace = BuildingSpace [Building] deriving (Show, Eq)
 
@@ -69,6 +71,10 @@ isForest _ = False
 isRock :: Building -> Bool
 isRock (Rock _) = True
 isRock _ = False
+
+isCave :: Building -> Bool
+isCave (Cave _) = True
+isCave _ = False
 
 build :: BuildingSpace -> Building -> BuildingSpace
 build (BuildingSpace buildings) building =
@@ -103,6 +109,10 @@ digPassage position direction buildingSpace =
 digCave :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
 digCave position direction buildingSpace =
   buildNewBuildings buildingSpace isDevelopedInside isRock [(position, Cave), (position ^+^ directionAddition direction, Cave)]
+
+buildLivingRoom :: MonadError String m => Position -> BuildingSpace -> m BuildingSpace
+buildLivingRoom position buildingSpace =
+  buildNewBuildings buildingSpace (const True) isCave [(position, Cave)]
 
 type DevelopmentCheck = Building -> Bool
 type SuitabilityCheck = Building -> Bool

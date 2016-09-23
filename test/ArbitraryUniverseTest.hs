@@ -103,14 +103,18 @@ arbitraryUniverseTests = testGroup "Arbitrary universe tests" [
     testProperty "Caves exist" $
       let prop (ArbitraryUniverse universe) =
             has (players . traverse . buildingSpace . to getBuildings . traverse . filtered isCave) universe ==> True
-            where isCave (Cave _) = True
-                  isCave _ = False
       in prop,
     testProperty "Passages exist" $
       let prop (ArbitraryUniverse universe) =
             has (players . traverse . buildingSpace . to getBuildings . traverse . filtered isPassage) universe ==> True
             where isPassage (Passage _) = True
                   isPassage _ = False
+      in prop,
+    testProperty "Living rooms exist" $
+      let prop (ArbitraryUniverse universe) =
+            has (players . traverse . buildingSpace . to getBuildings . traverse . filtered isLivingRoom) universe ==> True
+            where isLivingRoom (LivingRoom _) = True
+                  isLivingRoom _ = False
       in prop
   ]
 

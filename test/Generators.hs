@@ -58,7 +58,7 @@ generateBuildingSpace = do
   cutForestBuildings <- forM (S.toList cutPositions) $ \position ->
     elements [Field position, Grass position]
   dugRockBuildings <- forM (S.toList dugPositions) $ \position ->
-    elements [Passage position, Cave position]
+    elements [Passage position, Cave position, LivingRoom position]
   let rocks = Rock <$> S.toList (S.fromList [(x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)] S.\\ dugPositions)
       initialRoom = [InitialRoom (3, 3), InitialRoom (3, 2)]
       forestBuildings = Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
