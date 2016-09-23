@@ -45,6 +45,7 @@ applyAction :: WorkplaceData -> PlayerData -> PlayerData
 applyAction workplaceData@(CutForest _) = over playerResources (assignResources workplaceData) . set playerStatus CuttingForest
 applyAction workplaceData@(DigPassage _) = applyWorkplaceData workplaceData . set playerStatus DiggingPassage
 applyAction workplaceData@(DigCave _) = applyWorkplaceData workplaceData . set playerStatus DiggingCave
+applyAction workplaceData@ChildDesire = applyWorkplaceData workplaceData . stopTurn
 
 applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
 applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)

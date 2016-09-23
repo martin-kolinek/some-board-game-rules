@@ -185,6 +185,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                 areWorkplaceDataOk (CutForest orig) (CutForest new) = if orig == 0 then new == 3 else new == orig + 1
                 areWorkplaceDataOk (DigPassage orig) (DigPassage new) = new == orig + 1
                 areWorkplaceDataOk (DigCave orig) (DigCave new) = new == orig + 1
+                areWorkplaceDataOk ChildDesire ChildDesire = True
                 areWorkplaceDataOk _ _ = False
             return $ all isWorkplaceId (keys originalWorkplaces)
       in prop,
