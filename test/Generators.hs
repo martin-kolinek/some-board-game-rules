@@ -2,7 +2,7 @@ module Generators where
 
 import Prelude hiding (lookup)
 import Test.QuickCheck
-import Data.Map.Strict (fromList, Map, keys, fromListWith, lookup)
+import Data.Map.Strict (fromList, fromListWith, lookup, union)
 import qualified Data.Set as S
 import Data.List ((\\))
 import Control.Monad (forM, join, foldM)
@@ -21,17 +21,26 @@ newtype ArbitraryUniverse = ArbitraryUniverse Universe
 instance Show ArbitraryUniverse where
   show (ArbitraryUniverse u) = ppShow u
 
-generateWorkplaceData :: Gen WorkplaceData
-generateWorkplaceData = do
-  wood <- arbitrarySizedNatural
+generateCutForest :: Gen WorkplaceData
+generateCutForest = do
+  wood <- choose (0, 1000)
   return $ CutForest wood
 
-generateWorkplaces :: Int -> Gen (Map WorkplaceId WorkplaceData)
-generateWorkplaces minNumber = do
-  neededLst <- vectorOf minNumber generateWorkplaceData
+generateDigPassage :: Gen WorkplaceData
+generateDigPassage = do
+  stone <- choose (0, 1000)
+  return $ DigPassage stone
+
+generateWorkplaceData :: Gen WorkplaceData
+generateWorkplaceData = oneof [generateDigPassage, generateCutForest]
+
+generateWorkplaces :: Int -> Gen WorkplaceData -> Gen [(WorkplaceId, WorkplaceData)]
+generateWorkplaces minNumber firstWorkplaceGen = do
+  neededLst <- vectorOf (minNumber - 1) generateWorkplaceData
   lst <- listOf generateWorkplaceData
+  firstWorkplace <- firstWorkplaceGen
   let ids = WorkplaceId <$> [1..]
-  return $ fromList (zip ids (neededLst ++ lst))
+  return $ zip ids (firstWorkplace : neededLst ++ lst)
 
 generateBuildingSpace :: Gen BuildingSpace
 generateBuildingSpace = do
@@ -102,12 +111,12 @@ instance Arbitrary ArbitraryUniverse where
     currentPlayerStatus <- elements [MovingWorker, OccupantsInvalid, CuttingForest, Waiting]
     currentPlayerWorkerCount <- choose (1, 4) :: Gen Int
     currentPlayerWorkers <- shuffle $ WorkerId <$> [1..currentPlayerWorkerCount]
-    let (minWorkersFree, minWorkersCuttingForest) = case currentPlayerStatus of
+    let (minWorkersFree, minWorkersBusy) = case currentPlayerStatus of
           MovingWorker -> (1, 0)
           OccupantsInvalid -> (0, 0)
           CuttingForest -> (0, 1)
           Waiting -> (0, length currentPlayerWorkers)
-    freeCurrentPlayerWorkerCount <- choose (minWorkersFree, length currentPlayerWorkers - minWorkersCuttingForest)
+    freeCurrentPlayerWorkerCount <- choose (minWorkersFree, length currentPlayerWorkers - minWorkersBusy)
     otherPlayersFinished <- frequency [(1, elements [False]), (4, elements [True])]
     let (freeCurrentPlayerWorkers, busyCurrentPlayerWorkers) = splitAt freeCurrentPlayerWorkerCount currentPlayerWorkers
     otherPlayerData <- forM (playerIds \\ [currentPlayerId]) $ \playerId@(PlayerId num) -> do
@@ -119,16 +128,18 @@ instance Arbitrary ArbitraryUniverse where
     let allBusyWorkers = busyCurrentPlayerWorkers ++ join ((\(_, _, x) -> x) <$> otherPlayerData)
         allFreeWorkers = freeCurrentPlayerWorkers ++ join ((\(_, x, _) -> x) <$> otherPlayerData)
         allWorkers = allBusyWorkers ++ allFreeWorkers
-    workplaces <- generateWorkplaces (length allWorkers)
-    shuffledWorkplaceIds <- shuffle $ keys workplaces
-    let workersWithWorkplaces = fromList $ zip allBusyWorkers shuffledWorkplaceIds
+    workplaces <- generateWorkplaces (length allWorkers) $ if currentPlayerStatus == CuttingForest then generateCutForest else generateWorkplaceData
+    shuffledWorkplaceIds <- shuffle $ fst <$> (drop 1 workplaces)
+    let workersWithWorkplaces = fromList $ zip (drop 1 allBusyWorkers) shuffledWorkplaceIds
+        firstWorkerWithWorkplace = zip (take 1 allBusyWorkers) (take 1 (fst <$> workplaces))
+        allWorkersWithWorkplaces = workersWithWorkplaces `union` fromList firstWorkerWithWorkplace
     currentPlayerBuildingSpace <- generateBuildingSpace
     currentPlayerOccupants <- if currentPlayerStatus == OccupantsInvalid then generateInvalidOccupants currentPlayerWorkers else generateOccupants currentPlayerWorkers
     currentPlayerResources <- generateResources
     let currentPlayerData =
           (currentPlayerId, PlayerData
                        currentPlayerId
-                       (fromList [(workerId, WorkerState $ lookup workerId workersWithWorkplaces) | workerId <- currentPlayerWorkers])
+                       (fromList [(workerId, WorkerState $ lookup workerId allWorkersWithWorkplaces) | workerId <- currentPlayerWorkers])
                        currentPlayerBuildingSpace
                        currentPlayerOccupants
                        currentPlayerStatus
@@ -140,10 +151,10 @@ instance Arbitrary ArbitraryUniverse where
       playerResources <- generateResources
       return $ (playerId, PlayerData
                             playerId
-                            (fromList [(workerId, WorkerState $ lookup workerId workersWithWorkplaces) | workerId <- playerWorkers])
+                            (fromList [(workerId, WorkerState $ lookup workerId allWorkersWithWorkplaces) | workerId <- playerWorkers])
                             playerBuildingSpace
                             playerOccupants
                             Waiting
                             playerResources)
     let players = fromList $ otherPlayers ++ [currentPlayerData]
-    return $ ArbitraryUniverse $ Universe workplaces players
+    return $ ArbitraryUniverse $ Universe (fromList workplaces) players

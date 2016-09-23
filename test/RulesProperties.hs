@@ -29,12 +29,12 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       in prop,
     testProperty "Starting working in cut forest sets CuttingForest status" $
       let prop (ArbitraryUniverse universe) = hasEmptyWorkplace && hasWorkerToMove ==>
-            forAll (elements $ findEmptyWorkplaces universe) $ \workplaceId ->
+            forAll (elements $ findEmptyCutForestWorkplaces universe) $ \workplaceId ->
             forAll (elements $ findWorkersToMove universe) $ \workerId ->
             either (const False) id $ do
               updatedUniverse <- startWorking workerId workplaceId universe
               return $ (getPlayerStatus updatedUniverse <$> currentPlayerId) == Just CuttingForest
-            where hasEmptyWorkplace = not . null $ findEmptyWorkplaces universe
+            where hasEmptyWorkplace = not . null $ findEmptyCutForestWorkplaces universe
                   hasWorkerToMove = not . null $ findWorkersToMove universe
                   currentPlayerId = getCurrentPlayer universe
       in prop,
@@ -49,11 +49,12 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       let prop (ArbitraryUniverse universe) = not (allPlayersWaiting universe) ==> isLeft $ finishTurn universe
       in prop,
     testProperty "Moving same player twice causes an error" $
-      let prop (ArbitraryUniverse universe) = (length workersToMove >= 2) && (length workplaces >= 2) ==> isLeft $ do
+      let prop (ArbitraryUniverse universe) = (length playersAbleToMove >= 2) && (length workersToMove >= 2) && (length workplaces >= 2) ==> isLeft $ do
             universeWithFirstMovement <- startWorking (workersToMove !! 0) (workplaces !! 0) universe
             startWorking (workersToMove !! 1) (workplaces !! 1) universeWithFirstMovement
               where workersToMove = findWorkersToMove universe
                     workplaces = findEmptyWorkplaces universe
+                    playersAbleToMove = [plId | plId <- getPlayers universe, any (isNothing . getWorkerWorkplace universe) (getWorkers universe plId)]
       in prop,
     testProperty "Getting workplace workers works" $
       let prop (ArbitraryUniverse universe) = (not . null) (findOccupiedWorkplaces universe) ==>
@@ -150,13 +151,14 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                   wrongPositions = S.toList $ S.fromList [((x, y), dir) | x <- [-1..6], y <- [-1..4], dir <- allDirections]
                     S.\\ S.fromList (availableForestPositions universe (fromJust $ getCurrentPlayer universe))
       in prop,
-    testProperty "After finishing turn wood is added to cut forest workplaces" $
+    testProperty "After finishing turn workplace resources are added" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> either (const False) id $ do
             nextUniverse <- finishTurn universe
             let originalWorkplaces = getWorkplaces universe
                 newWorkplaces = getWorkplaces nextUniverse
                 isWorkplaceId workplaceId = areWorkplaceDataOk (originalWorkplaces ! workplaceId) (newWorkplaces ! workplaceId)
                 areWorkplaceDataOk (CutForest orig) (CutForest new) = if orig == 0 then new == 3 else new == orig + 1
+                areWorkplaceDataOk (DigPassage orig) (DigPassage new) = new == orig + 1
                 areWorkplaceDataOk _ _ = False
             return $ all isWorkplaceId (keys originalWorkplaces)
       in prop,
@@ -179,9 +181,9 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             where currentPlayerCuttingForest = (getPlayerStatus universe <$> getCurrentPlayer universe) == Just CuttingForest
       in prop,
     testProperty "Starting working in cut forest adds wood" $
-      let prop (ArbitraryUniverse universe) = findWorkersToMove universe /= [] && findEmptyWorkplaces universe /= [] ==>
+      let prop (ArbitraryUniverse universe) = findWorkersToMove universe /= [] && findEmptyCutForestWorkplaces universe /= [] ==>
             forAll (elements $ findWorkersToMove universe) $ \workerId ->
-            forAll (elements $ findEmptyWorkplaces universe) $ \workplaceId ->
+            forAll (elements $ findEmptyCutForestWorkplaces universe) $ \workplaceId ->
             either (const False) id $ do
             nextUniverse <- startWorking workerId workplaceId universe
             let playerId = head $ [pId | pId <- getPlayers universe, wId <- getWorkers universe pId, wId == workerId]
@@ -298,8 +300,17 @@ findOccupiedWorkplaces universe = do
   workerId <- getWorkers universe playerId
   maybeToList $ getWorkerWorkplace universe workerId
 
+findEmptyCutForestWorkplaces :: Universe -> [WorkplaceId]
+findEmptyCutForestWorkplaces = findEmptySpecificWorkplaces isCutForest
+  where isCutForest (CutForest _) = True
+        isCutForest _ = False
+
+findEmptySpecificWorkplaces :: (WorkplaceData -> Bool) -> Universe -> [WorkplaceId]
+findEmptySpecificWorkplaces condition universe = (keys $ filteredWorkplaces) \\ findOccupiedWorkplaces universe
+  where filteredWorkplaces = M.filter condition $ getWorkplaces universe
+
 findEmptyWorkplaces :: Universe -> [WorkplaceId]
-findEmptyWorkplaces universe = (keys $ getWorkplaces universe) \\ findOccupiedWorkplaces universe
+findEmptyWorkplaces = findEmptySpecificWorkplaces (const True)
 
 findWorkersToMove :: Universe -> [WorkerId]
 findWorkersToMove universe = do
