@@ -7,6 +7,8 @@ newtype WorkplaceId = WorkplaceId Int deriving (Eq, Ord, Show)
 
 data WorkplaceData = CutForest Int | DigPassage Int | DigCave Int | ChildDesire deriving (Eq, Show)
 
+data ChildDesireOptions = MakeChild | BuildRoom
+
 updateWorkplaceAfterTurn :: WorkplaceData -> WorkplaceData
 updateWorkplaceAfterTurn (CutForest 0) = CutForest 3
 updateWorkplaceAfterTurn (CutForest x) = CutForest (x + 1)

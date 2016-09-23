@@ -79,3 +79,12 @@ finishTurn universe = do
       withFirstPlayerMovingWorker = set (taking 1 (players . traverse) . playerStatus) MovingWorker withWorkersFreed
       withUpdatedWorkplaces = updateWorkplacesAfterTurn withFirstPlayerMovingWorker
   return withUpdatedWorkplaces
+
+chooseChildDesireOption :: MonadError String m => ChildDesireOptions -> Universe -> m Universe
+chooseChildDesireOption option universe = do
+  let correctStatus = has (currentPlayerData . playerStatus . filtered (==ChoosingChildDesireOption)) universe
+  check correctStatus "Not possible to select that now"
+  let nextUniverse = case option of
+                       MakeChild -> over currentPlayerData stopTurn universe
+                       BuildRoom -> over currentPlayerData stopTurn universe
+  return $ startNextPlayer universe nextUniverse

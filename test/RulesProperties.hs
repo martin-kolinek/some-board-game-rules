@@ -27,28 +27,22 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             where hasEmptyWorkplace = not . null $ findEmptyWorkplaces universe
                   hasWorkerToMove = not . null $ findWorkersToMove universe
       in prop,
-    testProperty "Starting working in cut forest sets CuttingForest status" $
-      let prop (ArbitraryUniverse universe) = hasEmptyWorkplace && hasWorkerToMove ==>
-            forAll (elements $ findEmptyCutForestWorkplaces universe) $ \workplaceId ->
+    testGroup "Starting working sets status" $
+      let prop workplaceFunc playerStatus (ArbitraryUniverse universe) = hasEmptyWorkplace && hasWorkerToMove ==>
+            forAll (elements $ workplaceFunc universe) $ \workplaceId ->
             forAll (elements $ findWorkersToMove universe) $ \workerId ->
             either (const False) id $ do
               updatedUniverse <- startWorking workerId workplaceId universe
-              return $ (getPlayerStatus updatedUniverse <$> currentPlayerId) == Just CuttingForest
-            where hasEmptyWorkplace = not . null $ findEmptyCutForestWorkplaces universe
+              return $ (getPlayerStatus updatedUniverse <$> currentPlayerId) == Just playerStatus
+            where hasEmptyWorkplace = not . null $ workplaceFunc universe
                   hasWorkerToMove = not . null $ findWorkersToMove universe
                   currentPlayerId = getCurrentPlayer universe
-      in prop,
-    testProperty "Starting working in dig passage sets DiggingPassage status" $
-      let prop (ArbitraryUniverse universe) = hasEmptyWorkplace && hasWorkerToMove ==>
-            forAll (elements $ findEmptyDigPassageWorkplaces universe) $ \workplaceId ->
-            forAll (elements $ findWorkersToMove universe) $ \workerId ->
-            either (const False) id $ do
-              updatedUniverse <- startWorking workerId workplaceId universe
-              return $ (getPlayerStatus updatedUniverse <$> currentPlayerId) == Just DiggingPassage
-            where hasEmptyWorkplace = not . null $ findEmptyDigPassageWorkplaces universe
-                  hasWorkerToMove = not . null $ findWorkersToMove universe
-                  currentPlayerId = getCurrentPlayer universe
-      in prop,
+      in [
+        testProperty "Cutting forest" $ prop findEmptyCutForestWorkplaces CuttingForest,
+        testProperty "Digging passage" $ prop findEmptyDigPassageWorkplaces DiggingPassage,
+        testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces DiggingCave,
+        testProperty "Child desire" $ prop findEmptyChildDesireWorkplaces ChoosingChildDesireOption
+      ],
     testProperty "Finishing turn unassigns all workers" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> either (const False) id $ do
             updatedUniverse <- finishTurn universe
@@ -369,6 +363,9 @@ findEmptyDigCaveWorkplaces :: Universe -> [WorkplaceId]
 findEmptyDigCaveWorkplaces = findEmptySpecificWorkplaces isDigCave
   where isDigCave (DigCave _) = True
         isDigCave _ = False
+
+findEmptyChildDesireWorkplaces :: Universe -> [WorkplaceId]
+findEmptyChildDesireWorkplaces = findEmptySpecificWorkplaces (==ChildDesire)
 
 findEmptySpecificWorkplaces :: (WorkplaceData -> Bool) -> Universe -> [WorkplaceId]
 findEmptySpecificWorkplaces condition universe = (keys $ filteredWorkplaces) \\ findOccupiedWorkplaces universe
