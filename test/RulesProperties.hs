@@ -70,28 +70,36 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                 allWorkersWorkInWorkplace = all workerWorksInWorkplace occupants
             in workplaceIsNotEmpty && allWorkersWorkInWorkplace
       in prop,
-    testProperty "Next player moves worker after cutting forest" $
-      let prop (ArbitraryUniverse universe) = cutForestLocations /= [] && nextPlayerHasWorker && currentPlayerHasValidOccupants universe
-            ==> forAll (elements cutForestLocations) $ \(pos, dir) ->
+    testGroup "Next player moves worker" $
+      let prop positionsFunc (ArbitraryUniverse universe) = locations /= [] && playersWithWorkers /= [] && currentPlayerHasValidOccupants universe
+            ==> forAll (elements locations) $ \(pos, dir) ->
             either (const False) id $ do
               universeAfterSelect <- selectPosition pos dir universe
-              return $ (getPlayerStatus universeAfterSelect <$> nextPlayerId) == Just MovingWorker
-            where nextPlayerHasWorker = any (isNothing . getWorkerWorkplace universe) $ (join . maybeToList) $ getWorkers universe <$> nextPlayerId
-                  currentPlayerId = getCurrentPlayer universe
-                  nextPlayerId = (head . tail) $ dropWhile (/= currentPlayerId) $ Just <$> (cycle $ getPlayers universe)
-                  cutForestLocations = currentPlayerCutForestLocations universe
-      in prop,
-    testProperty "No next player after moving last worker" $
-      let prop (ArbitraryUniverse universe) =
-            allWorkersPlayersWorking && cutForestLocations /= [] && currentPlayerHasValidOccupants universe
-            ==> forAll (elements cutForestLocations) $ \(pos, dir) ->
+              return $ (getPlayerStatus universeAfterSelect nextPlayerId) == MovingWorker
+            where currentPlayerId = getCurrentPlayer universe
+                  furtherPlayerIds = tail $ dropWhile (/= fromJust currentPlayerId) $ getPlayers universe ++ getPlayers universe
+                  playersWithWorkers = [plId | plId <- furtherPlayerIds, any (isNothing . getWorkerWorkplace universe) (getWorkers universe plId)]
+                  nextPlayerId = head playersWithWorkers
+                  locations = positionsFunc universe
+      in [
+        testProperty "After cutting forest" $ prop currentPlayerCutForestLocations,
+        testProperty "After digging passage" $ prop currentPlayerDigPassageLocations,
+        testProperty "After digging cave" $ prop currentPlayerDigCaveLocations
+      ],
+    testGroup "No next player after no more workers" $
+      let prop positionsFunc (ArbitraryUniverse universe) =
+            allWorkersPlayersWorking && positionsFunc universe /= [] && currentPlayerHasValidOccupants universe
+            ==> forAll (elements $ positionsFunc universe) $ \(pos, dir) ->
                   either (const False) id $ do
                     nextUniverse <- selectPosition pos dir universe
                     return $ getCurrentPlayer nextUniverse == Nothing
             where allWorkersPlayersWorking =
                     null [wId | pId <- getPlayers universe, wId <- getWorkers universe pId, getWorkerWorkplace universe wId == Nothing]
-                  cutForestLocations = currentPlayerCutForestLocations universe
-      in prop,
+      in [
+        testProperty "After cutting forest" $ prop currentPlayerCutForestLocations,
+        testProperty "After digging passage" $ prop currentPlayerDigPassageLocations,
+        testProperty "After digging cave" $ prop currentPlayerDigCaveLocations
+      ],
     testProperty "Next player is first player after finishing turn" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> firstPlayerTurnAfterFinish
             where firstPlayerTurnAfterFinish = either (const False) id $ do

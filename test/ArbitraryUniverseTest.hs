@@ -19,7 +19,7 @@ import Universe.Building
 import Universe.Actions
 
 arbitraryUniverseTests :: TestTree
-arbitraryUniverseTests = testGroup "Arbitrary universe tests" [
+arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbitrary universe tests" [
     testProperty "Generated buildings don't overlap" $
       let noBuildingsOverlap buildings = positions == (nub positions)
             where positions = [pos | building <- getBuildings buildings, pos <- buildingPositions building]
@@ -115,6 +115,13 @@ arbitraryUniverseTests = testGroup "Arbitrary universe tests" [
             has (players . traverse . buildingSpace . to getBuildings . traverse . filtered isLivingRoom) universe ==> True
             where isLivingRoom (LivingRoom _) = True
                   isLivingRoom _ = False
+      in prop,
+    testProperty "Current player can be the last player" $
+      let prop (ArbitraryUniverse universe) =
+            isCurrentPlayerLast ==> True
+            where isCurrentPlayerLast = length dropped > 1
+                  dropped = dropWhile (/= currentPlayerId) (Just <$> (keys $ universe ^. (players)))
+                  currentPlayerId = universe ^? (players . to toList . traverse . filtered (has $ _2 . playerStatus . filtered (== CuttingForest)) . _1)
       in prop
   ]
 
