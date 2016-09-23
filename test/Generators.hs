@@ -22,17 +22,16 @@ instance Show ArbitraryUniverse where
   show (ArbitraryUniverse u) = ppShow u
 
 generateCutForest :: Gen WorkplaceData
-generateCutForest = do
-  wood <- choose (0, 1000)
-  return $ CutForest wood
+generateCutForest = CutForest <$> choose(0, 1000)
 
 generateDigPassage :: Gen WorkplaceData
-generateDigPassage = do
-  stone <- choose (0, 1000)
-  return $ DigPassage stone
+generateDigPassage = DigPassage <$> choose (0, 1000)
+
+generateDigCave :: Gen WorkplaceData
+generateDigCave = DigCave <$> choose (0, 1000)
 
 generateWorkplaceData :: Gen WorkplaceData
-generateWorkplaceData = oneof [generateDigPassage, generateCutForest]
+generateWorkplaceData = oneof [generateDigPassage, generateCutForest, generateDigCave]
 
 generateWorkplaces :: Int -> Gen WorkplaceData -> Gen [(WorkplaceId, WorkplaceData)]
 generateWorkplaces minNumber firstWorkplaceGen = do
