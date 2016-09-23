@@ -26,6 +26,7 @@ selectPosition position direction universe = do
 
 applyPosition :: MonadError String m => Maybe PlayerStatus -> Position -> Direction -> PlayerData -> m PlayerData
 applyPosition (Just CuttingForest) position direction plData = stopTurn <$> mapMOf buildingSpace (cutForest position direction) plData
+applyPosition (Just DiggingPassage) position direction plData = stopTurn <$> mapMOf buildingSpace (digPassage position direction) plData
 applyPosition _ _ _ _ = throwError "Currently not needing position"
 
 cancelSelection :: MonadError String m => Universe -> m Universe

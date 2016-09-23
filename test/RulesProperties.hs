@@ -5,7 +5,7 @@ import Test.Tasty.QuickCheck
 import Data.Either (isLeft)
 import Data.Map (keys, fromList, (!), elems)
 import qualified Data.Map as M
-import Data.List ((\\))
+import Data.List ((\\), intersect)
 import Data.Maybe (maybeToList, isNothing, fromMaybe, fromJust)
 import Control.Monad (guard, join)
 import Data.List.Split (chunksOf)
@@ -136,20 +136,40 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             where currentPlayerCuttingForest = (getPlayerStatus universe <$> getCurrentPlayer universe) == Just CuttingForest
                   currentPlayerId = fromJust $ getCurrentPlayer universe
       in prop,
-    testProperty "Selecting a position when not cutting forest fails" $
+    testProperty "Selecting a position when digging passage digs passage" $
+      let prop (ArbitraryUniverse universe) = currentPlayerDiggingPassage && availableRockPositions universe currentPlayerId /= [] ==>
+            forAll (elements $ availableRockPositions universe currentPlayerId) $ \(pos, dir) ->
+            either (const False) id $ do
+              nextUniverse <- selectPosition pos dir universe
+              let passageContained = Passage (pos ^+^ directionAddition dir) `elem` getBuildingSpace nextUniverse currentPlayerId
+                  caveContained = Cave pos `elem` getBuildingSpace nextUniverse currentPlayerId
+              return $ passageContained && caveContained
+            where currentPlayerDiggingPassage = (getPlayerStatus universe <$> getCurrentPlayer universe) == Just DiggingPassage
+                  currentPlayerId = fromJust $ getCurrentPlayer universe
+      in prop,
+    testProperty "Selecting a position when not supposed to fails" $
       let prop (ArbitraryUniverse universe) =
             forAll (elements $ getPlayers universe) $ \playerId ->
-            (getPlayerStatus universe <$> getCurrentPlayer universe) /= Just CuttingForest && availableForestPositions universe playerId /= [] ==>
+            (getPlayerStatus universe <$> getCurrentPlayer universe) `notElem` [Just CuttingForest, Just DiggingPassage]
+              && availableForestPositions universe playerId /= [] ==>
             forAll (elements $ availableForestPositions universe playerId) $ \(pos, dir) ->
             isLeft $ selectPosition pos dir universe
       in prop,
-    testProperty "Selecting a wrong position fails" $
+    testProperty "Selecting a wrong position for cutting forest fails" $
       let prop (ArbitraryUniverse universe) = currentPlayerCuttingForest ==>
             forAll (elements wrongPositions) $ \(pos, dir) ->
             isLeft $ selectPosition pos dir universe
             where currentPlayerCuttingForest = (getPlayerStatus universe <$> getCurrentPlayer universe) == Just CuttingForest
                   wrongPositions = S.toList $ S.fromList [((x, y), dir) | x <- [-1..6], y <- [-1..4], dir <- allDirections]
                     S.\\ S.fromList (availableForestPositions universe (fromJust $ getCurrentPlayer universe))
+      in prop,
+    testProperty "Selecting a wrong position for digging passage fails" $
+      let prop (ArbitraryUniverse universe) = currentPlayerDiggingPassage ==>
+            forAll (elements wrongPositions) $ \(pos, dir) ->
+            isLeft $ selectPosition pos dir universe
+            where currentPlayerDiggingPassage = (getPlayerStatus universe <$> getCurrentPlayer universe) == Just DiggingPassage
+                  wrongPositions = S.toList $ S.fromList [((x, y), dir) | x <- [-1..6], y <- [-1..4], dir <- allDirections]
+                    S.\\ S.fromList (availableRockPositions universe (fromJust $ getCurrentPlayer universe))
       in prop,
     testProperty "After finishing turn workplace resources are added" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> either (const False) id $ do
@@ -193,6 +213,20 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                 getWorkplaceWoodAmount _ = 0
                 origWorkplaceWoodAmount = getWorkplaceWoodAmount $ (getWorkplaces universe) ! workplaceId
             return $ newWoodAmount - origWoodAmount == origWorkplaceWoodAmount
+      in prop,
+    testProperty "Starting working in dig passage adds stone" $
+      let prop (ArbitraryUniverse universe) = findWorkersToMove universe /= [] && findEmptyDigPassageWorkplaces universe /= [] ==>
+            forAll (elements $ findWorkersToMove universe) $ \workerId ->
+            forAll (elements $ findEmptyDigPassageWorkplaces universe) $ \workplaceId ->
+            either (const False) id $ do
+            nextUniverse <- startWorking workerId workplaceId universe
+            let playerId = head $ [pId | pId <- getPlayers universe, wId <- getWorkers universe pId, wId == workerId]
+                origStoneAmount = getStoneAmount $ getPlayerResources universe playerId
+                newStoneAmount = getStoneAmount $ getPlayerResources nextUniverse playerId
+                getWorkplaceWoodAmount (DigPassage n) = n
+                getWorkplaceWoodAmount _ = 0
+                origWorkplaceWoodAmount = getWorkplaceWoodAmount $ (getWorkplaces universe) ! workplaceId
+            return $ newStoneAmount - origStoneAmount == origWorkplaceWoodAmount
       in prop,
     testProperty "Reverting occupants returns original errors" $
       let prop (ArbitraryUniverse universe) =
@@ -278,14 +312,23 @@ currentPlayerCutForestLocations universe = do
   availableForestPositions universe cPlId
 
 availableForestPositions :: Universe -> PlayerId -> [(Position, Direction)]
-availableForestPositions universe playerId = [(pos, direction) |
+availableForestPositions = availableSpecificPositions isCuttable isDevelopedOutside
+  where isCuttable buildingSpace pos = Forest pos `elem` buildingSpace
+        isDevelopedOutside buildingSpace pos = not $ null $ intersect [Field pos, Grass pos, InitialRoom pos] buildingSpace
+
+availableRockPositions :: Universe -> PlayerId -> [(Position, Direction)]
+availableRockPositions = availableSpecificPositions isDiggable isDevelopedInside
+  where isDiggable buildingSpace pos = Rock pos `elem` buildingSpace
+        isDevelopedInside buildingSpace pos = not $ null $ intersect [InitialRoom pos, Cave pos, Passage pos] buildingSpace
+
+availableSpecificPositions :: ([Building] -> Position -> Bool) -> ([Building] -> Position -> Bool) -> Universe -> PlayerId -> [(Position, Direction)]
+availableSpecificPositions freeCondition developedCondition universe playerId = [(pos, direction) |
                              direction <- allDirections,
                              pos <- availableBuildingPositions,
-                             Forest pos `elem` buildingSpace,
-                             Forest (pos ^+^ directionAddition direction) `elem` buildingSpace,
+                             freeCondition buildingSpace pos,
+                             freeCondition buildingSpace (pos ^+^ directionAddition direction),
                              neighbourPositionsReachable [pos, pos ^+^ directionAddition direction]]
-  where neighbourPositionsReachable positions = any positionDeveloped [pos ^+^ directionAddition dir | pos <- positions, dir <- allDirections]
-        positionDeveloped position = Field position `elem` buildingSpace || Grass position `elem` buildingSpace || InitialRoom position `elem` buildingSpace
+  where neighbourPositionsReachable positions = any (developedCondition buildingSpace) [pos ^+^ directionAddition dir | pos <- positions, dir <- allDirections]
         buildingSpace = currentPlayerBuildingSpace universe playerId
 
 currentPlayerBuildingSpace :: Universe -> PlayerId -> [Building]
@@ -304,6 +347,11 @@ findEmptyCutForestWorkplaces :: Universe -> [WorkplaceId]
 findEmptyCutForestWorkplaces = findEmptySpecificWorkplaces isCutForest
   where isCutForest (CutForest _) = True
         isCutForest _ = False
+
+findEmptyDigPassageWorkplaces :: Universe -> [WorkplaceId]
+findEmptyDigPassageWorkplaces = findEmptySpecificWorkplaces isDigPassage
+  where isDigPassage (DigPassage _) = True
+        isDigPassage _ = False
 
 findEmptySpecificWorkplaces :: (WorkplaceData -> Bool) -> Universe -> [WorkplaceId]
 findEmptySpecificWorkplaces condition universe = (keys $ filteredWorkplaces) \\ findOccupiedWorkplaces universe

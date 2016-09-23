@@ -108,13 +108,14 @@ instance Arbitrary ArbitraryUniverse where
     playerCount <- choose (1, 7) :: Gen Int
     let playerIds = PlayerId <$> [1..playerCount]
     currentPlayerId <- elements playerIds
-    currentPlayerStatus <- elements [MovingWorker, OccupantsInvalid, CuttingForest, Waiting]
+    currentPlayerStatus <- elements [MovingWorker, OccupantsInvalid, CuttingForest, DiggingPassage, Waiting]
     currentPlayerWorkerCount <- choose (1, 4) :: Gen Int
     currentPlayerWorkers <- shuffle $ WorkerId <$> [1..currentPlayerWorkerCount]
     let (minWorkersFree, minWorkersBusy) = case currentPlayerStatus of
           MovingWorker -> (1, 0)
           OccupantsInvalid -> (0, 0)
           CuttingForest -> (0, 1)
+          DiggingPassage -> (0, 1)
           Waiting -> (0, length currentPlayerWorkers)
     freeCurrentPlayerWorkerCount <- choose (minWorkersFree, length currentPlayerWorkers - minWorkersBusy)
     otherPlayersFinished <- frequency [(1, elements [False]), (4, elements [True])]
@@ -128,7 +129,10 @@ instance Arbitrary ArbitraryUniverse where
     let allBusyWorkers = busyCurrentPlayerWorkers ++ join ((\(_, _, x) -> x) <$> otherPlayerData)
         allFreeWorkers = freeCurrentPlayerWorkers ++ join ((\(_, x, _) -> x) <$> otherPlayerData)
         allWorkers = allBusyWorkers ++ allFreeWorkers
-    workplaces <- generateWorkplaces (length allWorkers) $ if currentPlayerStatus == CuttingForest then generateCutForest else generateWorkplaceData
+    workplaces <- generateWorkplaces (length allWorkers) $ case currentPlayerStatus of
+      CuttingForest -> generateCutForest
+      DiggingPassage -> generateDigPassage
+      _ -> generateWorkplaceData
     shuffledWorkplaceIds <- shuffle $ fst <$> (drop 1 workplaces)
     let workersWithWorkplaces = fromList $ zip (drop 1 allBusyWorkers) shuffledWorkplaceIds
         firstWorkerWithWorkplace = zip (take 1 allBusyWorkers) (take 1 (fst <$> workplaces))

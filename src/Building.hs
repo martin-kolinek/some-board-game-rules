@@ -66,6 +66,10 @@ isForest :: Building -> Bool
 isForest (Forest _) = True
 isForest _ = False
 
+isRock :: Building -> Bool
+isRock (Rock _) = True
+isRock _ = False
+
 build :: BuildingSpace -> Building -> BuildingSpace
 build (BuildingSpace buildings) building =
   let positions = buildingPositions building
@@ -90,20 +94,23 @@ isDevelopedInside _ = False
 
 cutForest :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
 cutForest position direction buildingSpace =
-  buildNewBuildings buildingSpace isDevelopedOutside [(position, Grass), (position ^+^ directionAddition direction, Field)]
+  buildNewBuildings buildingSpace isDevelopedOutside isForest [(position, Grass), (position ^+^ directionAddition direction, Field)]
 
-buildPassage :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
-buildPassage position direction buildingSpace =
-  buildNewBuildings buildingSpace isDevelopedInside [(position, Cave), (position ^+^ directionAddition direction, Passage)]
+digPassage :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
+digPassage position direction buildingSpace =
+  buildNewBuildings buildingSpace isDevelopedInside isRock [(position, Cave), (position ^+^ directionAddition direction, Passage)]
 
-buildNewBuildings :: MonadError String m => BuildingSpace -> (Building -> Bool) -> [(Position, Position -> Building)] -> m BuildingSpace
-buildNewBuildings buildingSpace developmentCheck newBuildings = do
+type DevelopmentCheck = Building -> Bool
+type SuitabilityCheck = Building -> Bool
+
+buildNewBuildings :: MonadError String m => BuildingSpace -> (Building -> Bool) -> (Building -> Bool) -> [(Position, Position -> Building)] -> m BuildingSpace
+buildNewBuildings buildingSpace developmentCheck suitabilityCheck newBuildings = do
   let neighbourBuildings pos = catMaybes $ getBuilding buildingSpace <$> [pos ^+^ directionAddition dir | dir <- allDirections]
       hasDevelopedNeighbours pos = any developmentCheck (neighbourBuildings pos)
   check (any (hasDevelopedNeighbours . fst) newBuildings) "Cannot reach yet"
   buildings <- forM newBuildings $ \(newPosition, buildingConstructor) -> do
     building <- checkMaybe "Invalid position" (getBuilding buildingSpace newPosition)
-    check (isForest building) "Cutting forest not in a forest"
+    check (suitabilityCheck building) "Position not suitable"
     return $ buildingConstructor newPosition
   return $ foldl' build buildingSpace buildings
 
