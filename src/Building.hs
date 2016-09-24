@@ -112,7 +112,7 @@ digCave position direction buildingSpace =
 
 buildLivingRoom :: MonadError String m => Position -> BuildingSpace -> m BuildingSpace
 buildLivingRoom position buildingSpace =
-  buildNewBuildings buildingSpace (const True) isCave [(position, Cave)]
+  buildNewBuildings buildingSpace (const True) isCave [(position, LivingRoom)]
 
 type DevelopmentCheck = Building -> Bool
 type SuitabilityCheck = Building -> Bool

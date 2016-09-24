@@ -20,7 +20,15 @@ data PlayerData = PlayerData {
   _playerResources :: Resources
 } deriving (Show, Eq)
 
-data PlayerStatus = MovingWorker | Waiting | OccupantsInvalid | CuttingForest | DiggingPassage | DiggingCave | ChoosingChildDesireOption deriving (Show, Eq)
+data PlayerStatus = MovingWorker |
+                    Waiting |
+                    OccupantsInvalid |
+                    CuttingForest |
+                    DiggingPassage |
+                    DiggingCave |
+                    ChoosingChildDesireOption |
+                    BuildingLivingRoom
+  deriving (Show, Eq)
 
 makeLenses ''PlayerData
 
