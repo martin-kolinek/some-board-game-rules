@@ -6,7 +6,7 @@ import Data.Either (isLeft)
 import Data.Map (keys, fromList, (!), elems)
 import qualified Data.Map as M
 import Data.List ((\\), intersect)
-import Data.Maybe (maybeToList, isNothing, fromMaybe, fromJust)
+import Data.Maybe (maybeToList, isNothing, fromMaybe, fromJust, listToMaybe, isJust)
 import Control.Monad (guard, join)
 import Data.List.Split (chunksOf)
 import Data.AdditiveGroup
@@ -71,34 +71,28 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             in workplaceIsNotEmpty && allWorkersWorkInWorkplace
       in prop,
     testGroup "Next player moves worker" $
-      let prop positionsFunc (ArbitraryUniverse universe) = locations /= [] && playersWithWorkers /= [] && currentPlayerHasValidOccupants universe
+      let checkResultingUniverse nextPlayerId resultUniverse = case nextPlayerId of
+            Just nextId -> getPlayerStatus resultUniverse nextId == MovingWorker
+            Nothing -> null [wId | pId <- getPlayers resultUniverse, wId <- getWorkers resultUniverse pId, getWorkerWorkplace resultUniverse wId == Nothing]
+          coverNextPlayer nextPlayerId = cover (isJust nextPlayerId) 20 "Next player exists" . cover (isNothing nextPlayerId) 20 "No next player exists"
+          selectPositionProp positionsFunc (ArbitraryUniverse universe) = coverNextPlayer nextPlayerId $ locations /= [] && currentPlayerHasValidOccupants universe
             ==> forAll (elements locations) $ \(pos, dir) ->
             either (const False) id $ do
               universeAfterSelect <- selectPosition pos dir universe
-              return $ (getPlayerStatus universeAfterSelect nextPlayerId) == MovingWorker
-            where currentPlayerId = getCurrentPlayer universe
-                  furtherPlayerIds = tail $ dropWhile (/= fromJust currentPlayerId) $ getPlayers universe ++ getPlayers universe
-                  playersWithWorkers = [plId | plId <- furtherPlayerIds, any (isNothing . getWorkerWorkplace universe) (getWorkers universe plId)]
-                  nextPlayerId = head playersWithWorkers
+              return $ checkResultingUniverse nextPlayerId universeAfterSelect
+            where nextPlayerId = nextPlayerToMoveWorker universe
                   locations = positionsFunc universe
+          chooseChildProp (ArbitraryUniverse universe) = coverNextPlayer nextPlayerId $
+            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just ChoosingChildDesireOption && currentPlayerHasValidOccupants universe
+            ==> either (const False) id $ do
+              universeAfterChoose <- chooseChildDesireOption MakeChild universe
+              return $ checkResultingUniverse nextPlayerId universeAfterChoose
+            where nextPlayerId = nextPlayerToMoveWorker universe
       in [
-        testProperty "After cutting forest" $ prop currentPlayerCutForestLocations,
-        testProperty "After digging passage" $ prop currentPlayerDigPassageLocations,
-        testProperty "After digging cave" $ prop currentPlayerDigCaveLocations
-      ],
-    testGroup "No next player after no more workers" $
-      let prop positionsFunc (ArbitraryUniverse universe) =
-            allWorkersPlayersWorking && positionsFunc universe /= [] && currentPlayerHasValidOccupants universe
-            ==> forAll (elements $ positionsFunc universe) $ \(pos, dir) ->
-                  either (const False) id $ do
-                    nextUniverse <- selectPosition pos dir universe
-                    return $ getCurrentPlayer nextUniverse == Nothing
-            where allWorkersPlayersWorking =
-                    null [wId | pId <- getPlayers universe, wId <- getWorkers universe pId, getWorkerWorkplace universe wId == Nothing]
-      in [
-        testProperty "After cutting forest" $ prop currentPlayerCutForestLocations,
-        testProperty "After digging passage" $ prop currentPlayerDigPassageLocations,
-        testProperty "After digging cave" $ prop currentPlayerDigCaveLocations
+        testProperty "After cutting forest" $ selectPositionProp currentPlayerCutForestLocations,
+        testProperty "After digging passage" $ selectPositionProp currentPlayerDigPassageLocations,
+        testProperty "After digging cave" $ selectPositionProp currentPlayerDigCaveLocations,
+        testProperty "After choosing create child" $ chooseChildProp
       ],
     testProperty "Next player is first player after finishing turn" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> firstPlayerTurnAfterFinish
@@ -304,6 +298,13 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                   originalOccupants playerId = join $ elems $ getBuildingOccupants universe playerId
       in prop
   ]
+
+nextPlayerToMoveWorker :: Universe -> Maybe PlayerId
+nextPlayerToMoveWorker universe = do
+  currentPlayerId <- getCurrentPlayer universe
+  let furtherPlayerIds = tail $ dropWhile (/= currentPlayerId) $ getPlayers universe ++ getPlayers universe
+      playersWithFreeWorkers = [plId | plId <- furtherPlayerIds, any (isNothing . getWorkerWorkplace universe) (getWorkers universe plId)]
+  listToMaybe playersWithFreeWorkers
 
 selectingPositionStatuses :: [PlayerStatus]
 selectingPositionStatuses = [CuttingForest, DiggingPassage, DiggingCave]
