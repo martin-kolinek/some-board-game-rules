@@ -198,7 +198,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             return $ if currentPlayerId == nextPlayerId
               then (getPlayerStatus nextUniverse <$> currentPlayerId) == Just MovingWorker
               else (getPlayerStatus nextUniverse <$> currentPlayerId) == Just Waiting && (getPlayerStatus nextUniverse <$> nextPlayerId) == Just MovingWorker
-            where currentPlayerSelectingPosition = (getPlayerStatus universe <$> getCurrentPlayer universe) `elem` (Just <$> selectingPositionStatuses)
+            where currentPlayerSelectingPosition = (getPlayerStatus universe <$> getCurrentPlayer universe) `elem` (Just <$> cancellableSelectingPositionStatuses)
                   currentPlayerId = getCurrentPlayer universe
                   nextPlayerId = head . tail $ (dropWhile (/=currentPlayerId) (Just <$> cycle (getPlayers universe)))
                   nextPlayerHasWorker = any (isNothing . getWorkerWorkplace universe) $ (join . maybeToList) $ getWorkers universe <$> nextPlayerId
@@ -208,7 +208,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             nextUniverse <- cancelSelection universe
             let workerPositions u = [getWorkerWorkplace u wId | pId <- getPlayers u, wId <- getWorkers u pId]
             return $ workerPositions universe == workerPositions nextUniverse
-            where currentPlayerSelectingPosition = (getPlayerStatus universe <$> getCurrentPlayer universe) `elem` (Just <$> selectingPositionStatuses)
+            where currentPlayerSelectingPosition = (getPlayerStatus universe <$> getCurrentPlayer universe) `elem` (Just <$> cancellableSelectingPositionStatuses)
       in prop,
     testGroup "Adding resources" $
       let getWorkplaceWoodAmount (CutForest n) = n
@@ -303,6 +303,25 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
               return $ not $ null errors
             where playersWithFreeBuilding = [plId | plId <- getPlayers universe, length (getWorkers universe plId) <= 3]
                   originalOccupants playerId = join $ elems $ getBuildingOccupants universe playerId
+      in prop,
+    testProperty "Canceling selection is not possible when building living room" $
+      let prop (ArbitraryUniverse universe) = (getPlayerStatus universe <$> getCurrentPlayer universe) == Just BuildingLivingRoom ==>
+            leftProp $ do
+              cancelSelection universe
+      in prop,
+    testProperty "Choosing build room changes state to BuildingLivingRoom" $
+      let prop (ArbitraryUniverse universe) =
+            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just ChoosingChildDesireOption &&
+              availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) /= [] ==>
+            rightProp $ do
+              nextUniverse <- chooseChildDesireOption BuildRoom universe
+              return $ getPlayerStatus nextUniverse (fromJust $ getCurrentPlayer universe) == BuildingLivingRoom
+      in prop,
+    testProperty "Choosing building room fails when there are no caves available" $
+      let prop (ArbitraryUniverse universe) =
+            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just ChoosingChildDesireOption &&
+              availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) == [] ==>
+            leftProp $ chooseChildDesireOption BuildRoom universe
       in prop
   ]
 
@@ -323,8 +342,8 @@ nextPlayerToMoveWorker universe = do
       playersWithFreeWorkers = [plId | plId <- furtherPlayerIds, any (isNothing . getWorkerWorkplace universe) (getWorkers universe plId)]
   listToMaybe playersWithFreeWorkers
 
-selectingPositionStatuses :: [PlayerStatus]
-selectingPositionStatuses = [CuttingForest, DiggingPassage, DiggingCave, BuildingLivingRoom]
+cancellableSelectingPositionStatuses :: [PlayerStatus]
+cancellableSelectingPositionStatuses = [CuttingForest, DiggingPassage, DiggingCave]
 
 currentPlayerSpecificLocations :: PlayerStatus -> (Universe -> PlayerId -> [(Position, Direction)]) -> Universe -> [(Position, Direction)]
 currentPlayerSpecificLocations status positionCollector universe = do

@@ -35,7 +35,7 @@ cancelSelection :: MonadError String m => Universe -> m Universe
 cancelSelection universe =
   checkMaybe "Nothing to cancel" $ do
     currentPlayerStatus <- universe ^? (currentPlayerData . playerStatus)
-    guard (currentPlayerStatus `elem` [CuttingForest, DiggingPassage, DiggingCave, BuildingLivingRoom])
+    guard (currentPlayerStatus `elem` [CuttingForest, DiggingPassage, DiggingCave])
     let universeWithPlayerWaiting = set (currentPlayerData . playerStatus) Waiting universe
     return $ startNextPlayer universe universeWithPlayerWaiting
 
@@ -85,7 +85,9 @@ chooseChildDesireOption :: MonadError String m => ChildDesireOptions -> Universe
 chooseChildDesireOption option universe = do
   let correctStatus = has (currentPlayerData . playerStatus . filtered (==ChoosingChildDesireOption)) universe
   check correctStatus "Not possible to select that now"
-  let nextUniverse = case option of
-                       MakeChild -> over currentPlayerData stopTurn universe
-                       BuildRoom -> set (currentPlayerData . playerStatus) BuildingLivingRoom universe
+  nextUniverse <- case option of
+                       MakeChild -> return $ over currentPlayerData stopTurn universe
+                       BuildRoom -> do
+                         check (has (currentPlayerData . buildingSpace . to getBuildings . traverse . filtered isCave) universe) "No space for a room"
+                         return $ set (currentPlayerData . playerStatus) BuildingLivingRoom universe
   return $ startNextPlayer universe nextUniverse
