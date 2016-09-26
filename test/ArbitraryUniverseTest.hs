@@ -122,6 +122,21 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
             where isCurrentPlayerLast = length dropped > 1
                   dropped = dropWhile (/= currentPlayerId) (Just <$> (keys $ universe ^. (players)))
                   currentPlayerId = universe ^? (players . to toList . traverse . filtered (has $ _2 . playerStatus . filtered (== CuttingForest)) . _1)
+      in prop,
+    testProperty "ChoosingChildDesireOption workplace is correct" $
+      let prop (ArbitraryUniverse universe) =
+            has currentPlayer universe ==>
+            isWorkplaceChildDesire && isWorkplaceOccupied
+            where ChoosingChildDesireOption workplaceId = fromJust $ universe ^? currentPlayer . playerStatus
+                  isWorkplaceOccupied = has (currentPlayer .
+                                             workers .
+                                             traverse .
+                                             currentWorkplace .
+                                             traverse .
+                                             filtered (== workplaceId)) universe
+                  isWorkplaceChildDesire = has (availableWorkplaces . ix workplaceId . filtered (==ChildDesire)) universe
+                  currentPlayer :: Traversal' Universe PlayerData
+                  currentPlayer = players . traverse . filtered (has $ playerStatus . filtered isChoosingChildDesire)
       in prop
   ]
 
@@ -145,3 +160,7 @@ findWorkersToMove universe =
 
 allPlayersWaiting :: Universe -> Bool
 allPlayersWaiting = allOf (players . traverse . playerStatus) (==Waiting)
+
+isChoosingChildDesire :: PlayerStatus -> Bool
+isChoosingChildDesire (ChoosingChildDesireOption _) = True
+isChoosingChildDesire _ = False

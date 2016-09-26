@@ -46,6 +46,11 @@ buildingPositions (Cave pos) = [pos]
 buildingPositions (Passage pos) = [pos]
 buildingPositions (LivingRoom pos) = [pos]
 
+buildingSupportedWorkers :: Building -> Int
+buildingSupportedWorkers (InitialRoom _) = 2
+buildingSupportedWorkers (LivingRoom _) = 1
+buildingSupportedWorkers _ = 0
+
 newtype BuildingSpace = BuildingSpace [Building] deriving (Show, Eq)
 
 initialBuildingSpace :: BuildingSpace
@@ -135,8 +140,7 @@ type BuildingOccupants = M.Map Position [BuildingOccupant]
 type OccupantError = (String, Position)
 
 areBuildingOccupantsValid :: MonadWriter [OccupantError] m => Building -> [BuildingOccupant] -> m ()
-areBuildingOccupantsValid (InitialRoom pos) occupants = checkWriter (length occupants <= 2) ("Too many people", pos)
-areBuildingOccupantsValid building occupants = checkWriter (null occupants) ("There can't be anyone here", head $ buildingPositions building)
+areBuildingOccupantsValid building occupants = checkWriter (length occupants <= buildingSupportedWorkers building) ("Too many people here", head $ buildingPositions building)
 
 areOccupantsValid :: [BuildingOccupant] -> BuildingSpace -> BuildingOccupants -> [OccupantError]
 areOccupantsValid allOccupants (BuildingSpace buildings) occupants = snd $ runWriter $ do
@@ -152,3 +156,13 @@ areOccupantsValid allOccupants (BuildingSpace buildings) occupants = snd $ runWr
 
 initialOccupants :: [BuildingOccupant] -> BuildingSpace -> BuildingOccupants
 initialOccupants allOccupants _ = M.fromListWith mappend $ zip [(3, 3), (3, 3), (3, 2), (3, 2)] (pure <$> allOccupants)
+
+canSupportAdditionalWorker :: [BuildingOccupant] -> BuildingSpace -> Bool
+canSupportAdditionalWorker allOccupants (BuildingSpace buildings) = length allOccupants < (sum $ buildingSupportedWorkers <$> buildings)
+
+findSpaceForWorker :: BuildingSpace -> BuildingOccupant -> BuildingOccupants -> BuildingOccupants
+findSpaceForWorker (BuildingSpace buildings) newOccupant occupants = fromMaybe occupants $ do
+  let buildingHasFreeSpace building = buildingSupportedWorkers building > (length $ join $ catMaybes $ (`M.lookup` occupants) <$> buildingPositions building)
+  buildingToUse <- listToMaybe $ filter buildingHasFreeSpace buildings
+  positionToUse <- listToMaybe $ buildingPositions buildingToUse
+  return $ M.alter (Just . (newOccupant :) . fromMaybe []) positionToUse occupants

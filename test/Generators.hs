@@ -58,7 +58,7 @@ generateBuildingSpace = do
   cutForestBuildings <- forM (S.toList cutPositions) $ \position ->
     elements [Field position, Grass position]
   dugRockBuildings <- forM (S.toList dugPositions) $ \position ->
-    elements [Passage position, Cave position, LivingRoom position]
+    frequency [(5, elements [Passage position, Cave position]), (1, elements [LivingRoom position])]
   let rocks = Rock <$> S.toList (S.fromList [(x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)] S.\\ dugPositions)
       initialRoom = [InitialRoom (3, 3), InitialRoom (3, 2)]
       forestBuildings = Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
@@ -107,7 +107,7 @@ instance Arbitrary ArbitraryUniverse where
     playerCount <- choose (1, 7) :: Gen Int
     let playerIds = PlayerId <$> [1..playerCount]
     currentPlayerId <- elements playerIds
-    currentPlayerStatus <- elements [MovingWorker, OccupantsInvalid, CuttingForest, DiggingPassage, DiggingCave, ChoosingChildDesireOption, BuildingLivingRoom, Waiting]
+    currentPlayerStatus <- elements [MovingWorker, OccupantsInvalid, CuttingForest, DiggingPassage, DiggingCave, ChoosingChildDesireOption (WorkplaceId (-1)), BuildingLivingRoom, Waiting]
     currentPlayerWorkerCount <- choose (1, 4) :: Gen Int
     currentPlayerWorkers <- shuffle $ WorkerId <$> [1..currentPlayerWorkerCount]
     let (minWorkersFree, minWorkersBusy) = case currentPlayerStatus of
@@ -116,7 +116,7 @@ instance Arbitrary ArbitraryUniverse where
           CuttingForest -> (0, 1)
           DiggingPassage -> (0, 1)
           DiggingCave -> (0, 1)
-          ChoosingChildDesireOption -> (0, 1)
+          ChoosingChildDesireOption _ -> (0, 1)
           BuildingLivingRoom -> (0, 1)
           Waiting -> (0, length currentPlayerWorkers)
     freeCurrentPlayerWorkerCount <- choose (minWorkersFree, length currentPlayerWorkers - minWorkersBusy)
@@ -135,13 +135,15 @@ instance Arbitrary ArbitraryUniverse where
       CuttingForest -> generateCutForest
       DiggingPassage -> generateDigPassage
       DiggingCave -> generateDigCave
-      ChoosingChildDesireOption -> elements [ChildDesire]
+      ChoosingChildDesireOption _ -> elements [ChildDesire]
       BuildingLivingRoom -> elements [ChildDesire]
       _ -> generateWorkplaceData
     shuffledWorkplaceIds <- shuffle $ fst <$> (drop 1 workplaces)
     let workersWithWorkplaces = fromList $ zip (drop 1 allBusyWorkers) shuffledWorkplaceIds
         firstWorkerWithWorkplace = zip (take 1 allBusyWorkers) (take 1 (fst <$> workplaces))
         allWorkersWithWorkplaces = workersWithWorkplaces `union` fromList firstWorkerWithWorkplace
+        updateStatus (ChoosingChildDesireOption _) = ChoosingChildDesireOption $ head $ fst <$> workplaces
+        updateStatus other = other
     currentPlayerBuildingSpace <- generateBuildingSpace
     currentPlayerOccupants <- if currentPlayerStatus == OccupantsInvalid then generateInvalidOccupants currentPlayerWorkers else generateOccupants currentPlayerWorkers
     currentPlayerResources <- generateResources
@@ -151,7 +153,7 @@ instance Arbitrary ArbitraryUniverse where
                        (fromList [(workerId, WorkerState $ lookup workerId allWorkersWithWorkplaces) | workerId <- currentPlayerWorkers])
                        currentPlayerBuildingSpace
                        currentPlayerOccupants
-                       currentPlayerStatus
+                       (updateStatus currentPlayerStatus)
                        currentPlayerResources)
     otherPlayers <- forM (playerIds \\ [currentPlayerId]) $ \playerId -> do
       let playerWorkers = [workerId | (plId, busyWorkers, freeWorkers) <- otherPlayerData, plId == playerId, workerId <- busyWorkers ++ freeWorkers]

@@ -4,6 +4,7 @@ import Control.Lens hiding (universe)
 import Data.Map
 import Data.Maybe
 
+import Universe.Player
 import Universe
 import Player
 import Building
@@ -23,3 +24,9 @@ getAllOccupants universe player = toListOf (players . ix player . folding getPla
 getPlayerPossibleOccupants :: PlayerData -> [BuildingOccupant]
 getPlayerPossibleOccupants playerData = WorkerOccupant <$> toListOf (workers . folding keys) playerData
 
+currentPlayerCanBuildRoom :: Universe -> Bool
+currentPlayerCanBuildRoom = has (currentPlayerData . buildingSpace . to getBuildings . traverse . filtered isCave)
+
+currentPlayerCanMakeChild :: Universe -> Bool
+currentPlayerCanMakeChild = has (currentPlayerData . filtered playerCanMakeChild)
+  where playerCanMakeChild playerData = canSupportAdditionalWorker (getPlayerPossibleOccupants playerData) (playerData ^. buildingSpace)

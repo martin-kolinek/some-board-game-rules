@@ -26,7 +26,7 @@ data PlayerStatus = MovingWorker |
                     CuttingForest |
                     DiggingPassage |
                     DiggingCave |
-                    ChoosingChildDesireOption |
+                    ChoosingChildDesireOption WorkplaceId |
                     BuildingLivingRoom
   deriving (Show, Eq)
 
@@ -49,11 +49,11 @@ checkOccupantsAfterTurn plData =
 stopTurn :: PlayerData -> PlayerData
 stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid
 
-applyAction :: WorkplaceData -> PlayerData -> PlayerData
-applyAction workplaceData@(CutForest _) = over playerResources (assignResources workplaceData) . set playerStatus CuttingForest
-applyAction workplaceData@(DigPassage _) = applyWorkplaceData workplaceData . set playerStatus DiggingPassage
-applyAction workplaceData@(DigCave _) = applyWorkplaceData workplaceData . set playerStatus DiggingCave
-applyAction workplaceData@ChildDesire = applyWorkplaceData workplaceData . set playerStatus ChoosingChildDesireOption
+applyAction :: WorkplaceId -> WorkplaceData -> PlayerData -> PlayerData
+applyAction _ workplaceData@(CutForest _) = over playerResources (assignResources workplaceData) . set playerStatus CuttingForest
+applyAction _ workplaceData@(DigPassage _) = applyWorkplaceData workplaceData . set playerStatus DiggingPassage
+applyAction _ workplaceData@(DigCave _) = applyWorkplaceData workplaceData . set playerStatus DiggingCave
+applyAction workplaceId workplaceData@ChildDesire = applyWorkplaceData workplaceData . set playerStatus (ChoosingChildDesireOption workplaceId)
 
 applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
 applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)

@@ -6,7 +6,7 @@ import Data.Map (keys, fromList, (!), elems)
 import qualified Data.Map as M
 import Data.List ((\\), intersect)
 import Data.Maybe (maybeToList, isNothing, fromMaybe, fromJust, listToMaybe, isJust)
-import Control.Monad (guard, join)
+import Control.Monad (guard, join, liftM2)
 import Data.List.Split (chunksOf)
 import Data.AdditiveGroup
 import qualified Data.Set as S
@@ -21,6 +21,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       let prop (ArbitraryUniverse universe) = hasEmptyWorkplace && hasWorkerToMove ==>
             forAll (elements $ findEmptyWorkplaces universe) $ \workplaceId ->
             forAll (elements $ findWorkersToMove universe) $ \workerId ->
+            getWorkplaces universe ! workplaceId /= ChildDesire || currentPlayerCanBuildRoom universe || currentPlayerHasFreeRoom universe ==>
             rightProp $ do
               updatedUniverse <- startWorking workerId workplaceId universe
               return $ Just workplaceId == getWorkerWorkplace updatedUniverse workerId
@@ -28,20 +29,20 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                   hasWorkerToMove = not . null $ findWorkersToMove universe
       in prop,
     testGroup "Starting working sets status" $
-      let prop workplaceFunc playerStatus (ArbitraryUniverse universe) = hasEmptyWorkplace && hasWorkerToMove ==>
+      let prop workplaceFunc precondition playerStatusFunc (ArbitraryUniverse universe) = hasEmptyWorkplace && hasWorkerToMove && precondition universe ==>
             forAll (elements $ workplaceFunc universe) $ \workplaceId ->
             forAll (elements $ findWorkersToMove universe) $ \workerId ->
             rightProp $ do
               updatedUniverse <- startWorking workerId workplaceId universe
-              return $ (getPlayerStatus updatedUniverse <$> currentPlayerId) == Just playerStatus
+              return $ (getPlayerStatus updatedUniverse <$> currentPlayerId) == Just (playerStatusFunc workplaceId)
             where hasEmptyWorkplace = not . null $ workplaceFunc universe
                   hasWorkerToMove = not . null $ findWorkersToMove universe
                   currentPlayerId = getCurrentPlayer universe
       in [
-        testProperty "Cutting forest" $ prop findEmptyCutForestWorkplaces CuttingForest,
-        testProperty "Digging passage" $ prop findEmptyDigPassageWorkplaces DiggingPassage,
-        testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces DiggingCave,
-        testProperty "Child desire" $ prop findEmptyChildDesireWorkplaces ChoosingChildDesireOption
+        testProperty "Cutting forest" $ prop findEmptyCutForestWorkplaces (const True) (const CuttingForest),
+        testProperty "Digging passage" $ prop findEmptyDigPassageWorkplaces (const True) (const DiggingPassage),
+        testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces (const True) (const DiggingCave),
+        testProperty "Child desire" $ prop findEmptyChildDesireWorkplaces (liftM2 (||) currentPlayerHasFreeRoom currentPlayerCanBuildRoom) ChoosingChildDesireOption
       ],
     testProperty "Finishing turn unassigns all workers" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> rightProp $ do
@@ -83,7 +84,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             where nextPlayerId = nextPlayerToMoveWorker universe
                   locations = positionsFunc universe
           chooseChildProp (ArbitraryUniverse universe) = coverNextPlayer nextPlayerId $
-            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just ChoosingChildDesireOption && currentPlayerHasValidOccupants universe
+            fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) && currentPlayerHasValidOccupants universe &&
+            currentPlayerHasFreeRoom universe
             ==> rightProp $ do
               universeAfterChoose <- chooseChildDesireOption MakeChild universe
               return $ checkResultingUniverse nextPlayerId universeAfterChoose
@@ -247,7 +249,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       let prop (ArbitraryUniverse universe) = all (correct universe) (getPlayers universe)
           correct universe playerId = (WorkerOccupant <$> getWorkers universe playerId) == getAllOccupants universe playerId
       in prop,
-    testProperty "Having a worker outside of initial room causes error" $
+    testProperty "Having a worker outside of room causes error" $
       let prop (ArbitraryUniverse universe) = playersWithNoOccupantErrors /= [] ==>
             forAll (elements $ playersWithNoOccupantErrors) $ \playerId ->
             forAll (elements $ occupantsToMove playerId) $ \occupant ->
@@ -262,7 +264,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             where playersWithNoOccupantErrors = [plId | plId <- getPlayers universe, getOccupantErrors universe plId == []]
                   originalOccupants playerId = getBuildingOccupants universe playerId
                   occupantsToMove playerId = join $ elems $ originalOccupants playerId
-                  isPositionInvalid playerId pos = not $ InitialRoom pos `elem` getBuildingSpace universe playerId
+                  isPositionInvalid playerId pos = intersect [InitialRoom pos, LivingRoom pos] (getBuildingSpace universe playerId) == []
                   destinationPositions playerId = filter (isPositionInvalid playerId) availableBuildingPositions
       in prop,
     testProperty "Having a worker without a room causes error" $
@@ -291,7 +293,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             where playersWithFreeBuilding = [plId | plId <- getPlayers universe, length (getWorkers universe plId) <= 3]
                   originalOccupants playerId = join $ elems $ getBuildingOccupants universe playerId
       in prop,
-    testProperty "Having same occupant multiple times causes an error" $
+    testProperty "Having occupant from different player causes error" $
       let prop (ArbitraryUniverse universe) = playersWithFreeBuilding /= [] ==>
             forAll (elements $ playersWithFreeBuilding) $ \playerId ->
             forAll (elements $ getPlayers universe \\ [playerId]) $ \otherPlayerId ->
@@ -311,7 +313,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       in prop,
     testProperty "Choosing build room changes state to BuildingLivingRoom" $
       let prop (ArbitraryUniverse universe) =
-            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just ChoosingChildDesireOption &&
+            fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) &&
               availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) /= [] ==>
             rightProp $ do
               nextUniverse <- chooseChildDesireOption BuildRoom universe
@@ -319,9 +321,34 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       in prop,
     testProperty "Choosing building room fails when there are no caves available" $
       let prop (ArbitraryUniverse universe) =
-            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just ChoosingChildDesireOption &&
+            fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) &&
               availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) == [] ==>
             leftProp $ chooseChildDesireOption BuildRoom universe
+      in prop,
+    testProperty "Choosing make child fails when there is no room available" $
+      let prop (ArbitraryUniverse universe) =
+            (not $ currentPlayerHasFreeRoom universe) && fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) ==>
+            leftProp $ chooseChildDesireOption MakeChild universe
+      in prop,
+    testProperty "Choosing make child creates a new worker" $
+      let prop (ArbitraryUniverse universe) =
+            currentPlayerHasFreeRoom universe && fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) ==>
+            rightProp $ do
+              nextUniverse <- chooseChildDesireOption MakeChild universe
+              let currentPlayerId = fromJust $ getCurrentPlayer universe
+                  currentPlayerOrigWorkers = getWorkers universe currentPlayerId
+                  currentPlayerNewWorkers = getWorkers nextUniverse currentPlayerId
+                  allWorkerIds = [wId | plId <- getPlayers nextUniverse, wId <- getWorkers nextUniverse plId]
+              return $ length currentPlayerNewWorkers == length currentPlayerOrigWorkers + 1 && length allWorkerIds == S.size (S.fromList allWorkerIds)
+      in prop,
+    testProperty "Choosing make child keeps occupants valid" $
+      let prop (ArbitraryUniverse universe) =
+            currentPlayerHasFreeRoom universe && fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) &&
+            (getOccupantErrors universe <$> getCurrentPlayer universe) == Just [] ==>
+            rightProp $ do
+              nextUniverse <- chooseChildDesireOption MakeChild universe
+              let currentPlayerId = fromJust $ getCurrentPlayer universe
+              return $ getOccupantErrors nextUniverse currentPlayerId == []
       in prop
   ]
 
@@ -438,3 +465,20 @@ allPlayersWaiting :: Universe -> Bool
 allPlayersWaiting universe = all playerWaiting players
   where playerWaiting plId = getPlayerStatus universe plId == Waiting
         players = getPlayers universe
+
+currentPlayerHasFreeRoom :: Universe -> Bool
+currentPlayerHasFreeRoom universe = fromMaybe False $ do
+  currentPlayerId <- getCurrentPlayer universe
+  let buildingSpace = getBuildingSpace universe currentPlayerId
+      buildingCount (LivingRoom _) = 1
+      buildingCount (InitialRoom _) = 2
+      buildingCount _ = 0
+      totalRoom = sum $ buildingCount <$> buildingSpace
+  return (totalRoom > (length $ getWorkers universe currentPlayerId))
+
+currentPlayerCanBuildRoom :: Universe -> Bool
+currentPlayerCanBuildRoom universe = not $ null $ join $ maybeToList $ availableSingleCavePositions universe <$> getCurrentPlayer universe
+
+isChoosingChildDesire :: PlayerStatus -> Bool
+isChoosingChildDesire (ChoosingChildDesireOption _) = True
+isChoosingChildDesire _ = False

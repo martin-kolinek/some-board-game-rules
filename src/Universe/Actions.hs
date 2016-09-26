@@ -10,6 +10,7 @@ import Data.Maybe
 import Universe.Player
 import Universe.Worker
 import Universe.Workplace
+import Universe.Building
 import Player
 import Building
 import Universe
@@ -59,8 +60,9 @@ startWorking workerId workplaceId universe = do
   check currentPlayerCanMoveWorker "Current player cannot start working a worker now"
   workplaceAction <- checkMaybe "Workplace does not exist" (workplaceId `lookup` view availableWorkplaces universe)
   check workplaceEmpty "Workplace occupied"
+  checkWorkplacePrecondition universe workplaceAction
   let withAssignedWorker = over currentWorkerState setWorkplace universe
-      withAppliedAction = over currentPlayerData (applyAction workplaceAction) withAssignedWorker
+      withAppliedAction = over currentPlayerData (applyAction workplaceId workplaceAction) withAssignedWorker
       withClearedWorkplace = over (availableWorkplaces . ix workplaceId) clearWorkspace withAppliedAction
   return $ startNextPlayer withAssignedWorker withClearedWorkplace
   where currentWorkerState :: Traversal' Universe WorkerState
@@ -83,11 +85,17 @@ finishTurn universe = do
 
 chooseChildDesireOption :: MonadError String m => ChildDesireOptions -> Universe -> m Universe
 chooseChildDesireOption option universe = do
-  let correctStatus = has (currentPlayerData . playerStatus . filtered (==ChoosingChildDesireOption)) universe
-  check correctStatus "Not possible to select that now"
+  let extractWorkplaceId (ChoosingChildDesireOption workplace) = Just workplace
+      extractWorkplaceId _ = Nothing
+  workplaceId <- checkMaybe "Not in a correct status" $ universe ^? (currentPlayerData . playerStatus . to extractWorkplaceId . traverse)
   nextUniverse <- case option of
-                       MakeChild -> return $ over currentPlayerData stopTurn universe
+                       MakeChild -> do
+                         check (currentPlayerCanMakeChild universe) "No room for a child"
+                         let workerId = newWorkerId universe
+                             addWorker = insert workerId (WorkerState $ Just workplaceId)
+                             alterPlayerOccupants plData = over buildingOccupants (findSpaceForWorker (plData ^. buildingSpace) (WorkerOccupant workerId)) plData
+                         return $ over currentPlayerData (stopTurn . alterPlayerOccupants . over workers addWorker) universe
                        BuildRoom -> do
-                         check (has (currentPlayerData . buildingSpace . to getBuildings . traverse . filtered isCave) universe) "No space for a room"
+                         check (currentPlayerCanBuildRoom universe) "No space for a room"
                          return $ set (currentPlayerData . playerStatus) BuildingLivingRoom universe
   return $ startNextPlayer universe nextUniverse
