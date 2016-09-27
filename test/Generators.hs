@@ -138,7 +138,10 @@ instance Arbitrary ArbitraryUniverse where
       ChoosingChildDesireOption _ -> elements [ChildDesire]
       BuildingLivingRoom -> elements [ChildDesire]
       _ -> generateWorkplaceData
-    shuffledWorkplaceIds <- shuffle $ fst <$> (drop 1 workplaces)
+    let getDuplicatedWorkplaceIds (wId, ChildDesire) = [wId, wId]
+        getDuplicatedWorkplaceIds (wId, _) = [wId]
+        workplaceIdsToShuffle = getDuplicatedWorkplaceIds =<< drop 1 workplaces
+    shuffledWorkplaceIds <- shuffle workplaceIdsToShuffle
     let workersWithWorkplaces = fromList $ zip (drop 1 allBusyWorkers) shuffledWorkplaceIds
         firstWorkerWithWorkplace = zip (take 1 allBusyWorkers) (take 1 (fst <$> workplaces))
         allWorkersWithWorkplaces = workersWithWorkplaces `union` fromList firstWorkerWithWorkplace

@@ -3,7 +3,7 @@ module ArbitraryUniverseTest where
 import Control.Lens hiding (universe, elements)
 import Test.Tasty.QuickCheck
 import Test.Tasty
-import Data.List (nub, (\\))
+import Data.List (nub, (\\), group, sort)
 import Data.Map (toList, keys, (!))
 import Data.Maybe (isJust, fromJust, fromMaybe, isNothing)
 import qualified Data.Set as S
@@ -33,8 +33,12 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
           prop (ArbitraryUniverse universe) = (lengthOf (players . traverse . filtered isActive) universe) <= 1
       in prop,
     testProperty "No two workers are in the same workplace" $
-      let prop (ArbitraryUniverse universe) = workplaces == nub workplaces
+      let prop (ArbitraryUniverse universe) = all verifyGroup sortedGroups
             where workplaces = toListOf (players . traverse . workers . traverse . currentWorkplace . traverse) universe
+                  sortedGroups = group $ sort workplaces
+                  verifyGroup grp = length grp <= (maxWorkers $ (universe ^. availableWorkplaces) ! head grp)
+                  maxWorkers ChildDesire = 2
+                  maxWorkers _ = 1
       in prop,
     testProperty "No two buildings overlap" $
       let noBuildingsOverlap buildings = positions == nub positions
