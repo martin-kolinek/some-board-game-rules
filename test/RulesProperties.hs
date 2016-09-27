@@ -314,15 +314,32 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
     testProperty "Choosing build room changes state to BuildingLivingRoom" $
       let prop (ArbitraryUniverse universe) =
             fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) &&
-              availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) /= [] ==>
+              availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) /= [] && currentPlayerHasEnoughResourcesForLivingRoom universe ==>
             rightProp $ do
               nextUniverse <- chooseChildDesireOption BuildRoom universe
               return $ getPlayerStatus nextUniverse (fromJust $ getCurrentPlayer universe) == BuildingLivingRoom
       in prop,
-    testProperty "Choosing building room fails when there are no caves available" $
+    testProperty "Choosing build room subtracts resources" $
       let prop (ArbitraryUniverse universe) =
             fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) &&
-              availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) == [] ==>
+              availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) /= [] && currentPlayerHasEnoughResourcesForLivingRoom universe ==>
+            rightProp $ do
+              nextUniverse <- chooseChildDesireOption BuildRoom universe
+              let currentPlayerId = fromJust $ getCurrentPlayer universe
+                  origResources = getPlayerResources universe currentPlayerId
+                  newResources = getPlayerResources nextUniverse currentPlayerId
+              return $ getWoodAmount newResources == getWoodAmount origResources - 4 && getStoneAmount newResources == getStoneAmount origResources - 3
+      in prop,
+    testProperty "Choosing build room fails when there are no caves available" $
+      let prop (ArbitraryUniverse universe) =
+            fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) &&
+              availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) == [] && currentPlayerHasEnoughResourcesForLivingRoom universe==>
+            leftProp $ chooseChildDesireOption BuildRoom universe
+      in prop,
+    testProperty "Choosing build room fails when there aren't enough resources" $
+      let prop (ArbitraryUniverse universe) =
+            fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) &&
+              availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) /= [] && not (currentPlayerHasEnoughResourcesForLivingRoom universe) ==>
             leftProp $ chooseChildDesireOption BuildRoom universe
       in prop,
     testProperty "Choosing make child fails when there is no room available" $
@@ -351,6 +368,12 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
               return $ getOccupantErrors nextUniverse currentPlayerId == []
       in prop
   ]
+
+currentPlayerHasEnoughResourcesForLivingRoom :: Universe -> Bool
+currentPlayerHasEnoughResourcesForLivingRoom universe = fromMaybe False $ do
+  currentPlayerId <- getCurrentPlayer universe
+  let resources = getPlayerResources universe currentPlayerId
+  return $ getWoodAmount resources >= 4 && getStoneAmount resources >= 3
 
 rightProp :: Testable a => Either String a -> Property
 rightProp result = case result of
@@ -477,7 +500,8 @@ currentPlayerHasFreeRoom universe = fromMaybe False $ do
   return (totalRoom > (length $ getWorkers universe currentPlayerId))
 
 currentPlayerCanBuildRoom :: Universe -> Bool
-currentPlayerCanBuildRoom universe = not $ null $ join $ maybeToList $ availableSingleCavePositions universe <$> getCurrentPlayer universe
+currentPlayerCanBuildRoom universe = (not $ null $ join $ maybeToList $ availableSingleCavePositions universe <$> getCurrentPlayer universe) &&
+  currentPlayerHasEnoughResourcesForLivingRoom universe
 
 isChoosingChildDesire :: PlayerStatus -> Bool
 isChoosingChildDesire (ChoosingChildDesireOption _) = True

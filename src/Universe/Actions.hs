@@ -17,6 +17,7 @@ import Universe
 import Util
 import Worker
 import Workplace
+import Resources
 
 selectPosition :: MonadError String m => Position -> Direction -> Universe -> m Universe
 selectPosition position direction universe = do
@@ -97,5 +98,9 @@ chooseChildDesireOption option universe = do
                          return $ over currentPlayerData (stopTurn . alterPlayerOccupants . over workers addWorker) universe
                        BuildRoom -> do
                          check (currentPlayerCanBuildRoom universe) "No space for a room"
-                         return $ set (currentPlayerData . playerStatus) BuildingLivingRoom universe
+                         let setStatus = set (currentPlayerData . playerStatus) BuildingLivingRoom
+                             resourceTraversal :: Traversal' Universe Resources
+                             resourceTraversal = currentPlayerData . playerResources
+                             removeResources = over (resourceTraversal . woodAmount) (subtract 4) . over (resourceTraversal . stoneAmount) (subtract 3)
+                         return $ (setStatus . removeResources) universe
   return $ startNextPlayer universe nextUniverse

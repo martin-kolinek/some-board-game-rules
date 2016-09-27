@@ -84,8 +84,8 @@ generateOccupants :: [WorkerId] -> Gen BuildingOccupants
 generateOccupants workers =
   oneof [generateValidOccupants workers, generateInvalidOccupants workers]
 
-generateResources :: Gen Resources
-generateResources = Resources
+generateFullResources :: Gen Resources
+generateFullResources = Resources
   <$> choose (0, 1000)
   <*> choose (0, 1000)
   <*> choose (0, 1000)
@@ -98,6 +98,24 @@ generateResources = Resources
   <*> choose (0, 1000)
   <*> choose (0, 1000)
   <*> choose (0, 1000)
+
+generateEmptyResources :: Gen Resources
+generateEmptyResources = Resources
+  <$> choose (0, 2)
+  <*> choose (0, 2)
+  <*> choose (0, 2)
+  <*> choose (0, 2)
+  <*> choose (0, 2)
+  <*> choose (0, 2)
+  <*> choose (0, 2)
+  <*> choose (0, 2)
+  <*> choose (0, 2)
+  <*> choose (0, 2)
+  <*> choose (0, 2)
+  <*> choose (0, 2)
+
+generateResources :: Gen Resources
+generateResources = oneof [generateEmptyResources, generateFullResources]
 
 genPlayers :: Universe -> Gen PlayerId
 genPlayers universe = elements $ getPlayers universe

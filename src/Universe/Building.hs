@@ -8,6 +8,7 @@ import Universe.Player
 import Universe
 import Player
 import Building
+import Resources
 
 getOccupantErrors :: Universe -> PlayerId -> [OccupantError]
 getOccupantErrors universe player = toListOf (players . ix player . folding verifyOccupants) universe
@@ -25,7 +26,9 @@ getPlayerPossibleOccupants :: PlayerData -> [BuildingOccupant]
 getPlayerPossibleOccupants playerData = WorkerOccupant <$> toListOf (workers . folding keys) playerData
 
 currentPlayerCanBuildRoom :: Universe -> Bool
-currentPlayerCanBuildRoom = has (currentPlayerData . buildingSpace . to getBuildings . traverse . filtered isCave)
+currentPlayerCanBuildRoom universe = has (currentPlayerData . buildingSpace . to getBuildings . traverse . filtered isCave) universe &&
+  has (currentPlayerData . playerResources . woodAmount . filtered (>=4)) universe &&
+  has (currentPlayerData . playerResources . stoneAmount . filtered (>=3)) universe
 
 currentPlayerCanMakeChild :: Universe -> Bool
 currentPlayerCanMakeChild = has (currentPlayerData . filtered playerCanMakeChild)
