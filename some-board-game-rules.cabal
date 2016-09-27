@@ -2,7 +2,7 @@
 -- further documentation, see http://haskell.org/cabal/users-guide/
 
 name:                some-board-game-rules
-version:             0.1.5.3
+version:             0.1.6.0
 -- synopsis:
 -- description:
 license:             MIT
@@ -20,13 +20,14 @@ library
                        Universe.Actions, Universe.Building, Universe.Player, Universe.Worker, Universe.Workplace
   -- other-modules:
   -- other-extensions:
-  build-depends:       base >=4.8 && <4.9,
+  build-depends:       base,
                        lens,
                        containers,
                        mtl,
                        vector-space
   hs-source-dirs:      src
   default-language:    Haskell2010
+  ghc-options:         -Wall -Werror
 
 test-suite tests
   type:               exitcode-stdio-1.0
@@ -49,3 +50,4 @@ test-suite tests
                       tasty-quickcheck,
                       pretty-show,
                       split
+  ghc-options:        -Wall -Werror
