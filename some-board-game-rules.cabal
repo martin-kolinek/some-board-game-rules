@@ -2,7 +2,7 @@
 -- further documentation, see http://haskell.org/cabal/users-guide/
 
 name:                some-board-game-rules
-version:             0.1.6.0
+version:             0.1.6.1
 -- synopsis:
 -- description:
 license:             MIT
