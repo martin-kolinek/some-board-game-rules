@@ -1,7 +1,9 @@
 module Workplace where
 
 import Resources
+
 import Control.Lens
+import Data.Map.Strict
 
 newtype WorkplaceId = WorkplaceId Int deriving (Eq, Ord, Show)
 
@@ -27,3 +29,9 @@ assignResources (CutForest wood) = over woodAmount (+wood)
 assignResources (DigPassage stone) = over stoneAmount (+stone)
 assignResources (DigCave stone) = over stoneAmount (+stone)
 assignResources ChildDesire = id
+
+initialWorkplaces :: Map WorkplaceId WorkplaceData
+initialWorkplaces = fromList $ zip workplaceIds updatedWorkplaceDatas
+  where workplaceDatas = replicate 8 (CutForest 0) ++ replicate 8 (DigCave 0) ++ replicate 8 (DigPassage 0) ++ replicate 4 ChildDesire
+        updatedWorkplaceDatas = updateWorkplaceAfterTurn <$> workplaceDatas
+        workplaceIds = WorkplaceId <$> [1..]

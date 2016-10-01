@@ -57,3 +57,9 @@ applyAction workplaceId workplaceData@ChildDesire = applyWorkplaceData workplace
 
 applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
 applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)
+
+initialPlayers :: Map PlayerId PlayerData
+initialPlayers = fromList
+  [(PlayerId i,
+    PlayerData (PlayerId i) (createWorkers (i * 2 - 1) 2) initialBuildingSpace empty (if i == 1 then MovingWorker else Waiting) initialResources)
+      | i <- [1..2]]

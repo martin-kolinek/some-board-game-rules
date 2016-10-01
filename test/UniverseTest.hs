@@ -32,18 +32,6 @@ universeTests = testGroup "Universe" [
       universe <- get
       liftIO $ 2 @=? (length . getPlayers) universe
     ,
-    flowTestCase initialUniverse "Initial universe has two workers for player 1" $ do
-      workers <- getWorkers <$> get <*> player1
-      liftIO $ 2 @=? length workers
-    ,
-    flowTestCase initialUniverse "Initial universe has three worker for player 2" $ do
-      workers <- getWorkers <$> get <*> player2
-      liftIO $ 3 @=? length workers
-    ,
-    flowTestCase initialUniverse "Initial universe has six increase score workplaces" $ do
-      workplaces <- getWorkplaces <$> get
-      liftIO $ replicate 12 (CutForest 3) @=? elems workplaces
-    ,
     flowTestCaseFailure initialUniverse "Start working in invalid workplace causes error" $ do
       worker <- getWorker 0 0
       _ <- startWorking worker (WorkplaceId 50) =<< get

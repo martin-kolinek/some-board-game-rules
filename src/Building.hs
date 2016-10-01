@@ -57,7 +57,7 @@ initialBuildingSpace :: BuildingSpace
 initialBuildingSpace =
   let forests = [Forest (x, y) | x <- [0..2], y <- [0..3]]
       rocks = [Rock (x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)]
-      initialRoom = [InitialRoom (3, 3), InitialRoom (3, 2)]
+      initialRoom = [InitialRoom (3, 3), Cave (3, 2)]
   in BuildingSpace (forests ++ rocks ++ initialRoom)
 
 getBuildings :: BuildingSpace -> [Building]
@@ -155,7 +155,7 @@ areOccupantsValid allOccupants (BuildingSpace buildings) occupants = snd $ runWr
   return ()
 
 initialOccupants :: [BuildingOccupant] -> BuildingSpace -> BuildingOccupants
-initialOccupants allOccupants _ = M.fromListWith mappend $ zip [(3, 3), (3, 3), (3, 2), (3, 2)] (pure <$> allOccupants)
+initialOccupants allOccupants _ = M.fromListWith mappend $ zip [(3, 3), (3, 3)] (pure <$> allOccupants)
 
 canSupportAdditionalWorker :: [BuildingOccupant] -> BuildingSpace -> Bool
 canSupportAdditionalWorker allOccupants (BuildingSpace buildings) = length allOccupants < (sum $ buildingSupportedWorkers <$> buildings)
