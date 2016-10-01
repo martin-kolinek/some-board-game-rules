@@ -12,6 +12,7 @@ module Rules (
                 OccupantError,
                 Position,
                 ChildDesireOptions(..),
+                Resources,
                 getPlayers,
                 getCurrentPlayer,
                 getWorkers,
