@@ -37,7 +37,7 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
             where workplaces = toListOf (players . traverse . workers . traverse . currentWorkplace . traverse) universe
                   sortedGroups = group $ sort workplaces
                   verifyGroup grp = length grp <= (maxWorkers $ (universe ^. availableWorkplaces) ! head grp)
-                  maxWorkers ChildDesire = 2
+                  maxWorkers WorkerNeed = 2
                   maxWorkers _ = 1
       in prop,
     testProperty "No two buildings overlap" $
@@ -127,20 +127,20 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
                   dropped = dropWhile (/= currentPlayerId) (Just <$> (keys $ universe ^. (players)))
                   currentPlayerId = universe ^? (players . to toList . traverse . filtered (has $ _2 . playerStatus . filtered (== CuttingForest)) . _1)
       in prop,
-    testProperty "ChoosingChildDesireOption workplace is correct" $
+    testProperty "ChoosingWorkerNeedOption workplace is correct" $
       let prop (ArbitraryUniverse universe) =
             has currentPlayer universe ==>
-            isWorkplaceChildDesire && isWorkplaceOccupied
-            where (MakingDecision (ChildDesireDecision workplaceId)) = fromJust $ universe ^? currentPlayer . playerStatus
+            isWorkplaceWorkerNeed && isWorkplaceOccupied
+            where (MakingDecision (WorkerNeedDecision workplaceId)) = fromJust $ universe ^? currentPlayer . playerStatus
                   isWorkplaceOccupied = has (currentPlayer .
                                              workers .
                                              traverse .
                                              currentWorkplace .
                                              traverse .
                                              filtered (== workplaceId)) universe
-                  isWorkplaceChildDesire = has (availableWorkplaces . ix workplaceId . filtered (==ChildDesire)) universe
+                  isWorkplaceWorkerNeed = has (availableWorkplaces . ix workplaceId . filtered (==WorkerNeed)) universe
                   currentPlayer :: Traversal' Universe PlayerData
-                  currentPlayer = players . traverse . filtered (has $ playerStatus . filtered isChoosingChildDesire)
+                  currentPlayer = players . traverse . filtered (has $ playerStatus . filtered isChoosingWorkerNeed)
       in prop
   ]
 
@@ -165,6 +165,6 @@ findWorkersToMove universe =
 allPlayersWaiting :: Universe -> Bool
 allPlayersWaiting = allOf (players . traverse . playerStatus) (==Waiting)
 
-isChoosingChildDesire :: PlayerStatus -> Bool
-isChoosingChildDesire (MakingDecision (ChildDesireDecision _)) = True
-isChoosingChildDesire _ = False
+isChoosingWorkerNeed :: PlayerStatus -> Bool
+isChoosingWorkerNeed (MakingDecision (WorkerNeedDecision _)) = True
+isChoosingWorkerNeed _ = False

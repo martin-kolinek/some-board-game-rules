@@ -11,7 +11,7 @@ module Rules (
                 Direction(..),
                 OccupantError,
                 Position,
-                ChildDesireOptions(..),
+                WorkerNeedOptions(..),
                 DecisionType (..),
                 Resources,
                 Options (..),

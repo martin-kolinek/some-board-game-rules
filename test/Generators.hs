@@ -31,7 +31,7 @@ generateDigCave :: Gen WorkplaceData
 generateDigCave = DigCave <$> choose (0, 1000)
 
 generateWorkplaceData :: Gen WorkplaceData
-generateWorkplaceData = oneof [generateDigPassage, generateCutForest, generateDigCave, elements [ChildDesire]]
+generateWorkplaceData = oneof [generateDigPassage, generateCutForest, generateDigCave, elements [WorkerNeed]]
 
 generateWorkplaces :: Int -> Gen WorkplaceData -> Gen [(WorkplaceId, WorkplaceData)]
 generateWorkplaces minNumber firstWorkplaceGen = do
@@ -130,7 +130,7 @@ instance Arbitrary ArbitraryUniverse where
                                      CuttingForest,
                                      DiggingPassage,
                                      DiggingCave,
-                                     MakingDecision (ChildDesireDecision (WorkplaceId (-1))),
+                                     MakingDecision (WorkerNeedDecision (WorkplaceId (-1))),
                                      BuildingLivingRoom,
                                      Waiting]
     currentPlayerWorkerCount <- choose (1, 4) :: Gen Int
@@ -141,7 +141,7 @@ instance Arbitrary ArbitraryUniverse where
           CuttingForest -> (0, 1)
           DiggingPassage -> (0, 1)
           DiggingCave -> (0, 1)
-          MakingDecision (ChildDesireDecision _) -> (0, 1)
+          MakingDecision (WorkerNeedDecision _) -> (0, 1)
           BuildingLivingRoom -> (0, 1)
           Waiting -> (0, length currentPlayerWorkers)
     freeCurrentPlayerWorkerCount <- choose (minWorkersFree, length currentPlayerWorkers - minWorkersBusy)
@@ -160,17 +160,17 @@ instance Arbitrary ArbitraryUniverse where
       CuttingForest -> generateCutForest
       DiggingPassage -> generateDigPassage
       DiggingCave -> generateDigCave
-      MakingDecision (ChildDesireDecision _) -> elements [ChildDesire]
-      BuildingLivingRoom -> elements [ChildDesire]
+      MakingDecision (WorkerNeedDecision _) -> elements [WorkerNeed]
+      BuildingLivingRoom -> elements [WorkerNeed]
       _ -> generateWorkplaceData
-    let getDuplicatedWorkplaceIds (wId, ChildDesire) = [wId, wId]
+    let getDuplicatedWorkplaceIds (wId, WorkerNeed) = [wId, wId]
         getDuplicatedWorkplaceIds (wId, _) = [wId]
         workplaceIdsToShuffle = getDuplicatedWorkplaceIds =<< drop 1 workplaces
     shuffledWorkplaceIds <- shuffle workplaceIdsToShuffle
     let workersWithWorkplaces = fromList $ zip (drop 1 allBusyWorkers) shuffledWorkplaceIds
         firstWorkerWithWorkplace = zip (take 1 allBusyWorkers) (take 1 (fst <$> workplaces))
         allWorkersWithWorkplaces = workersWithWorkplaces `union` fromList firstWorkerWithWorkplace
-        updateStatus (MakingDecision (ChildDesireDecision _)) = MakingDecision $ ChildDesireDecision $ head $ fst <$> workplaces
+        updateStatus (MakingDecision (WorkerNeedDecision _)) = MakingDecision $ WorkerNeedDecision $ head $ fst <$> workplaces
         updateStatus other = other
     currentPlayerBuildingSpace <- generateBuildingSpace
     currentPlayerOccupants <- if currentPlayerStatus == OccupantsInvalid then generateInvalidOccupants currentPlayerWorkers else generateOccupants currentPlayerWorkers
