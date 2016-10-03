@@ -90,12 +90,19 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
               universeAfterChoose <- chooseOption (WorkerNeedOption HireWorker) universe
               return $ checkResultingUniverse nextPlayerId universeAfterChoose
             where nextPlayerId = nextPlayerToMoveWorker universe
+          chooseNoDiggingProp (ArbitraryUniverse universe) = coverNextPlayer nextPlayerId $
+            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just (MakingDecision CaveOrPassageDecision) && currentPlayerHasValidOccupants universe ==>
+            rightProp $ do
+              universeAfterChoose <- chooseOption (CaveOrPassageOption NoDigging) universe
+              return $ checkResultingUniverse nextPlayerId universeAfterChoose
+            where nextPlayerId = nextPlayerToMoveWorker universe
       in [
         testProperty "After cutting forest" $ selectPositionProp currentPlayerCutForestLocations,
         testProperty "After digging passage" $ selectPositionProp currentPlayerDigPassageLocations,
         testProperty "After digging cave" $ selectPositionProp currentPlayerDigCaveLocations,
         testProperty "After building a room" $ selectPositionProp currentPlayerBuildLivingRoomLocations,
-        testProperty "After choosing create child" $ chooseChildProp
+        testProperty "After choosing create child" $ chooseChildProp,
+        testProperty "After choosing no digging" $ chooseNoDiggingProp
       ],
     testProperty "Next player is first player after finishing turn" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> firstPlayerTurnAfterFinish
