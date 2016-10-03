@@ -125,7 +125,14 @@ instance Arbitrary ArbitraryUniverse where
     playerCount <- choose (1, 7) :: Gen Int
     let playerIds = PlayerId <$> [1..playerCount]
     currentPlayerId <- elements playerIds
-    currentPlayerStatus <- elements [MovingWorker, OccupantsInvalid, CuttingForest, DiggingPassage, DiggingCave, ChoosingChildDesireOption (WorkplaceId (-1)), BuildingLivingRoom, Waiting]
+    currentPlayerStatus <- elements [MovingWorker,
+                                     OccupantsInvalid,
+                                     CuttingForest,
+                                     DiggingPassage,
+                                     DiggingCave,
+                                     MakingDecision (ChildDesireDecision (WorkplaceId (-1))),
+                                     BuildingLivingRoom,
+                                     Waiting]
     currentPlayerWorkerCount <- choose (1, 4) :: Gen Int
     currentPlayerWorkers <- shuffle $ WorkerId <$> [1..currentPlayerWorkerCount]
     let (minWorkersFree, minWorkersBusy) = case currentPlayerStatus of
@@ -134,7 +141,7 @@ instance Arbitrary ArbitraryUniverse where
           CuttingForest -> (0, 1)
           DiggingPassage -> (0, 1)
           DiggingCave -> (0, 1)
-          ChoosingChildDesireOption _ -> (0, 1)
+          MakingDecision (ChildDesireDecision _) -> (0, 1)
           BuildingLivingRoom -> (0, 1)
           Waiting -> (0, length currentPlayerWorkers)
     freeCurrentPlayerWorkerCount <- choose (minWorkersFree, length currentPlayerWorkers - minWorkersBusy)
@@ -153,7 +160,7 @@ instance Arbitrary ArbitraryUniverse where
       CuttingForest -> generateCutForest
       DiggingPassage -> generateDigPassage
       DiggingCave -> generateDigCave
-      ChoosingChildDesireOption _ -> elements [ChildDesire]
+      MakingDecision (ChildDesireDecision _) -> elements [ChildDesire]
       BuildingLivingRoom -> elements [ChildDesire]
       _ -> generateWorkplaceData
     let getDuplicatedWorkplaceIds (wId, ChildDesire) = [wId, wId]
@@ -163,7 +170,7 @@ instance Arbitrary ArbitraryUniverse where
     let workersWithWorkplaces = fromList $ zip (drop 1 allBusyWorkers) shuffledWorkplaceIds
         firstWorkerWithWorkplace = zip (take 1 allBusyWorkers) (take 1 (fst <$> workplaces))
         allWorkersWithWorkplaces = workersWithWorkplaces `union` fromList firstWorkerWithWorkplace
-        updateStatus (ChoosingChildDesireOption _) = ChoosingChildDesireOption $ head $ fst <$> workplaces
+        updateStatus (MakingDecision (ChildDesireDecision _)) = MakingDecision $ ChildDesireDecision $ head $ fst <$> workplaces
         updateStatus other = other
     currentPlayerBuildingSpace <- generateBuildingSpace
     currentPlayerOccupants <- if currentPlayerStatus == OccupantsInvalid then generateInvalidOccupants currentPlayerWorkers else generateOccupants currentPlayerWorkers

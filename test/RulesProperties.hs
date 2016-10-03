@@ -42,7 +42,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "Cutting forest" $ prop findEmptyCutForestWorkplaces (const True) (const CuttingForest),
         testProperty "Digging passage" $ prop findEmptyDigPassageWorkplaces (const True) (const DiggingPassage),
         testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces (const True) (const DiggingCave),
-        testProperty "Child desire" $ prop findEmptyChildDesireWorkplaces (liftM2 (||) currentPlayerHasFreeRoom currentPlayerCanBuildRoom) ChoosingChildDesireOption
+        testProperty "Child desire" $ prop findEmptyChildDesireWorkplaces (liftM2 (||) currentPlayerHasFreeRoom currentPlayerCanBuildRoom) (MakingDecision . ChildDesireDecision)
       ],
     testProperty "Finishing turn unassigns all workers" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> rightProp $ do
@@ -504,5 +504,5 @@ currentPlayerCanBuildRoom universe = (not $ null $ join $ maybeToList $ availabl
   currentPlayerHasEnoughResourcesForLivingRoom universe
 
 isChoosingChildDesire :: PlayerStatus -> Bool
-isChoosingChildDesire (ChoosingChildDesireOption _) = True
+isChoosingChildDesire (MakingDecision (ChildDesireDecision _)) = True
 isChoosingChildDesire _ = False

@@ -12,6 +12,7 @@ module Rules (
                 OccupantError,
                 Position,
                 ChildDesireOptions(..),
+                DecisionType (..),
                 Resources,
                 getPlayers,
                 getCurrentPlayer,

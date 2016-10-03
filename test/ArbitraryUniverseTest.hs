@@ -131,7 +131,7 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
       let prop (ArbitraryUniverse universe) =
             has currentPlayer universe ==>
             isWorkplaceChildDesire && isWorkplaceOccupied
-            where ChoosingChildDesireOption workplaceId = fromJust $ universe ^? currentPlayer . playerStatus
+            where (MakingDecision (ChildDesireDecision workplaceId)) = fromJust $ universe ^? currentPlayer . playerStatus
                   isWorkplaceOccupied = has (currentPlayer .
                                              workers .
                                              traverse .
@@ -166,5 +166,5 @@ allPlayersWaiting :: Universe -> Bool
 allPlayersWaiting = allOf (players . traverse . playerStatus) (==Waiting)
 
 isChoosingChildDesire :: PlayerStatus -> Bool
-isChoosingChildDesire (ChoosingChildDesireOption _) = True
+isChoosingChildDesire (MakingDecision (ChildDesireDecision _)) = True
 isChoosingChildDesire _ = False

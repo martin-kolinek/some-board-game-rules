@@ -26,9 +26,11 @@ data PlayerStatus = MovingWorker |
                     CuttingForest |
                     DiggingPassage |
                     DiggingCave |
-                    ChoosingChildDesireOption WorkplaceId |
+                    MakingDecision DecisionType |
                     BuildingLivingRoom
   deriving (Show, Eq)
+
+data DecisionType = ChildDesireDecision WorkplaceId deriving (Show, Eq)
 
 makeLenses ''PlayerData
 
@@ -53,7 +55,7 @@ applyAction :: WorkplaceId -> WorkplaceData -> PlayerData -> PlayerData
 applyAction _ workplaceData@(CutForest _) = over playerResources (assignResources workplaceData) . set playerStatus CuttingForest
 applyAction _ workplaceData@(DigPassage _) = applyWorkplaceData workplaceData . set playerStatus DiggingPassage
 applyAction _ workplaceData@(DigCave _) = applyWorkplaceData workplaceData . set playerStatus DiggingCave
-applyAction workplaceId workplaceData@ChildDesire = applyWorkplaceData workplaceData . set playerStatus (ChoosingChildDesireOption workplaceId)
+applyAction workplaceId workplaceData@ChildDesire = applyWorkplaceData workplaceData . set playerStatus (MakingDecision $ ChildDesireDecision workplaceId)
 
 applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
 applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)

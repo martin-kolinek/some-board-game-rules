@@ -86,7 +86,7 @@ finishTurn universe = do
 
 chooseChildDesireOption :: MonadError String m => ChildDesireOptions -> Universe -> m Universe
 chooseChildDesireOption option universe = do
-  let extractWorkplaceId (ChoosingChildDesireOption workplace) = Just workplace
+  let extractWorkplaceId (MakingDecision (ChildDesireDecision workplace)) = Just workplace
       extractWorkplaceId _ = Nothing
   workplaceId <- checkMaybe "Not in a correct status" $ universe ^? (currentPlayerData . playerStatus . to extractWorkplaceId . traverse)
   nextUniverse <- case option of
@@ -97,7 +97,7 @@ chooseChildDesireOption option universe = do
                              alterPlayerOccupants plData = over buildingOccupants (findSpaceForWorker (plData ^. buildingSpace) (WorkerOccupant workerId)) plData
                          return $ over currentPlayerData (stopTurn . alterPlayerOccupants . over workers addWorker) universe
                        BuildRoom -> do
-                         check (currentPlayerCanBuildRoom universe) "No space for a room"
+                         check (currentPlayerCanBuildRoom universe) "Unable to build a room"
                          let setStatus = set (currentPlayerData . playerStatus) BuildingLivingRoom
                              resourceTraversal :: Traversal' Universe Resources
                              resourceTraversal = currentPlayerData . playerResources
