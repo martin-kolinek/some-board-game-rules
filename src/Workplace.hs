@@ -9,11 +9,13 @@ newtype WorkplaceId = WorkplaceId Int deriving (Eq, Ord, Show)
 
 data WorkplaceData = CutForest Int | DigPassage Int | DigCave Int | WorkerNeed deriving (Eq, Show)
 
-data WorkerNeedOptions = HireWorker | BuildRoom
+data WorkerNeedOptions = HireWorker | BuildRoom deriving (Eq, Show)
 
-data CaveOrPassageOptions = ChooseCave | ChoosePassage | NoDigging
+data CaveOrPassageOptions = ChooseCave | ChoosePassage | NoDigging deriving (Eq, Show)
 
-data Options = WorkerNeedOption WorkerNeedOptions | CaveOrPassageOption CaveOrPassageOptions
+data Options =
+  WorkerNeedOption WorkerNeedOptions |
+  CaveOrPassageOption CaveOrPassageOptions deriving (Eq, Show)
 
 updateWorkplaceAfterTurn :: WorkplaceData -> WorkplaceData
 updateWorkplaceAfterTurn (CutForest 0) = CutForest 3
