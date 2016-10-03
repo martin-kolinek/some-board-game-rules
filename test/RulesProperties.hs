@@ -87,7 +87,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) && currentPlayerHasValidOccupants universe &&
             currentPlayerHasFreeRoom universe
             ==> rightProp $ do
-              universeAfterChoose <- chooseChildDesireOption MakeChild universe
+              universeAfterChoose <- chooseOption (ChildDesireOption MakeChild) universe
               return $ checkResultingUniverse nextPlayerId universeAfterChoose
             where nextPlayerId = nextPlayerToMoveWorker universe
       in [
@@ -316,7 +316,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) &&
               availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) /= [] && currentPlayerHasEnoughResourcesForLivingRoom universe ==>
             rightProp $ do
-              nextUniverse <- chooseChildDesireOption BuildRoom universe
+              nextUniverse <- chooseOption (ChildDesireOption BuildRoom) universe
               return $ getPlayerStatus nextUniverse (fromJust $ getCurrentPlayer universe) == BuildingLivingRoom
       in prop,
     testProperty "Choosing build room subtracts resources" $
@@ -324,7 +324,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) &&
               availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) /= [] && currentPlayerHasEnoughResourcesForLivingRoom universe ==>
             rightProp $ do
-              nextUniverse <- chooseChildDesireOption BuildRoom universe
+              nextUniverse <- chooseOption (ChildDesireOption BuildRoom) universe
               let currentPlayerId = fromJust $ getCurrentPlayer universe
                   origResources = getPlayerResources universe currentPlayerId
                   newResources = getPlayerResources nextUniverse currentPlayerId
@@ -334,24 +334,24 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       let prop (ArbitraryUniverse universe) =
             fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) &&
               availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) == [] && currentPlayerHasEnoughResourcesForLivingRoom universe==>
-            leftProp $ chooseChildDesireOption BuildRoom universe
+            leftProp $ chooseOption (ChildDesireOption BuildRoom) universe
       in prop,
     testProperty "Choosing build room fails when there aren't enough resources" $
       let prop (ArbitraryUniverse universe) =
             fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) &&
               availableSingleCavePositions universe (fromJust $ getCurrentPlayer universe) /= [] && not (currentPlayerHasEnoughResourcesForLivingRoom universe) ==>
-            leftProp $ chooseChildDesireOption BuildRoom universe
+            leftProp $ chooseOption (ChildDesireOption BuildRoom) universe
       in prop,
     testProperty "Choosing make child fails when there is no room available" $
       let prop (ArbitraryUniverse universe) =
             (not $ currentPlayerHasFreeRoom universe) && fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) ==>
-            leftProp $ chooseChildDesireOption MakeChild universe
+            leftProp $ chooseOption (ChildDesireOption MakeChild) universe
       in prop,
     testProperty "Choosing make child creates a new worker" $
       let prop (ArbitraryUniverse universe) =
             currentPlayerHasFreeRoom universe && fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) ==>
             rightProp $ do
-              nextUniverse <- chooseChildDesireOption MakeChild universe
+              nextUniverse <- chooseOption (ChildDesireOption MakeChild) universe
               let currentPlayerId = fromJust $ getCurrentPlayer universe
                   currentPlayerOrigWorkers = getWorkers universe currentPlayerId
                   currentPlayerNewWorkers = getWorkers nextUniverse currentPlayerId
@@ -363,7 +363,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             currentPlayerHasFreeRoom universe && fromMaybe False (isChoosingChildDesire <$> getPlayerStatus universe <$> getCurrentPlayer universe) &&
             (getOccupantErrors universe <$> getCurrentPlayer universe) == Just [] ==>
             rightProp $ do
-              nextUniverse <- chooseChildDesireOption MakeChild universe
+              nextUniverse <- chooseOption (ChildDesireOption MakeChild) universe
               let currentPlayerId = fromJust $ getCurrentPlayer universe
               return $ getOccupantErrors nextUniverse currentPlayerId == []
       in prop

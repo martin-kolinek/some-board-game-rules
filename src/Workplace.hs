@@ -11,6 +11,8 @@ data WorkplaceData = CutForest Int | DigPassage Int | DigCave Int | ChildDesire 
 
 data ChildDesireOptions = MakeChild | BuildRoom
 
+data Options = ChildDesireOption ChildDesireOptions
+
 updateWorkplaceAfterTurn :: WorkplaceData -> WorkplaceData
 updateWorkplaceAfterTurn (CutForest 0) = CutForest 3
 updateWorkplaceAfterTurn (CutForest x) = CutForest (x + 1)

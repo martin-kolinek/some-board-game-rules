@@ -84,8 +84,8 @@ finishTurn universe = do
       withUpdatedWorkplaces = updateWorkplacesAfterTurn withFirstPlayerMovingWorker
   return withUpdatedWorkplaces
 
-chooseChildDesireOption :: MonadError String m => ChildDesireOptions -> Universe -> m Universe
-chooseChildDesireOption option universe = do
+chooseOption :: MonadError String m => Options -> Universe -> m Universe
+chooseOption (ChildDesireOption option) universe = do
   let extractWorkplaceId (MakingDecision (ChildDesireDecision workplace)) = Just workplace
       extractWorkplaceId _ = Nothing
   workplaceId <- checkMaybe "Not in a correct status" $ universe ^? (currentPlayerData . playerStatus . to extractWorkplaceId . traverse)
