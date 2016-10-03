@@ -11,7 +11,9 @@ data WorkplaceData = CutForest Int | DigPassage Int | DigCave Int | WorkerNeed d
 
 data WorkerNeedOptions = HireWorker | BuildRoom
 
-data Options = WorkerNeedOption WorkerNeedOptions
+data CaveOrPassageOptions = ChooseCave | ChoosePassage | NoDigging
+
+data Options = WorkerNeedOption WorkerNeedOptions | CaveOrPassageOption CaveOrPassageOptions
 
 updateWorkplaceAfterTurn :: WorkplaceData -> WorkplaceData
 updateWorkplaceAfterTurn (CutForest 0) = CutForest 3

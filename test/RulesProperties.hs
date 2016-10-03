@@ -41,7 +41,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       in [
         testProperty "Cutting forest" $ prop findEmptyCutForestWorkplaces (const True) (const CuttingForest),
         testProperty "Digging passage" $ prop findEmptyDigPassageWorkplaces (const True) (const DiggingPassage),
-        testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces (const True) (const DiggingCave),
+        testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces (const True) (const (MakingDecision CaveOrPassageDecision)),
         testProperty "Child desire" $ prop findEmptyWorkerNeedWorkplaces (liftM2 (||) currentPlayerHasFreeRoom currentPlayerCanBuildRoom) (MakingDecision . WorkerNeedDecision)
       ],
     testProperty "Finishing turn unassigns all workers" $
@@ -366,6 +366,20 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
               nextUniverse <- chooseOption (WorkerNeedOption HireWorker) universe
               let currentPlayerId = fromJust $ getCurrentPlayer universe
               return $ getOccupantErrors nextUniverse currentPlayerId == []
+      in prop,
+    testProperty "Choosing cave changes state to DiggingCave" $
+      let prop (ArbitraryUniverse universe) =
+            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just (MakingDecision CaveOrPassageDecision) ==>
+            rightProp $ do
+              nextUniverse <- chooseOption (CaveOrPassageOption ChooseCave) universe
+              return $ getPlayerStatus nextUniverse (fromJust $ getCurrentPlayer universe) == DiggingCave
+      in prop,
+    testProperty "Choosing passage changes state to DiggingPassage" $
+      let prop (ArbitraryUniverse universe) =
+            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just (MakingDecision CaveOrPassageDecision) ==>
+            rightProp $ do
+              nextUniverse <- chooseOption (CaveOrPassageOption ChoosePassage) universe
+              return $ getPlayerStatus nextUniverse (fromJust $ getCurrentPlayer universe) == DiggingPassage
       in prop
   ]
 

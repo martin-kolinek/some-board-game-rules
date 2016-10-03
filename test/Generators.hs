@@ -131,6 +131,7 @@ instance Arbitrary ArbitraryUniverse where
                                      DiggingPassage,
                                      DiggingCave,
                                      MakingDecision (WorkerNeedDecision (WorkplaceId (-1))),
+                                     MakingDecision CaveOrPassageDecision,
                                      BuildingLivingRoom,
                                      Waiting]
     currentPlayerWorkerCount <- choose (1, 4) :: Gen Int
@@ -141,7 +142,7 @@ instance Arbitrary ArbitraryUniverse where
           CuttingForest -> (0, 1)
           DiggingPassage -> (0, 1)
           DiggingCave -> (0, 1)
-          MakingDecision (WorkerNeedDecision _) -> (0, 1)
+          MakingDecision (_) -> (0, 1)
           BuildingLivingRoom -> (0, 1)
           Waiting -> (0, length currentPlayerWorkers)
     freeCurrentPlayerWorkerCount <- choose (minWorkersFree, length currentPlayerWorkers - minWorkersBusy)
@@ -158,8 +159,9 @@ instance Arbitrary ArbitraryUniverse where
         allWorkers = allBusyWorkers ++ allFreeWorkers
     workplaces <- generateWorkplaces (length allWorkers) $ case currentPlayerStatus of
       CuttingForest -> generateCutForest
-      DiggingPassage -> generateDigPassage
+      DiggingPassage -> oneof [generateDigPassage, generateDigCave]
       DiggingCave -> generateDigCave
+      MakingDecision CaveOrPassageDecision -> generateDigCave
       MakingDecision (WorkerNeedDecision _) -> elements [WorkerNeed]
       BuildingLivingRoom -> elements [WorkerNeed]
       _ -> generateWorkplaceData

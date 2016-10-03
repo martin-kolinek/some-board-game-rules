@@ -95,6 +95,8 @@ chooseOption option universe = do
 
 chooseOptionWithDecisionType :: MonadError [Char] m => DecisionType -> Options -> Universe -> m Universe
 chooseOptionWithDecisionType (WorkerNeedDecision workplaceId) (WorkerNeedOption option) = chooseWorkerNeedOption workplaceId option
+chooseOptionWithDecisionType CaveOrPassageDecision (CaveOrPassageOption option) = chooseCaveOrPassage option
+chooseOptionWithDecisionType _ _ = const $ throwError "Not a valid decision for current state"
 
 chooseWorkerNeedOption :: MonadError [Char] m => WorkplaceId -> WorkerNeedOptions -> Universe -> m Universe
 chooseWorkerNeedOption workplaceId HireWorker universe = do
@@ -110,3 +112,9 @@ chooseWorkerNeedOption _ BuildRoom universe = do
       resourceTraversal = currentPlayerData . playerResources
       removeResources = over (resourceTraversal . woodAmount) (subtract 4) . over (resourceTraversal . stoneAmount) (subtract 3)
   return $ (setStatus . removeResources) universe
+
+chooseCaveOrPassage :: MonadError String m => CaveOrPassageOptions -> Universe -> m Universe
+chooseCaveOrPassage option = return . set (currentPlayerData . playerStatus) (optionStatus option)
+  where optionStatus ChooseCave = DiggingCave
+        optionStatus ChoosePassage = DiggingPassage
+        optionStatus NoDigging = Waiting

@@ -30,7 +30,7 @@ data PlayerStatus = MovingWorker |
                     BuildingLivingRoom
   deriving (Show, Eq)
 
-data DecisionType = WorkerNeedDecision WorkplaceId deriving (Show, Eq)
+data DecisionType = WorkerNeedDecision WorkplaceId | CaveOrPassageDecision deriving (Show, Eq)
 
 makeLenses ''PlayerData
 
@@ -54,7 +54,7 @@ stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid
 applyAction :: WorkplaceId -> WorkplaceData -> PlayerData -> PlayerData
 applyAction _ workplaceData@(CutForest _) = over playerResources (assignResources workplaceData) . set playerStatus CuttingForest
 applyAction _ workplaceData@(DigPassage _) = applyWorkplaceData workplaceData . set playerStatus DiggingPassage
-applyAction _ workplaceData@(DigCave _) = applyWorkplaceData workplaceData . set playerStatus DiggingCave
+applyAction _ workplaceData@(DigCave _) = applyWorkplaceData workplaceData . set playerStatus (MakingDecision CaveOrPassageDecision)
 applyAction workplaceId workplaceData@WorkerNeed = applyWorkplaceData workplaceData . set playerStatus (MakingDecision $ WorkerNeedDecision workplaceId)
 
 applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
