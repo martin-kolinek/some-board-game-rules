@@ -85,22 +85,28 @@ finishTurn universe = do
   return withUpdatedWorkplaces
 
 chooseOption :: MonadError String m => Options -> Universe -> m Universe
-chooseOption (ChildDesireOption option) universe = do
-  let extractWorkplaceId (MakingDecision (ChildDesireDecision workplace)) = Just workplace
-      extractWorkplaceId _ = Nothing
-  workplaceId <- checkMaybe "Not in a correct status" $ universe ^? (currentPlayerData . playerStatus . to extractWorkplaceId . traverse)
-  nextUniverse <- case option of
-                       MakeChild -> do
-                         check (currentPlayerCanMakeChild universe) "No room for a child"
-                         let workerId = newWorkerId universe
-                             addWorker = insert workerId (WorkerState $ Just workplaceId)
-                             alterPlayerOccupants plData = over buildingOccupants (findSpaceForWorker (plData ^. buildingSpace) (WorkerOccupant workerId)) plData
-                         return $ over currentPlayerData (stopTurn . alterPlayerOccupants . over workers addWorker) universe
-                       BuildRoom -> do
-                         check (currentPlayerCanBuildRoom universe) "Unable to build a room"
-                         let setStatus = set (currentPlayerData . playerStatus) BuildingLivingRoom
-                             resourceTraversal :: Traversal' Universe Resources
-                             resourceTraversal = currentPlayerData . playerResources
-                             removeResources = over (resourceTraversal . woodAmount) (subtract 4) . over (resourceTraversal . stoneAmount) (subtract 3)
-                         return $ (setStatus . removeResources) universe
+chooseOption option universe = do
+  currentPlayerStatus <- checkMaybe "Not currently making decision" $ universe ^? (currentPlayerData . playerStatus)
+  let findDecisionType (MakingDecision x) = Just x
+      findDecisionType _ = Nothing
+  decisionType <- checkMaybe "Not currently making decision" $ findDecisionType currentPlayerStatus
+  nextUniverse <- chooseOptionWithDecisionType decisionType option universe
   return $ startNextPlayer universe nextUniverse
+
+chooseOptionWithDecisionType :: MonadError [Char] m => DecisionType -> Options -> Universe -> m Universe
+chooseOptionWithDecisionType (ChildDesireDecision workplaceId) (ChildDesireOption option) = chooseChildDesireOption workplaceId option
+
+chooseChildDesireOption :: MonadError [Char] m => WorkplaceId -> ChildDesireOptions -> Universe -> m Universe
+chooseChildDesireOption workplaceId MakeChild universe = do
+  check (currentPlayerCanMakeChild universe) "No room for a child"
+  let workerId = newWorkerId universe
+      addWorker = insert workerId (WorkerState $ Just workplaceId)
+      alterPlayerOccupants plData = over buildingOccupants (findSpaceForWorker (plData ^. buildingSpace) (WorkerOccupant workerId)) plData
+  return $ over currentPlayerData (stopTurn . alterPlayerOccupants . over workers addWorker) universe
+chooseChildDesireOption _ BuildRoom universe = do
+  check (currentPlayerCanBuildRoom universe) "Unable to build a room"
+  let setStatus = set (currentPlayerData . playerStatus) BuildingLivingRoom
+      resourceTraversal :: Traversal' Universe Resources
+      resourceTraversal = currentPlayerData . playerResources
+      removeResources = over (resourceTraversal . woodAmount) (subtract 4) . over (resourceTraversal . stoneAmount) (subtract 3)
+  return $ (setStatus . removeResources) universe
