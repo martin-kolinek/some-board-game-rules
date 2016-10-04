@@ -119,11 +119,25 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                   nextStatus = getPlayerStatus nextUniverse <$> currentPlayerId
               return $ nextStatus == Just OccupantsInvalid
             where positions = positionFunc universe
+          chooseChildProp (ArbitraryUniverse universe) =
+            fromMaybe False (isChoosingWorkerNeed <$> getPlayerStatus universe <$> getCurrentPlayer universe) && not (currentPlayerHasValidOccupants universe) &&
+            currentPlayerHasFreeRoom universe
+            ==> rightProp $ do
+              universeAfterChoose <- chooseOption (WorkerNeedOption HireWorker) universe
+              let playerStatus = (getPlayerStatus universeAfterChoose <$> getCurrentPlayer universe)
+              return $ counterexample (show $ getOccupantErrors universeAfterChoose <$> getCurrentPlayer universe) $ playerStatus === Just OccupantsInvalid
+          chooseNoDiggingProp (ArbitraryUniverse universe) =
+            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just (MakingDecision CaveOrPassageDecision) && not (currentPlayerHasValidOccupants universe) ==>
+            rightProp $ do
+              universeAfterChoose <- chooseOption (CaveOrPassageOption NoDigging) universe
+              return $ (getPlayerStatus universeAfterChoose <$> getCurrentPlayer universe) === Just OccupantsInvalid
       in [
         testProperty "Cutting a forest" $ prop currentPlayerCutForestLocations,
         testProperty "Digging a passage" $ prop currentPlayerDigPassageLocations,
         testProperty "Digging a cave" $ prop currentPlayerDigCaveLocations,
-        testProperty "Building a room" $ prop currentPlayerBuildLivingRoomLocations
+        testProperty "Building a room" $ prop currentPlayerBuildLivingRoomLocations,
+        testProperty "Choosing create child" $ chooseChildProp,
+        testProperty "Choosing no digging" $ chooseNoDiggingProp
       ],
     testProperty "Fixing occupants in invalid occupants starts next player" $
       let prop (ArbitraryUniverse universe) = currentPlayerIsInInvalidOccupantsState ==> either (error) id $ do

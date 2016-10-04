@@ -114,7 +114,6 @@ chooseWorkerNeedOption _ BuildRoom universe = do
   return $ (setStatus . removeResources) universe
 
 chooseCaveOrPassage :: MonadError String m => CaveOrPassageOptions -> Universe -> m Universe
-chooseCaveOrPassage option = return . set (currentPlayerData . playerStatus) (optionStatus option)
-  where optionStatus ChooseCave = DiggingCave
-        optionStatus ChoosePassage = DiggingPassage
-        optionStatus NoDigging = Waiting
+chooseCaveOrPassage ChooseCave = return . set (currentPlayerData . playerStatus) DiggingCave
+chooseCaveOrPassage ChoosePassage = return . set (currentPlayerData . playerStatus) DiggingPassage
+chooseCaveOrPassage NoDigging = return . over currentPlayerData stopTurn
