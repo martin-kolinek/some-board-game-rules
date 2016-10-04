@@ -52,11 +52,12 @@ stopTurn :: PlayerData -> PlayerData
 stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid
 
 applyAction :: WorkplaceId -> WorkplaceData -> PlayerData -> PlayerData
-applyAction _ workplaceData@(CutForest _) = over playerResources (assignResources workplaceData) . set playerStatus CuttingForest
-applyAction _ workplaceData@(DigPassage _) = applyWorkplaceData workplaceData . set playerStatus DiggingPassage
-applyAction _ workplaceData@(DigCave _) = applyWorkplaceData workplaceData . set playerStatus (MakingDecision CaveOrPassageDecision)
-applyAction workplaceId workplaceData@WorkerNeed = applyWorkplaceData workplaceData . set playerStatus (MakingDecision $ WorkerNeedDecision workplaceId)
-applyAction _ workplaceData@ResourceAddition = applyWorkplaceData workplaceData . stopTurn
+applyAction wpId workplaceData = over playerResources (assignResources workplaceData) . applySpecificAction wpId workplaceData
+  where applySpecificAction _ (CutForest _) = set playerStatus CuttingForest
+        applySpecificAction _ (DigPassage _) = set playerStatus DiggingPassage
+        applySpecificAction _ (DigCave _) = set playerStatus (MakingDecision CaveOrPassageDecision)
+        applySpecificAction workplaceId WorkerNeed = set playerStatus (MakingDecision $ WorkerNeedDecision workplaceId)
+        applySpecificAction _ ResourceAddition = stopTurn
 
 applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
 applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)
