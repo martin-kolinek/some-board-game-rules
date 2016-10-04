@@ -58,6 +58,7 @@ applyAction wpId workplaceData = over playerResources (assignResources workplace
         applySpecificAction _ (DigCave _) = set playerStatus (MakingDecision CaveOrPassageDecision)
         applySpecificAction workplaceId WorkerNeed = set playerStatus (MakingDecision $ WorkerNeedDecision workplaceId)
         applySpecificAction _ ResourceAddition = stopTurn
+        applySpecificAction _ (GatherWood _) = stopTurn
 
 applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
 applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)

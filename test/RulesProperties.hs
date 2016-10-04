@@ -96,9 +96,9 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
               universeAfterChoose <- chooseOption (CaveOrPassageOption NoDigging) universe
               return $ checkResultingUniverse nextPlayerId universeAfterChoose
             where nextPlayerId = nextPlayerToMoveWorker universe Nothing
-          startWorkingProp (ArbitraryUniverse universe) =
-            findEmptyResourceAdditionWorkplaces universe /= [] && findWorkersToMove universe /= [] && currentPlayerHasValidOccupants universe ==>
-            forAll (elements $ findEmptyResourceAdditionWorkplaces universe) $ \workplaceId ->
+          startWorkingProp workplaceFunc (ArbitraryUniverse universe) =
+            workplaceFunc universe /= [] && findWorkersToMove universe /= [] && currentPlayerHasValidOccupants universe ==>
+            forAll (elements $ workplaceFunc universe) $ \workplaceId ->
             forAll (elements $ findWorkersToMove universe) $ \workerId ->
             let nextPlayerId = nextPlayerToMoveWorker universe (Just workerId)
             in coverNextPlayer nextPlayerId $
@@ -112,7 +112,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "After building a room" $ selectPositionProp currentPlayerBuildLivingRoomLocations,
         testProperty "After choosing create child" $ chooseChildProp,
         testProperty "After choosing no digging" $ chooseNoDiggingProp,
-        testProperty "After working in resource addition" $ startWorkingProp
+        testProperty "After working in resource addition" $ startWorkingProp findEmptyResourceAdditionWorkplaces,
+        testProperty "After working in gather wood" $ startWorkingProp findEmptyGatherWoodWorkplaces
       ],
     testProperty "Next player is first player after finishing turn" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> firstPlayerTurnAfterFinish
@@ -141,9 +142,9 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             rightProp $ do
               universeAfterChoose <- chooseOption (CaveOrPassageOption NoDigging) universe
               return $ (getPlayerStatus universeAfterChoose <$> getCurrentPlayer universe) === Just OccupantsInvalid
-          startWorkingProp (ArbitraryUniverse universe) =
-            findEmptyResourceAdditionWorkplaces universe /= [] && findWorkersToMove universe /= [] && not (currentPlayerHasValidOccupants universe) ==>
-            forAll (elements $ findEmptyResourceAdditionWorkplaces universe) $ \workplaceId ->
+          startWorkingProp workplaceFunc (ArbitraryUniverse universe) =
+            workplaceFunc universe /= [] && findWorkersToMove universe /= [] && not (currentPlayerHasValidOccupants universe) ==>
+            forAll (elements $ workplaceFunc universe) $ \workplaceId ->
             forAll (elements $ findWorkersToMove universe) $ \workerId ->
             rightProp $ do
               nextUniverse <- startWorking workerId workplaceId universe
@@ -155,7 +156,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "Building a room" $ prop currentPlayerBuildLivingRoomLocations,
         testProperty "Choosing create child" $ chooseChildProp,
         testProperty "Choosing no digging" $ chooseNoDiggingProp,
-        testProperty "Starting working in resource addition" $ startWorkingProp
+        testProperty "Starting working in resource addition" $ startWorkingProp findEmptyResourceAdditionWorkplaces,
+        testProperty "Starting working in gather wood" $ startWorkingProp findEmptyGatherWoodWorkplaces
       ],
     testProperty "Fixing occupants in invalid occupants starts next player" $
       let prop (ArbitraryUniverse universe) = currentPlayerIsInInvalidOccupantsState ==> either (error) id $ do
@@ -231,6 +233,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                 areWorkplaceDataOk (DigCave orig) (DigCave new) = new == orig + 1
                 areWorkplaceDataOk WorkerNeed WorkerNeed = True
                 areWorkplaceDataOk ResourceAddition ResourceAddition = True
+                areWorkplaceDataOk (GatherWood orig) (GatherWood new) = new == orig + 1
                 areWorkplaceDataOk _ _ = False
             return $ all isWorkplaceId (keys originalWorkplaces)
       in prop,
@@ -254,6 +257,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       in prop,
     testGroup "Adding resources" $
       let getWorkplaceWoodAmount (CutForest n) = n
+          getWorkplaceWoodAmount (GatherWood n) = n
           getWorkplaceWoodAmount _ = 0
           getWorkplaceStoneAmount (DigCave n) = n
           getWorkplaceStoneAmount (DigPassage n) = n
@@ -274,7 +278,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "Digging passage" $ prop findEmptyDigPassageWorkplaces [(getStoneAmount, getWorkplaceStoneAmount)],
         testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces [(getStoneAmount, getWorkplaceStoneAmount)],
         testProperty "Resource addition" $ prop findEmptyResourceAdditionWorkplaces
-          [(getStoneAmount, const 1), (getWoodAmount, const 1), (getIronAmount, const 1), (getFoodAmount, const 1), (getGoldAmount, const 1)]
+          [(getStoneAmount, const 1), (getWoodAmount, const 1), (getIronAmount, const 1), (getFoodAmount, const 1), (getGoldAmount, const 1)],
+        testProperty "Gather wood" $ prop findEmptyGatherWoodWorkplaces [(getWoodAmount, getWorkplaceWoodAmount)]
       ],
     testProperty "Reverting occupants returns original errors" $
       let prop (ArbitraryUniverse universe) =
@@ -529,6 +534,11 @@ findEmptyWorkerNeedWorkplaces = findEmptySpecificWorkplaces (==WorkerNeed)
 
 findEmptyResourceAdditionWorkplaces :: Universe -> [WorkplaceId]
 findEmptyResourceAdditionWorkplaces = findEmptySpecificWorkplaces (==ResourceAddition)
+
+findEmptyGatherWoodWorkplaces :: Universe -> [WorkplaceId]
+findEmptyGatherWoodWorkplaces = findEmptySpecificWorkplaces isGatherWood
+  where isGatherWood (GatherWood _) = True
+        isGatherWood _ = False
 
 findEmptySpecificWorkplaces :: (WorkplaceData -> Bool) -> Universe -> [WorkplaceId]
 findEmptySpecificWorkplaces condition universe = (keys $ filteredWorkplaces) \\ findOccupiedWorkplaces universe
