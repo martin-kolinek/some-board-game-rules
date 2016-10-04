@@ -73,15 +73,15 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       in prop,
     testGroup "Next player moves worker" $
       let checkResultingUniverse nextPlayerId resultUniverse = case nextPlayerId of
-            Just nextId -> getPlayerStatus resultUniverse nextId == MovingWorker
-            Nothing -> null [wId | pId <- getPlayers resultUniverse, wId <- getWorkers resultUniverse pId, getWorkerWorkplace resultUniverse wId == Nothing]
+            Just nextId -> counterexample (show nextId) $ getPlayerStatus resultUniverse nextId === MovingWorker
+            Nothing -> property $ null [wId | pId <- getPlayers resultUniverse, wId <- getWorkers resultUniverse pId, getWorkerWorkplace resultUniverse wId == Nothing]
           coverNextPlayer nextPlayerId = cover (isJust nextPlayerId) 20 "Next player exists" . cover (isNothing nextPlayerId) 20 "No next player exists"
           selectPositionProp positionsFunc (ArbitraryUniverse universe) = coverNextPlayer nextPlayerId $ locations /= [] && currentPlayerHasValidOccupants universe
             ==> forAll (elements locations) $ \(pos, dir) ->
             rightProp $ do
               universeAfterSelect <- selectPosition pos dir universe
               return $ checkResultingUniverse nextPlayerId universeAfterSelect
-            where nextPlayerId = nextPlayerToMoveWorker universe
+            where nextPlayerId = nextPlayerToMoveWorker universe Nothing
                   locations = positionsFunc universe
           chooseChildProp (ArbitraryUniverse universe) = coverNextPlayer nextPlayerId $
             fromMaybe False (isChoosingWorkerNeed <$> getPlayerStatus universe <$> getCurrentPlayer universe) && currentPlayerHasValidOccupants universe &&
@@ -89,20 +89,30 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             ==> rightProp $ do
               universeAfterChoose <- chooseOption (WorkerNeedOption HireWorker) universe
               return $ checkResultingUniverse nextPlayerId universeAfterChoose
-            where nextPlayerId = nextPlayerToMoveWorker universe
+            where nextPlayerId = nextPlayerToMoveWorker universe Nothing
           chooseNoDiggingProp (ArbitraryUniverse universe) = coverNextPlayer nextPlayerId $
             (getPlayerStatus universe <$> getCurrentPlayer universe) == Just (MakingDecision CaveOrPassageDecision) && currentPlayerHasValidOccupants universe ==>
             rightProp $ do
               universeAfterChoose <- chooseOption (CaveOrPassageOption NoDigging) universe
               return $ checkResultingUniverse nextPlayerId universeAfterChoose
-            where nextPlayerId = nextPlayerToMoveWorker universe
+            where nextPlayerId = nextPlayerToMoveWorker universe Nothing
+          startWorkingProp (ArbitraryUniverse universe) =
+            findEmptyResourceAdditionWorkplaces universe /= [] && findWorkersToMove universe /= [] && currentPlayerHasValidOccupants universe ==>
+            forAll (elements $ findEmptyResourceAdditionWorkplaces universe) $ \workplaceId ->
+            forAll (elements $ findWorkersToMove universe) $ \workerId ->
+            let nextPlayerId = nextPlayerToMoveWorker universe (Just workerId)
+            in coverNextPlayer nextPlayerId $
+              rightProp $ do
+                nextUniverse <- startWorking workerId workplaceId universe
+                return $ counterexample (ppShow nextUniverse) $ checkResultingUniverse nextPlayerId nextUniverse
       in [
         testProperty "After cutting forest" $ selectPositionProp currentPlayerCutForestLocations,
         testProperty "After digging passage" $ selectPositionProp currentPlayerDigPassageLocations,
         testProperty "After digging cave" $ selectPositionProp currentPlayerDigCaveLocations,
         testProperty "After building a room" $ selectPositionProp currentPlayerBuildLivingRoomLocations,
         testProperty "After choosing create child" $ chooseChildProp,
-        testProperty "After choosing no digging" $ chooseNoDiggingProp
+        testProperty "After choosing no digging" $ chooseNoDiggingProp,
+        testProperty "After working in resource addition" $ startWorkingProp
       ],
     testProperty "Next player is first player after finishing turn" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> firstPlayerTurnAfterFinish
@@ -131,13 +141,21 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             rightProp $ do
               universeAfterChoose <- chooseOption (CaveOrPassageOption NoDigging) universe
               return $ (getPlayerStatus universeAfterChoose <$> getCurrentPlayer universe) === Just OccupantsInvalid
+          startWorkingProp (ArbitraryUniverse universe) =
+            findEmptyResourceAdditionWorkplaces universe /= [] && findWorkersToMove universe /= [] && not (currentPlayerHasValidOccupants universe) ==>
+            forAll (elements $ findEmptyResourceAdditionWorkplaces universe) $ \workplaceId ->
+            forAll (elements $ findWorkersToMove universe) $ \workerId ->
+            rightProp $ do
+              nextUniverse <- startWorking workerId workplaceId universe
+              return $ (getPlayerStatus nextUniverse <$> getCurrentPlayer universe) == Just OccupantsInvalid
       in [
         testProperty "Cutting a forest" $ prop currentPlayerCutForestLocations,
         testProperty "Digging a passage" $ prop currentPlayerDigPassageLocations,
         testProperty "Digging a cave" $ prop currentPlayerDigCaveLocations,
         testProperty "Building a room" $ prop currentPlayerBuildLivingRoomLocations,
         testProperty "Choosing create child" $ chooseChildProp,
-        testProperty "Choosing no digging" $ chooseNoDiggingProp
+        testProperty "Choosing no digging" $ chooseNoDiggingProp,
+        testProperty "Starting working in resource addition" $ startWorkingProp
       ],
     testProperty "Fixing occupants in invalid occupants starts next player" $
       let prop (ArbitraryUniverse universe) = currentPlayerIsInInvalidOccupantsState ==> either (error) id $ do
@@ -212,6 +230,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                 areWorkplaceDataOk (DigPassage orig) (DigPassage new) = new == orig + 1
                 areWorkplaceDataOk (DigCave orig) (DigCave new) = new == orig + 1
                 areWorkplaceDataOk WorkerNeed WorkerNeed = True
+                areWorkplaceDataOk ResourceAddition ResourceAddition = True
                 areWorkplaceDataOk _ _ = False
             return $ all isWorkplaceId (keys originalWorkplaces)
       in prop,
@@ -239,20 +258,23 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
           getWorkplaceStoneAmount (DigCave n) = n
           getWorkplaceStoneAmount (DigPassage n) = n
           getWorkplaceStoneAmount _ = 0
-          prop workplacesFunc resourceFunc workplaceResourceFunc (ArbitraryUniverse universe) = findWorkersToMove universe /= [] && workplacesFunc universe /= [] ==>
+          prop workplacesFunc resourceFunctions (ArbitraryUniverse universe) = findWorkersToMove universe /= [] && workplacesFunc universe /= [] ==>
             forAll (elements $ findWorkersToMove universe) $ \workerId ->
             forAll (elements $ workplacesFunc universe) $ \workplaceId ->
             rightProp $ do
             nextUniverse <- startWorking workerId workplaceId universe
             let playerId = head $ [pId | pId <- getPlayers universe, wId <- getWorkers universe pId, wId == workerId]
-                origAmount = resourceFunc $ getPlayerResources universe playerId
-                newAmount = resourceFunc $ getPlayerResources nextUniverse playerId
-                origWorkplaceAmount = workplaceResourceFunc $ (getWorkplaces universe) ! workplaceId
-            return $ newAmount - origAmount == origWorkplaceAmount
+                checkResource (resourceFunc, workplaceResourceFunc) = newAmount - origAmount == origWorkplaceAmount
+                  where origAmount = resourceFunc $ getPlayerResources universe playerId
+                        newAmount = resourceFunc $ getPlayerResources nextUniverse playerId
+                        origWorkplaceAmount = workplaceResourceFunc $ (getWorkplaces universe) ! workplaceId
+            return $ all checkResource resourceFunctions
       in [
-        testProperty "Cutting forest" $ prop findEmptyCutForestWorkplaces getWoodAmount getWorkplaceWoodAmount,
-        testProperty "Digging passage" $ prop findEmptyDigPassageWorkplaces getStoneAmount getWorkplaceStoneAmount,
-        testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces getStoneAmount getWorkplaceStoneAmount
+        testProperty "Cutting forest" $ prop findEmptyCutForestWorkplaces [(getWoodAmount, getWorkplaceWoodAmount)],
+        testProperty "Digging passage" $ prop findEmptyDigPassageWorkplaces [(getStoneAmount, getWorkplaceStoneAmount)],
+        testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces [(getStoneAmount, getWorkplaceStoneAmount)],
+        testProperty "Resource addition" $ prop findEmptyResourceAdditionWorkplaces
+          [(getStoneAmount, const 1), (getWoodAmount, const 1), (getIronAmount, const 1), (getFoodAmount, const 1), (getGoldAmount, const 1)]
       ],
     testProperty "Reverting occupants returns original errors" $
       let prop (ArbitraryUniverse universe) =
@@ -420,11 +442,12 @@ leftProp result = case result of
   Left _ -> property True
   Right x -> counterexample ("Expected error but got: " ++ ppShow x) False
 
-nextPlayerToMoveWorker :: Universe -> Maybe PlayerId
-nextPlayerToMoveWorker universe = do
+nextPlayerToMoveWorker :: Universe -> Maybe WorkerId -> Maybe PlayerId
+nextPlayerToMoveWorker universe currentWorkerId = do
   currentPlayerId <- getCurrentPlayer universe
   let furtherPlayerIds = tail $ dropWhile (/= currentPlayerId) $ getPlayers universe ++ getPlayers universe
-      playersWithFreeWorkers = [plId | plId <- furtherPlayerIds, any (isNothing . getWorkerWorkplace universe) (getWorkers universe plId)]
+      isWorkerFree workerId = isNothing (getWorkerWorkplace universe workerId) && currentWorkerId /= Just workerId
+      playersWithFreeWorkers = [plId | plId <- furtherPlayerIds, any isWorkerFree (getWorkers universe plId)]
   listToMaybe playersWithFreeWorkers
 
 cancellableSelectingPositionStatuses :: [PlayerStatus]
@@ -503,6 +526,9 @@ findEmptyDigCaveWorkplaces = findEmptySpecificWorkplaces isDigCave
 
 findEmptyWorkerNeedWorkplaces :: Universe -> [WorkplaceId]
 findEmptyWorkerNeedWorkplaces = findEmptySpecificWorkplaces (==WorkerNeed)
+
+findEmptyResourceAdditionWorkplaces :: Universe -> [WorkplaceId]
+findEmptyResourceAdditionWorkplaces = findEmptySpecificWorkplaces (==ResourceAddition)
 
 findEmptySpecificWorkplaces :: (WorkplaceData -> Bool) -> Universe -> [WorkplaceId]
 findEmptySpecificWorkplaces condition universe = (keys $ filteredWorkplaces) \\ findOccupiedWorkplaces universe

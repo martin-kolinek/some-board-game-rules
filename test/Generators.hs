@@ -31,7 +31,7 @@ generateDigCave :: Gen WorkplaceData
 generateDigCave = DigCave <$> choose (0, 1000)
 
 generateWorkplaceData :: Gen WorkplaceData
-generateWorkplaceData = oneof [generateDigPassage, generateCutForest, generateDigCave, elements [WorkerNeed]]
+generateWorkplaceData = oneof [generateDigPassage, generateCutForest, generateDigCave, elements [WorkerNeed], elements [ResourceAddition]]
 
 generateWorkplaces :: Int -> Gen WorkplaceData -> Gen [(WorkplaceId, WorkplaceData)]
 generateWorkplaces minNumber firstWorkplaceGen = do
