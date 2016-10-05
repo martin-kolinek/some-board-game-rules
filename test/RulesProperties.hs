@@ -428,7 +428,21 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             rightProp $ do
               nextUniverse <- chooseOption (CaveOrPassageOption ChoosePassage) universe
               return $ getPlayerStatus nextUniverse (fromJust $ getCurrentPlayer universe) == DiggingPassage
-      in prop
+      in prop,
+    testGroup "Starting working clears workplace" $
+      let prop workplaceFunc emptyWorkplace (ArbitraryUniverse universe) = workplaceFunc universe /= [] && findWorkersToMove universe /= [] ==>
+            forAll (elements $ workplaceFunc universe) $ \workplaceId ->
+            forAll (elements $ findWorkersToMove universe) $ \workerId ->
+            rightProp $ do
+              nextUniverse <- startWorking workerId workplaceId universe
+              let workplaceData = getWorkplaces nextUniverse ! workplaceId
+              return $ workplaceData == emptyWorkplace
+      in [
+        testProperty "cut forest" $ prop findEmptyCutForestWorkplaces (CutForest 0),
+        testProperty "dig cave" $ prop findEmptyDigCaveWorkplaces (DigCave 0),
+        testProperty "dig passage" $ prop findEmptyDigPassageWorkplaces (DigPassage 0),
+        testProperty "gather wood" $ prop findEmptyGatherWoodWorkplaces (GatherWood 0)
+      ]
   ]
 
 currentPlayerHasEnoughResourcesForLivingRoom :: Universe -> Bool
