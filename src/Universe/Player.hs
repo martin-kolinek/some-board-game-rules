@@ -33,3 +33,5 @@ nextPlayer universe = do
       candidatePlayers = (tail . dropWhile (/= currentPlayer)) $ playerIds ++ playerIds
   listToMaybe $ filter hasFreeWorkers candidatePlayers
 
+getStartingPlayer :: Universe -> PlayerId
+getStartingPlayer universe = universe ^. startingPlayer

@@ -80,7 +80,7 @@ finishTurn universe = do
   let allPlayersWaiting = hasn't (players . traverse . playerStatus . filtered (/= Waiting)) universe
   check allPlayersWaiting "Not every player finished"
   let withWorkersFreed = set (players . traverse . workers . traverse) initialWorkerState universe
-      withFirstPlayerMovingWorker = set (taking 1 (players . traverse) . playerStatus) MovingWorker withWorkersFreed
+      withFirstPlayerMovingWorker = set (players . ix (universe ^. startingPlayer) . playerStatus) MovingWorker withWorkersFreed
       withUpdatedWorkplaces = updateWorkplacesAfterTurn withFirstPlayerMovingWorker
   return withUpdatedWorkplaces
 

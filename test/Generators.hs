@@ -2,7 +2,7 @@ module Generators where
 
 import Prelude hiding (lookup)
 import Test.QuickCheck
-import Data.Map.Strict (fromList, fromListWith, lookup, union)
+import Data.Map.Strict (fromList, fromListWith, lookup, union, keys)
 import qualified Data.Set as S
 import Data.List ((\\))
 import Control.Monad (forM, join, foldM)
@@ -211,4 +211,5 @@ instance Arbitrary ArbitraryUniverse where
                             Waiting
                             playerResources)
     let players = fromList $ otherPlayers ++ [currentPlayerData]
-    return $ ArbitraryUniverse $ Universe (fromList workplaces) players
+    startingPlayerId <- elements $ keys players
+    return $ ArbitraryUniverse $ Universe (fromList workplaces) players startingPlayerId

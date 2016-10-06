@@ -52,6 +52,11 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                 workers = [wId | plId <- getPlayers updatedUniverse, wId <- getWorkers updatedUniverse plId]
             return $ all workerFree workers
       in prop,
+    testProperty "Finishing turn starts starting player" $
+      let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> rightProp $ do
+            updatedUniverse <- finishTurn universe
+            return $ counterexample (ppShow updatedUniverse) $ (getCurrentPlayer updatedUniverse) == (Just $ getStartingPlayer updatedUniverse)
+      in prop,
     testProperty "Finishing turn is not possible without all players waiting" $
       let prop (ArbitraryUniverse universe) = not (allPlayersWaiting universe) ==> leftProp $ finishTurn universe
       in prop,
@@ -116,12 +121,6 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "After working in resource addition" $ startWorkingProp findEmptyResourceAdditionWorkplaces,
         testProperty "After working in gather wood" $ startWorkingProp findEmptyGatherWoodWorkplaces
       ],
-    testProperty "Next player is first player after finishing turn" $
-      let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> firstPlayerTurnAfterFinish
-            where firstPlayerTurnAfterFinish = rightProp $ do
-                    nextUniverse <- finishTurn universe
-                    return $ getPlayerStatus nextUniverse (head $ getPlayers nextUniverse) == MovingWorker
-      in prop,
     testGroup "OccupantsInvalid status" $
       let prop positionFunc (ArbitraryUniverse universe) = positions /= [] && not (currentPlayerHasValidOccupants universe) ==>
             forAll (elements positions) $ \(pos, dir) ->

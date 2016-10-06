@@ -13,13 +13,14 @@ import Control.Lens
 
 data Universe = Universe {
   _availableWorkplaces :: Map WorkplaceId WorkplaceData,
-  _players :: Map PlayerId PlayerData
+  _players :: Map PlayerId PlayerData,
+  _startingPlayer :: PlayerId
 } deriving (Show)
 
 makeLenses ''Universe
 
 initialUniverse :: Universe
 initialUniverse =
-  let withoutOccupants = Universe initialWorkplaces initialPlayers
+  let withoutOccupants = Universe initialWorkplaces initialPlayers (head $ keys initialPlayers)
       assignInitialWorkers plData = set buildingOccupants (initialOccupants (allOccupants plData) (plData ^. buildingSpace)) plData
   in over (players . traverse) assignInitialWorkers withoutOccupants
