@@ -42,7 +42,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "Cutting forest" $ prop findEmptyCutForestWorkplaces (const True) (const CuttingForest),
         testProperty "Digging passage" $ prop findEmptyDigPassageWorkplaces (const True) (const DiggingPassage),
         testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces (const True) (const (MakingDecision CaveOrPassageDecision)),
-        testProperty "Child desire" $ prop findEmptyWorkerNeedWorkplaces (liftM2 (||) currentPlayerHasFreeRoom currentPlayerCanBuildRoom) (MakingDecision . WorkerNeedDecision)
+        testProperty "Child desire" $ prop findEmptyWorkerNeedWorkplaces (liftM2 (||) currentPlayerHasFreeRoom currentPlayerCanBuildRoom) (MakingDecision . WorkerNeedDecision),
+        testProperty "Gathering food" $ prop findEmptyGatherFoodWorkplaces (const True) (const CuttingForest)
       ],
     testProperty "Finishing turn unassigns all workers" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> rightProp $ do
@@ -234,6 +235,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                 areWorkplaceDataOk WorkerNeed WorkerNeed = True
                 areWorkplaceDataOk ResourceAddition ResourceAddition = True
                 areWorkplaceDataOk (GatherWood orig) (GatherWood new) = new == orig + 1
+                areWorkplaceDataOk (GatherFood orig) (GatherFood new) = new == orig + 1
                 areWorkplaceDataOk _ _ = False
             return $ all isWorkplaceId (keys originalWorkplaces)
       in prop,
@@ -262,6 +264,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
           getWorkplaceStoneAmount (DigCave n) = n
           getWorkplaceStoneAmount (DigPassage n) = n
           getWorkplaceStoneAmount _ = 0
+          getWorkplaceFoodAmount (GatherFood n) = n
+          getWorkplaceFoodAmount _ = 0
           prop workplacesFunc resourceFunctions (ArbitraryUniverse universe) = findWorkersToMove universe /= [] && workplacesFunc universe /= [] ==>
             forAll (elements $ findWorkersToMove universe) $ \workerId ->
             forAll (elements $ workplacesFunc universe) $ \workplaceId ->
@@ -279,7 +283,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces [(getStoneAmount, getWorkplaceStoneAmount)],
         testProperty "Resource addition" $ prop findEmptyResourceAdditionWorkplaces
           [(getStoneAmount, const 1), (getWoodAmount, const 1), (getIronAmount, const 1), (getFoodAmount, const 1), (getGoldAmount, const 1)],
-        testProperty "Gather wood" $ prop findEmptyGatherWoodWorkplaces [(getWoodAmount, getWorkplaceWoodAmount)]
+        testProperty "Gather wood" $ prop findEmptyGatherWoodWorkplaces [(getWoodAmount, getWorkplaceWoodAmount)],
+        testProperty "Gather food" $ prop findEmptyGatherFoodWorkplaces [(getFoodAmount, getWorkplaceFoodAmount), (getWheatAmount, const 1)]
       ],
     testProperty "Reverting occupants returns original errors" $
       let prop (ArbitraryUniverse universe) =
@@ -441,7 +446,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "cut forest" $ prop findEmptyCutForestWorkplaces (CutForest 0),
         testProperty "dig cave" $ prop findEmptyDigCaveWorkplaces (DigCave 0),
         testProperty "dig passage" $ prop findEmptyDigPassageWorkplaces (DigPassage 0),
-        testProperty "gather wood" $ prop findEmptyGatherWoodWorkplaces (GatherWood 0)
+        testProperty "gather wood" $ prop findEmptyGatherWoodWorkplaces (GatherWood 0),
+        testProperty "gather food" $ prop findEmptyGatherFoodWorkplaces (GatherFood 0)
       ]
   ]
 
@@ -553,6 +559,11 @@ findEmptyGatherWoodWorkplaces :: Universe -> [WorkplaceId]
 findEmptyGatherWoodWorkplaces = findEmptySpecificWorkplaces isGatherWood
   where isGatherWood (GatherWood _) = True
         isGatherWood _ = False
+
+findEmptyGatherFoodWorkplaces :: Universe -> [WorkplaceId]
+findEmptyGatherFoodWorkplaces = findEmptySpecificWorkplaces isGatherFood
+  where isGatherFood (GatherFood _) = True
+        isGatherFood _ = False
 
 findEmptySpecificWorkplaces :: (WorkplaceData -> Bool) -> Universe -> [WorkplaceId]
 findEmptySpecificWorkplaces condition universe = (keys $ filteredWorkplaces) \\ findOccupiedWorkplaces universe

@@ -59,6 +59,7 @@ applyAction wpId workplaceData = over playerResources (assignResources workplace
         applySpecificAction workplaceId WorkerNeed = set playerStatus (MakingDecision $ WorkerNeedDecision workplaceId)
         applySpecificAction _ ResourceAddition = stopTurn
         applySpecificAction _ (GatherWood _) = stopTurn
+        applySpecificAction _ (GatherFood _) = set playerStatus CuttingForest
 
 applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
 applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)

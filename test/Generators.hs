@@ -30,11 +30,21 @@ generateDigPassage = DigPassage <$> choose (0, 1000)
 generateDigCave :: Gen WorkplaceData
 generateDigCave = DigCave <$> choose (0, 1000)
 
-generateGatheringWood :: Gen WorkplaceData
-generateGatheringWood = GatherWood <$> choose (0, 1000)
+generateGatherWood :: Gen WorkplaceData
+generateGatherWood = GatherWood <$> choose (0, 1000)
+
+generateGatherFood :: Gen WorkplaceData
+generateGatherFood = GatherFood <$> choose (0, 1000)
 
 generateWorkplaceData :: Gen WorkplaceData
-generateWorkplaceData = oneof [generateDigPassage, generateCutForest, generateDigCave, elements [WorkerNeed], elements [ResourceAddition], generateGatheringWood]
+generateWorkplaceData = oneof [
+  generateDigPassage,
+  generateCutForest,
+  generateDigCave,
+  elements [WorkerNeed],
+  elements [ResourceAddition],
+  generateGatherWood,
+  generateGatherFood]
 
 generateWorkplaces :: Int -> Gen WorkplaceData -> Gen [(WorkplaceId, WorkplaceData)]
 generateWorkplaces minNumber firstWorkplaceGen = do
