@@ -14,7 +14,8 @@ data WorkplaceData =
   WorkerNeed |
   ResourceAddition |
   GatherWood Int |
-  GatherFood Int deriving (Eq, Show)
+  GatherFood Int |
+  MakeStartPlayer Int deriving (Eq, Show)
 
 data WorkerNeedOptions = HireWorker | BuildRoom deriving (Eq, Show)
 
@@ -31,6 +32,7 @@ updateWorkplaceAfterTurn (DigPassage x) = DigPassage (x + 1)
 updateWorkplaceAfterTurn (DigCave x) = DigCave (x + 1)
 updateWorkplaceAfterTurn (GatherWood x) = GatherWood (x + 1)
 updateWorkplaceAfterTurn (GatherFood x) = GatherFood (x + 1)
+updateWorkplaceAfterTurn (MakeStartPlayer x) = MakeStartPlayer (x + 1)
 updateWorkplaceAfterTurn x = x
 
 clearWorkspace :: WorkplaceData -> WorkplaceData
@@ -39,6 +41,7 @@ clearWorkspace (DigPassage _) = DigPassage 0
 clearWorkspace (DigCave _) = DigCave 0
 clearWorkspace (GatherWood _) = GatherWood 0
 clearWorkspace (GatherFood _) = GatherFood 0
+clearWorkspace (MakeStartPlayer _) = MakeStartPlayer 0
 clearWorkspace x = x
 
 assignResources :: WorkplaceData -> Resources -> Resources
@@ -53,6 +56,7 @@ assignResources ResourceAddition =
   over goldAmount (+1)
 assignResources (GatherWood wood) = over woodAmount (+wood)
 assignResources (GatherFood food)= over foodAmount (+food) . over wheatAmount (+1)
+assignResources (MakeStartPlayer food) = over foodAmount (+food) . over ironAmount (+2)
 assignResources WorkerNeed = id
 
 initialWorkplaces :: Map WorkplaceId WorkplaceData

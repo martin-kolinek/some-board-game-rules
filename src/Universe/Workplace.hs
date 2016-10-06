@@ -13,6 +13,7 @@ import Workplace
 import Worker
 import Player
 import Universe.Building
+import Universe.Player
 import Util
 
 getWorkplaces :: Universe -> Map WorkplaceId WorkplaceData
@@ -34,3 +35,20 @@ checkWorkplacePrecondition :: MonadError String m => Universe -> WorkplaceData -
 checkWorkplacePrecondition universe WorkerNeed =
   check (currentPlayerCanBuildRoom universe || currentPlayerCanMakeChild universe) "No space for a child and no space for a building"
 checkWorkplacePrecondition _ _ = return ()
+
+applyAction :: WorkplaceId -> WorkplaceData -> Universe -> Universe
+applyAction wpId workplaceData = applySpecificAction wpId workplaceData . over (currentPlayerData . playerResources) (assignResources workplaceData)
+  where applySpecificAction _ (CutForest _) = set (currentPlayerData . playerStatus) CuttingForest
+        applySpecificAction _ (DigPassage _) = set (currentPlayerData . playerStatus) DiggingPassage
+        applySpecificAction _ (DigCave _) = set (currentPlayerData . playerStatus) (MakingDecision CaveOrPassageDecision)
+        applySpecificAction workplaceId WorkerNeed = set (currentPlayerData . playerStatus) (MakingDecision $ WorkerNeedDecision workplaceId)
+        applySpecificAction _ ResourceAddition = over currentPlayerData stopTurn
+        applySpecificAction _ (GatherWood _) = over currentPlayerData stopTurn
+        applySpecificAction _ (GatherFood _) = set (currentPlayerData . playerStatus) CuttingForest
+        applySpecificAction _ (MakeStartPlayer _) = over currentPlayerData stopTurn . setStartingPlayer
+          where setStartingPlayer universe = set startingPlayer nextStartingPlayer universe
+                  where firstPlayer = head $ keys $ universe ^. players
+                        nextStartingPlayer = fromMaybe firstPlayer $ getCurrentPlayer universe
+
+applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
+applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)

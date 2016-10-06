@@ -36,6 +36,9 @@ generateGatherWood = GatherWood <$> choose (0, 1000)
 generateGatherFood :: Gen WorkplaceData
 generateGatherFood = GatherFood <$> choose (0, 1000)
 
+generateMakeStartPlayer :: Gen WorkplaceData
+generateMakeStartPlayer = MakeStartPlayer <$> choose (0, 1000)
+
 generateWorkplaceData :: Gen WorkplaceData
 generateWorkplaceData = oneof [
   generateDigPassage,
@@ -44,7 +47,8 @@ generateWorkplaceData = oneof [
   elements [WorkerNeed],
   elements [ResourceAddition],
   generateGatherWood,
-  generateGatherFood]
+  generateGatherFood,
+  generateMakeStartPlayer]
 
 generateWorkplaces :: Int -> Gen WorkplaceData -> Gen [(WorkplaceId, WorkplaceData)]
 generateWorkplaces minNumber firstWorkplaceGen = do

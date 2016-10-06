@@ -119,7 +119,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "After choosing create child" $ chooseChildProp,
         testProperty "After choosing no digging" $ chooseNoDiggingProp,
         testProperty "After working in resource addition" $ startWorkingProp findEmptyResourceAdditionWorkplaces,
-        testProperty "After working in gather wood" $ startWorkingProp findEmptyGatherWoodWorkplaces
+        testProperty "After working in gather wood" $ startWorkingProp findEmptyGatherWoodWorkplaces,
+        testProperty "After working in make start player" $ startWorkingProp findEmptyMakeStartPlayerWorkplaces
       ],
     testGroup "OccupantsInvalid status" $
       let prop positionFunc (ArbitraryUniverse universe) = positions /= [] && not (currentPlayerHasValidOccupants universe) ==>
@@ -157,7 +158,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "Choosing create child" $ chooseChildProp,
         testProperty "Choosing no digging" $ chooseNoDiggingProp,
         testProperty "Starting working in resource addition" $ startWorkingProp findEmptyResourceAdditionWorkplaces,
-        testProperty "Starting working in gather wood" $ startWorkingProp findEmptyGatherWoodWorkplaces
+        testProperty "Starting working in gather wood" $ startWorkingProp findEmptyGatherWoodWorkplaces,
+        testProperty "After working in make start player" $ startWorkingProp findEmptyMakeStartPlayerWorkplaces
       ],
     testProperty "Fixing occupants in invalid occupants starts next player" $
       let prop (ArbitraryUniverse universe) = currentPlayerIsInInvalidOccupantsState ==> either (error) id $ do
@@ -235,6 +237,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                 areWorkplaceDataOk ResourceAddition ResourceAddition = True
                 areWorkplaceDataOk (GatherWood orig) (GatherWood new) = new == orig + 1
                 areWorkplaceDataOk (GatherFood orig) (GatherFood new) = new == orig + 1
+                areWorkplaceDataOk (MakeStartPlayer orig) (MakeStartPlayer new) = new == orig + 1
                 areWorkplaceDataOk _ _ = False
             return $ all isWorkplaceId (keys originalWorkplaces)
       in prop,
@@ -264,6 +267,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
           getWorkplaceStoneAmount (DigPassage n) = n
           getWorkplaceStoneAmount _ = 0
           getWorkplaceFoodAmount (GatherFood n) = n
+          getWorkplaceFoodAmount (MakeStartPlayer n) = n
           getWorkplaceFoodAmount _ = 0
           prop workplacesFunc resourceFunctions (ArbitraryUniverse universe) = findWorkersToMove universe /= [] && workplacesFunc universe /= [] ==>
             forAll (elements $ findWorkersToMove universe) $ \workerId ->
@@ -283,7 +287,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "Resource addition" $ prop findEmptyResourceAdditionWorkplaces
           [(getStoneAmount, const 1), (getWoodAmount, const 1), (getIronAmount, const 1), (getFoodAmount, const 1), (getGoldAmount, const 1)],
         testProperty "Gather wood" $ prop findEmptyGatherWoodWorkplaces [(getWoodAmount, getWorkplaceWoodAmount)],
-        testProperty "Gather food" $ prop findEmptyGatherFoodWorkplaces [(getFoodAmount, getWorkplaceFoodAmount), (getWheatAmount, const 1)]
+        testProperty "Gather food" $ prop findEmptyGatherFoodWorkplaces [(getFoodAmount, getWorkplaceFoodAmount), (getWheatAmount, const 1)],
+        testProperty "Make start worker" $ prop findEmptyMakeStartPlayerWorkplaces [(getFoodAmount, getWorkplaceFoodAmount), (getIronAmount, const 2)]
       ],
     testProperty "Reverting occupants returns original errors" $
       let prop (ArbitraryUniverse universe) =
@@ -446,8 +451,17 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "dig cave" $ prop findEmptyDigCaveWorkplaces (DigCave 0),
         testProperty "dig passage" $ prop findEmptyDigPassageWorkplaces (DigPassage 0),
         testProperty "gather wood" $ prop findEmptyGatherWoodWorkplaces (GatherWood 0),
-        testProperty "gather food" $ prop findEmptyGatherFoodWorkplaces (GatherFood 0)
-      ]
+        testProperty "gather food" $ prop findEmptyGatherFoodWorkplaces (GatherFood 0),
+        testProperty "make start player" $ prop findEmptyMakeStartPlayerWorkplaces (MakeStartPlayer 0)
+      ],
+    testProperty "After working in make start player, starting player is changed to current player" $
+      let prop (ArbitraryUniverse universe) = findEmptyMakeStartPlayerWorkplaces universe /= [] && findWorkersToMove universe /= [] ==>
+            forAll (elements $ findEmptyMakeStartPlayerWorkplaces universe) $ \workplaceId ->
+            forAll (elements $ findWorkersToMove universe) $ \workerId ->
+            rightProp $ do
+              nextUniverse <- startWorking workerId workplaceId universe
+              return (Just (getStartingPlayer nextUniverse) == getCurrentPlayer universe)
+      in prop
   ]
 
 currentPlayerHasEnoughResourcesForLivingRoom :: Universe -> Bool
@@ -563,6 +577,11 @@ findEmptyGatherFoodWorkplaces :: Universe -> [WorkplaceId]
 findEmptyGatherFoodWorkplaces = findEmptySpecificWorkplaces isGatherFood
   where isGatherFood (GatherFood _) = True
         isGatherFood _ = False
+
+findEmptyMakeStartPlayerWorkplaces :: Universe -> [WorkplaceId]
+findEmptyMakeStartPlayerWorkplaces = findEmptySpecificWorkplaces isMakeStartPlayer
+  where isMakeStartPlayer (MakeStartPlayer _) = True
+        isMakeStartPlayer _ = False
 
 findEmptySpecificWorkplaces :: (WorkplaceData -> Bool) -> Universe -> [WorkplaceId]
 findEmptySpecificWorkplaces condition universe = (keys $ filteredWorkplaces) \\ findOccupiedWorkplaces universe

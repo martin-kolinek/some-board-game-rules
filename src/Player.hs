@@ -51,19 +51,6 @@ checkOccupantsAfterTurn plData =
 stopTurn :: PlayerData -> PlayerData
 stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid
 
-applyAction :: WorkplaceId -> WorkplaceData -> PlayerData -> PlayerData
-applyAction wpId workplaceData = over playerResources (assignResources workplaceData) . applySpecificAction wpId workplaceData
-  where applySpecificAction _ (CutForest _) = set playerStatus CuttingForest
-        applySpecificAction _ (DigPassage _) = set playerStatus DiggingPassage
-        applySpecificAction _ (DigCave _) = set playerStatus (MakingDecision CaveOrPassageDecision)
-        applySpecificAction workplaceId WorkerNeed = set playerStatus (MakingDecision $ WorkerNeedDecision workplaceId)
-        applySpecificAction _ ResourceAddition = stopTurn
-        applySpecificAction _ (GatherWood _) = stopTurn
-        applySpecificAction _ (GatherFood _) = set playerStatus CuttingForest
-
-applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
-applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)
-
 initialPlayers :: Map PlayerId PlayerData
 initialPlayers = fromList
   [(PlayerId i,

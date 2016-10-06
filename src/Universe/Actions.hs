@@ -63,7 +63,7 @@ startWorking workerId workplaceId universe = do
   check workplaceEmpty "Workplace occupied"
   checkWorkplacePrecondition universe workplaceAction
   let withAssignedWorker = over currentWorkerState setWorkplace universe
-      withAppliedAction = over currentPlayerData (applyAction workplaceId workplaceAction) withAssignedWorker
+      withAppliedAction = applyAction workplaceId workplaceAction withAssignedWorker
       withClearedWorkplace = over (availableWorkplaces . ix workplaceId) clearWorkspace withAppliedAction
   return $ startNextPlayer withAssignedWorker withClearedWorkplace
   where currentWorkerState :: Traversal' Universe WorkerState
