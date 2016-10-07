@@ -88,7 +88,7 @@ build (BuildingSpace buildings) building =
       newBuildings = building : filtered
       newPositions = buildingPositions =<< newBuildings
       notOverlapping = nub newPositions == newPositions
-      originalPositionsOccupied = (buildingPositions =<< buildings) == newPositions
+      originalPositionsOccupied = sort (buildingPositions =<< buildings) == sort newPositions
   in BuildingSpace $ assert (notOverlapping && originalPositionsOccupied) $ building : filtered
 
 isDevelopedOutside :: Building -> Bool

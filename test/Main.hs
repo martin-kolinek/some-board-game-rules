@@ -1,3 +1,5 @@
+module Main where
+
 import Test.Tasty
 import UniverseTest
 import BuildingTest
