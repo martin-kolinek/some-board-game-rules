@@ -17,7 +17,8 @@ data PlayerData = PlayerData {
   _buildingSpace :: BuildingSpace,
   _buildingOccupants :: BuildingOccupants,
   _playerStatus :: PlayerStatus,
-  _playerResources :: Resources
+  _playerResources :: Resources,
+  _playerAnimals :: Animals
 } deriving (Show, Eq)
 
 data PlayerStatus = MovingWorker |
@@ -54,5 +55,5 @@ stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid
 initialPlayers :: Map PlayerId PlayerData
 initialPlayers = fromList
   [(PlayerId i,
-    PlayerData (PlayerId i) (createWorkers (i * 2 - 1) 2) initialBuildingSpace empty (if i == 1 then MovingWorker else Waiting) initialResources)
+    PlayerData (PlayerId i) (createWorkers (i * 2 - 1) 2) initialBuildingSpace empty (if i == 1 then MovingWorker else Waiting) initialResources initialAnimals)
       | i <- [1..2]]

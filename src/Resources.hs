@@ -42,3 +42,12 @@ getMoney = _money
 
 getFoodAmount :: Resources -> Int
 getFoodAmount = _foodAmount
+
+data Animals = Animals {
+  _dogs :: [DogId]
+} deriving (Show, Eq)
+
+newtype DogId = DogId Int deriving (Show, Eq, Ord)
+
+initialAnimals :: Animals
+initialAnimals = Animals []

@@ -2,11 +2,12 @@ module Generators where
 
 import Prelude hiding (lookup)
 import Test.QuickCheck
-import Data.Map.Strict (fromList, fromListWith, lookup, union, keys)
+import Data.Map.Strict (fromList, fromListWith, lookup, union, keys, (!))
 import qualified Data.Set as S
 import Data.List ((\\))
 import Control.Monad (forM, join, foldM)
 import Text.Show.Pretty
+import Data.List.Split (splitPlaces)
 
 import Universe hiding (players)
 import Workplace
@@ -186,14 +187,19 @@ instance Arbitrary ArbitraryUniverse where
     currentPlayerBuildingSpace <- generateBuildingSpace
     currentPlayerOccupants <- if currentPlayerStatus == OccupantsInvalid then generateInvalidOccupants currentPlayerWorkers else generateOccupants currentPlayerWorkers
     currentPlayerResources <- generateResources
-    let currentPlayerData =
+    dogNumbers <- mapM (const $ choose (0, 10)) [1..playerCount]
+    dogIds <- shuffle $ DogId <$> [1..sum dogNumbers]
+    let dogIdsChunked = splitPlaces dogNumbers dogIds
+        playerDogs = fromList $ zip playerIds dogIdsChunked
+        currentPlayerData =
           (currentPlayerId, PlayerData
                        currentPlayerId
                        (fromList [(workerId, WorkerState $ lookup workerId allWorkersWithWorkplaces) | workerId <- currentPlayerWorkers])
                        currentPlayerBuildingSpace
                        currentPlayerOccupants
                        (updateStatus currentPlayerStatus)
-                       currentPlayerResources)
+                       currentPlayerResources
+                       (Animals (playerDogs ! currentPlayerId)))
     otherPlayers <- forM (playerIds \\ [currentPlayerId]) $ \playerId -> do
       let playerWorkers = [workerId | (plId, busyWorkers, freeWorkers) <- otherPlayerData, plId == playerId, workerId <- busyWorkers ++ freeWorkers]
       playerBuildingSpace <- generateBuildingSpace
@@ -205,7 +211,8 @@ instance Arbitrary ArbitraryUniverse where
                             playerBuildingSpace
                             playerOccupants
                             Waiting
-                            playerResources)
+                            playerResources
+                            (Animals (playerDogs ! playerId)))
     let players = fromList $ otherPlayers ++ [currentPlayerData]
     startingPlayerId <- elements $ keys players
     return $ ArbitraryUniverse $ Universe (fromList workplaces) players startingPlayerId
