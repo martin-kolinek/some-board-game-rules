@@ -111,18 +111,10 @@ generateFullResources = Resources
   <*> choose (0, 1000)
   <*> choose (0, 1000)
   <*> choose (0, 1000)
-  <*> choose (0, 1000)
-  <*> choose (0, 1000)
-  <*> choose (0, 1000)
-  <*> choose (0, 1000)
 
 generateEmptyResources :: Gen Resources
 generateEmptyResources = Resources
   <$> choose (0, 2)
-  <*> choose (0, 2)
-  <*> choose (0, 2)
-  <*> choose (0, 2)
-  <*> choose (0, 2)
   <*> choose (0, 2)
   <*> choose (0, 2)
   <*> choose (0, 2)

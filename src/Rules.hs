@@ -45,9 +45,6 @@ module Rules (
                 getIronAmount,
                 getWheatAmount,
                 getPotatoAmount,
-                getDogAmount,
-                getSheepAmount,
-                getPigAmount,
                 getMoney,
                 getFoodAmount
              ) where
