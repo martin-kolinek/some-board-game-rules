@@ -1,18 +1,23 @@
+{-# LANGUAGE RankNTypes #-}
 module Generators where
 
 import Prelude hiding (lookup)
 import Test.QuickCheck
-import Data.Map.Strict (fromList, fromListWith, lookup, union, keys, (!))
+import Data.Map.Strict (fromList, fromListWith, lookup, union, keys, (!), Map)
 import qualified Data.Set as S
 import Data.List ((\\))
 import Control.Monad (forM, join, foldM)
 import Text.Show.Pretty
 import Data.List.Split (splitPlaces)
+import Control.Monad.State
+import Control.Lens (view, over, _1, _2, _3, _4, Lens', (^.))
 
 import Universe hiding (players)
+import qualified Universe as U
 import Workplace
 import Worker
 import Player hiding (playerId, workers, playerResources)
+import qualified Player as P
 import Building
 import Resources
 import Universe.Player (getPlayers)
@@ -82,11 +87,13 @@ generateBuildingSpace = do
       forestBuildings = Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
   return $ BuildingSpace (cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom ++ dugRockBuildings)
 
-generateValidOccupants :: [WorkerId] -> Gen BuildingOccupants
-generateValidOccupants workerIds = do
-  shuffled <- shuffle workerIds
-  let (position1, position2) = splitAt 2 (WorkerOccupant <$> shuffled)
-  return $ fromList $ [((3, 3), position1), ((3, 4), position2)]
+generateValidOccupants :: [WorkerId] -> BuildingSpace -> Gen BuildingOccupants
+generateValidOccupants workerIds (BuildingSpace buildings) = do
+  shuffledOccupants <- shuffle $ WorkerOccupant <$> workerIds
+  let buildingsWithSpace = filter ((>0) . buildingSupportedWorkers) buildings
+      workersPerBuilding = splitPlaces (buildingSupportedWorkers <$> buildingsWithSpace) shuffledOccupants
+      positionedWorkers = zip (head $ buildingPositions <$> buildingsWithSpace) workersPerBuilding
+  return $ fromList positionedWorkers
 
 generateInvalidOccupants :: [WorkerId] -> Gen BuildingOccupants
 generateInvalidOccupants workerIds = do
@@ -98,9 +105,16 @@ generateInvalidOccupants workerIds = do
   let positionsWithWorkers = zip positions (return . WorkerOccupant <$> shuffled)
   return $ fromListWith (++) positionsWithWorkers
 
-generateOccupants :: [WorkerId] -> Gen BuildingOccupants
-generateOccupants workers =
-  oneof [generateValidOccupants workers, generateInvalidOccupants workers]
+generateOccupants :: [WorkerId] -> BuildingSpace -> Gen BuildingOccupants
+generateOccupants workers playerBuildingSpace =
+  oneof [generateValidOccupants workers playerBuildingSpace, generateInvalidOccupants workers]
+
+generateOccupantsForPlayer :: Universe -> PlayerId -> Gen BuildingOccupants
+generateOccupantsForPlayer universe playerId =
+  let playerData2 = (universe ^. U.players) ! playerId
+      workerIds = keys (playerData2 ^. P.workers)
+      playerBuildingSpace = playerData2 ^. P.buildingSpace
+  in generateOccupants workerIds playerBuildingSpace
 
 generateFullResources :: Gen Resources
 generateFullResources = Resources
@@ -185,7 +199,9 @@ instance Arbitrary ArbitraryUniverse where
         updateStatus (MakingDecision (WorkerNeedDecision _)) = MakingDecision $ WorkerNeedDecision $ head $ fst <$> workplaces
         updateStatus other = other
     currentPlayerBuildingSpace <- generateBuildingSpace
-    currentPlayerOccupants <- if currentPlayerStatus == OccupantsInvalid then generateInvalidOccupants currentPlayerWorkers else generateOccupants currentPlayerWorkers
+    currentPlayerOccupants <- if currentPlayerStatus == OccupantsInvalid
+                              then generateInvalidOccupants currentPlayerWorkers
+                              else generateOccupants currentPlayerWorkers currentPlayerBuildingSpace
     currentPlayerResources <- generateResources
     dogNumbers <- mapM (const $ choose (0, 10)) [1..playerCount]
     dogIds <- shuffle $ DogId <$> [1..sum dogNumbers]
@@ -203,7 +219,7 @@ instance Arbitrary ArbitraryUniverse where
     otherPlayers <- forM (playerIds \\ [currentPlayerId]) $ \playerId -> do
       let playerWorkers = [workerId | (plId, busyWorkers, freeWorkers) <- otherPlayerData, plId == playerId, workerId <- busyWorkers ++ freeWorkers]
       playerBuildingSpace <- generateBuildingSpace
-      playerOccupants <- generateOccupants playerWorkers
+      playerOccupants <- generateOccupants playerWorkers playerBuildingSpace
       playerResources <- generateResources
       return $ (playerId, PlayerData
                             playerId
@@ -216,3 +232,49 @@ instance Arbitrary ArbitraryUniverse where
     let players = fromList $ otherPlayers ++ [currentPlayerData]
     startingPlayerId <- elements $ keys players
     return $ ArbitraryUniverse $ Universe (fromList workplaces) players startingPlayerId
+
+type GenWithIds a = StateT (Int, Int, Int, Int) Gen a
+
+newId :: Lens' (Int, Int, Int, Int) Int -> (Int -> a) -> GenWithIds a
+newId component constructor = do
+  nextId <- gets (view component)
+  modify (over component (+1))
+  return $ constructor nextId
+
+newPlayerId :: GenWithIds PlayerId
+newPlayerId = newId _1 PlayerId
+
+newWorkerId :: GenWithIds WorkerId
+newWorkerId = newId _2 WorkerId
+
+newDogId :: GenWithIds DogId
+newDogId = newId _3 DogId
+
+newWorkplaceId :: GenWithIds WorkplaceId
+newWorkplaceId = newId _4 WorkplaceId
+
+generateWaitingPlayer :: GenWithIds (Map WorkplaceId WorkplaceData, PlayerData)
+generateWaitingPlayer = do
+  playerId <- newPlayerId
+  playerBuildingSpace@(BuildingSpace buildings) <- lift generateBuildingSpace
+  let supportedWorkers = sum $ buildingSupportedWorkers <$> buildings
+  workerCount <- lift $ choose (1, min 5 supportedWorkers)
+  busyWorkers <- lift $ choose (0, workerCount)
+  workerIds <- mapM (const newWorkerId) [1..workerCount]
+  workplaceIds <- mapM (const newWorkplaceId) [1..busyWorkers]
+  workplaceData <- lift $ mapM (const generateWorkplaceData) [1..busyWorkers]
+  let busyWorkerState = WorkerState <$> Just <$> workplaceIds
+      freeWorkerState = repeat $ WorkerState Nothing
+      workers = fromList $ zip workerIds (busyWorkerState ++ freeWorkerState)
+      occupiedWorkplaces = fromList $ zip workplaceIds workplaceData
+  occupants <- lift $ generateOccupants workerIds playerBuildingSpace
+  resources <- lift generateResources
+  return $ (occupiedWorkplaces,
+            PlayerData
+              playerId
+              workers
+              playerBuildingSpace
+              occupants
+              Waiting
+              resources
+              initialAnimals)

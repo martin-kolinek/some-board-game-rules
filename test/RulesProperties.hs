@@ -293,7 +293,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
     testProperty "Reverting occupants returns original errors" $
       let prop (ArbitraryUniverse universe) =
             forAll (elements $ getPlayers universe) $ \playerId ->
-            forAll (generateOccupants (getWorkers universe playerId)) $ \newOccupants ->
+            forAll (generateOccupantsForPlayer universe playerId) $ \newOccupants ->
             rightProp $ do
               let oldOccupants = getBuildingOccupants universe playerId
               otherUniverse <- alterOccupants playerId newOccupants universe
@@ -351,7 +351,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                   originalOccupants playerId = join $ elems $ getBuildingOccupants universe playerId
       in prop,
     testProperty "Having occupant from different player causes error" $
-      let prop (ArbitraryUniverse universe) = playersWithFreeBuilding /= [] ==>
+      let prop (ArbitraryUniverse universe) = playersWithFreeBuilding /= [] && length (getPlayers universe) > 1 ==>
             forAll (elements $ playersWithFreeBuilding) $ \playerId ->
             forAll (elements $ getPlayers universe \\ [playerId]) $ \otherPlayerId ->
             forAll (elements $ originalOccupants otherPlayerId) $ \occupant ->
