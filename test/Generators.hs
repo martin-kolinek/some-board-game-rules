@@ -278,3 +278,55 @@ generateWaitingPlayer = do
               Waiting
               resources
               initialAnimals)
+
+generateInvalidOccupantsPlayer :: GenWithIds (Map WorkplaceId WorkplaceData, PlayerData)
+generateInvalidOccupantsPlayer = do
+  playerId <- newPlayerId
+  playerBuildingSpace@(BuildingSpace buildings) <- lift generateBuildingSpace
+  let supportedWorkers = sum $ buildingSupportedWorkers <$> buildings
+  workerCount <- lift $ choose (1, min 5 supportedWorkers)
+  busyWorkers <- lift $ choose (0, workerCount)
+  workerIds <- mapM (const newWorkerId) [1..workerCount]
+  workplaceIds <- mapM (const newWorkplaceId) [1..busyWorkers]
+  workplaceData <- lift $ mapM (const generateWorkplaceData) [1..busyWorkers]
+  let busyWorkerState = WorkerState <$> Just <$> workplaceIds
+      freeWorkerState = repeat $ WorkerState Nothing
+      workers = fromList $ zip workerIds (busyWorkerState ++ freeWorkerState)
+      occupiedWorkplaces = fromList $ zip workplaceIds workplaceData
+  occupants <- lift $ generateInvalidOccupants workerIds
+  resources <- lift generateResources
+  return $ (occupiedWorkplaces,
+            PlayerData
+              playerId
+              workers
+              playerBuildingSpace
+              occupants
+              OccupantsInvalid
+              resources
+              initialAnimals)
+
+generateMovingWorkerPlayer :: GenWithIds (Map WorkplaceId WorkplaceData, PlayerData)
+generateMovingWorkerPlayer = do
+  playerId <- newPlayerId
+  playerBuildingSpace@(BuildingSpace buildings) <- lift generateBuildingSpace
+  let supportedWorkers = sum $ buildingSupportedWorkers <$> buildings
+  workerCount <- lift $ choose (1, min 5 supportedWorkers)
+  busyWorkers <- lift $ choose (0, workerCount)
+  workerIds <- mapM (const newWorkerId) [1..workerCount]
+  workplaceIds <- mapM (const newWorkplaceId) [1..busyWorkers]
+  workplaceData <- lift $ mapM (const generateWorkplaceData) [1..busyWorkers]
+  let busyWorkerState = WorkerState <$> Just <$> workplaceIds
+      freeWorkerState = repeat $ WorkerState Nothing
+      workers = fromList $ zip workerIds (busyWorkerState ++ freeWorkerState)
+      occupiedWorkplaces = fromList $ zip workplaceIds workplaceData
+  occupants <- lift $ generateOccupants workerIds playerBuildingSpace
+  resources <- lift generateResources
+  return $ (occupiedWorkplaces,
+            PlayerData
+              playerId
+              workers
+              playerBuildingSpace
+              occupants
+              MovingWorker
+              resources
+              initialAnimals)
