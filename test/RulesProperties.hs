@@ -15,6 +15,8 @@ import Text.Show.Pretty (ppShow)
 import Generators
 import Rules
 
+import Debug.Trace
+
 rulesPropertiesTests :: TestTree
 rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules properties" [
     testProperty "Starting working assigns worker" $
@@ -539,7 +541,7 @@ currentPlayerBuildingSpace :: Universe -> PlayerId -> [Building]
 currentPlayerBuildingSpace universe playerId = getBuildingSpace universe playerId
 
 currentPlayerHasValidOccupants :: Universe -> Bool
-currentPlayerHasValidOccupants universe = (getOccupantErrors universe <$> getCurrentPlayer universe) == Just []
+currentPlayerHasValidOccupants universe = (traceShowId $ getOccupantErrors universe <$> getCurrentPlayer universe) == Just []
 
 findOccupiedWorkplaces :: Universe -> [WorkplaceId]
 findOccupiedWorkplaces universe = do
