@@ -17,6 +17,7 @@ import Worker
 import Workplace
 import Universe.Building
 import Universe.Actions
+import Universe.Player hiding (currentPlayerData)
 
 arbitraryUniverseTests :: TestTree
 arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbitrary universe tests" [
@@ -141,6 +142,11 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
                   isWorkplaceWorkerNeed = has (availableWorkplaces . ix workplaceId . filtered (==WorkerNeed)) universe
                   currentPlayer :: Traversal' Universe PlayerData
                   currentPlayer = players . traverse . filtered (has $ playerStatus . filtered isChoosingWorkerNeed)
+      in prop,
+    testProperty "Current player can have valid occupants" $
+      let prop (ArbitraryUniverse universe) = cover currentPlayerHasValidWorkers 30 "Valid workers" $
+            getCurrentPlayer universe /= Nothing ==> True
+            where currentPlayerHasValidWorkers = (getOccupantErrors universe <$> getCurrentPlayer universe) == Just []
       in prop
   ]
 

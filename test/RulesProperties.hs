@@ -2,7 +2,7 @@ module RulesProperties where
 
 import Test.Tasty
 import Test.Tasty.QuickCheck
-import Data.Map (keys, fromList, (!), elems)
+import Data.Map (keys, fromList, (!), elems, insert)
 import qualified Data.Map as M
 import Data.List ((\\), intersect)
 import Data.Maybe (maybeToList, isNothing, fromMaybe, fromJust, listToMaybe, isJust)
@@ -11,6 +11,7 @@ import Data.List.Split (chunksOf)
 import Data.AdditiveGroup
 import qualified Data.Set as S
 import Text.Show.Pretty (ppShow)
+import Data.Foldable (foldl')
 
 import Generators
 import Rules
@@ -164,9 +165,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
     testProperty "Fixing occupants in invalid occupants starts next player" $
       let prop (ArbitraryUniverse universe) = currentPlayerIsInInvalidOccupantsState ==> either (error) id $ do
             let currentPlayerId = fromJust $ getCurrentPlayer universe
-                workers = getWorkers universe currentPlayerId
-                workerOccupants = WorkerOccupant <$> workers
-                occupants = fromList $ zip [(3, 2), (3, 3)] (chunksOf 2 workerOccupants)
+                occupants = createValidOccupants universe currentPlayerId
             nextUniverse <- alterOccupants currentPlayerId occupants universe
             let nextPlayerMovingWorker = (getPlayerStatus nextUniverse <$> getCurrentPlayer nextUniverse) == Just MovingWorker
                 currentPlayerWaiting = (getPlayerStatus nextUniverse currentPlayerId) `elem` [Waiting, MovingWorker]
@@ -620,3 +619,13 @@ currentPlayerCanBuildRoom universe = (not $ null $ join $ maybeToList $ availabl
 isChoosingWorkerNeed :: PlayerStatus -> Bool
 isChoosingWorkerNeed (MakingDecision (WorkerNeedDecision _)) = True
 isChoosingWorkerNeed _ = False
+
+createValidOccupants :: Universe -> PlayerId -> M.Map Position [BuildingOccupant]
+createValidOccupants universe playerId =
+  let workers = WorkerOccupant <$> getWorkers universe playerId
+      buildings = getBuildingSpace universe playerId
+      accumulateWorkers (occupants, remainingWorkers) (LivingRoom pos)  = (insert pos (take 1 remainingWorkers) occupants, drop 1 remainingWorkers)
+      accumulateWorkers (occupants, remainingWorkers) (InitialRoom pos) = (insert pos (take 2 remainingWorkers) occupants, drop 2 remainingWorkers)
+      accumulateWorkers accumulator _ = accumulator
+      (resultOccupants, _) = foldl' accumulateWorkers (M.empty, workers) buildings
+  in resultOccupants
