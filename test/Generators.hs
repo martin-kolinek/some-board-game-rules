@@ -85,7 +85,7 @@ generateBuildingSpace = do
     elements [Field position, Grass position]
   dugRockBuildings <- forM (S.toList dugPositions) $ \position ->
     frequency [(1, elements [Passage position, Cave position]), (1, elements [LivingRoom position])]
-  let rocks = Rock <$> S.toList (S.fromList [(x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 2)] S.\\ dugPositions)
+  let rocks = Rock <$> S.toList (S.fromList [(x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3)] S.\\ dugPositions)
       initialRoom = [InitialRoom (3, 3)]
       forestBuildings = Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
   return $ BuildingSpace (cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom ++ dugRockBuildings)
@@ -278,7 +278,6 @@ generateBusyPlayer = do
   workerIds <- mapM (const newWorkerId) [1..workerCount]
   workplaceIds <- mapM (const newWorkplaceId) [1..busyWorkers]
   workplaceData <- lift $ mapM (const generateWorkplaceData) [1..busyWorkers]
-  currentWorkerId <- newWorkerId
   currentWorkplaceId <- newWorkplaceId
   currentPlayerStatus <- lift $ elements [CuttingForest,
                                    DiggingPassage,
@@ -296,7 +295,7 @@ generateBusyPlayer = do
     _ -> generateWorkplaceData
   let busyWorkerState = (WorkerState $ Just currentWorkplaceId) : (WorkerState <$> Just <$> workplaceIds)
       freeWorkerState = repeat $ WorkerState Nothing
-      workers = fromList $ zip (currentWorkerId : workerIds) (busyWorkerState ++ freeWorkerState)
+      workers = fromList $ zip workerIds (busyWorkerState ++ freeWorkerState)
       occupiedWorkplaces = fromList $ zip (currentWorkplaceId : workplaceIds) (currentWorkplaceData : workplaceData)
   occupants <- lift $ generateOccupants workerIds playerBuildingSpace
   resources <- lift generateResources
@@ -316,5 +315,5 @@ generateAnyPlayer includeWaiting = do
   let waitingAlternatives = if includeWaiting then [(1, elements [generateWaitingPlayer True])] else []
   generateFunc <- lift $ frequency $ [(1, elements [generateInvalidOccupantsPlayer]),
                                       (1, elements [generateMovingWorkerPlayer]),
-                                      (50, elements [generateBusyPlayer])] ++ waitingAlternatives
+                                      (10, elements [generateBusyPlayer])] ++ waitingAlternatives
   generateFunc
