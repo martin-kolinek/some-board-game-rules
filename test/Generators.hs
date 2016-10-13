@@ -63,10 +63,10 @@ generateWorkplaces minNumber firstWorkplaceGen = do
   let ids = WorkplaceId <$> [1..]
   return $ zip ids (firstWorkplace : neededLst ++ lst)
 
-generateBuildingSpace :: Gen BuildingSpace
-generateBuildingSpace = do
+generateBuildingSpace :: Int -> Gen BuildingSpace
+generateBuildingSpace requiredWorkers = do
   cutForestCount <- choose (0, 12) :: Gen Int
-  dugRockCount <- choose (0, 11) :: Gen Int
+  dugRockCount <- choose (requiredWorkers - 2, 11) :: Gen Int
   let isValidForest (x, y) = x >=0 && x <=2 && y >= 0 && y <= 3
       isValidRock (x, y) = x >= 3 && x <= 5 && y >= 0 && y <= 3 && (x, y) /= (3, 3)
       findNextCandidates isValid (sx, sy) = S.filter isValid $ S.fromList [(sx+1, sy), (sx-1, sy), (sx, sy+1), (sx, sy-1)]
@@ -79,12 +79,14 @@ generateBuildingSpace = do
   (_, dugPositions) <- foldM (expand isValidRock) (S.fromList [(4, 3), (3, 2)], S.empty) [1..dugRockCount]
   cutForestBuildings <- forM (S.toList cutPositions) $ \position ->
     elements [Field position, Grass position]
-  dugRockBuildings <- forM (S.toList dugPositions) $ \position ->
+  dugRockShuffled <- shuffle $ S.toList dugPositions
+  let mandatoryRooms = LivingRoom <$> take requiredWorkers dugRockShuffled
+  dugRockBuildings <- forM (drop requiredWorkers dugRockShuffled) $ \position ->
     frequency [(1, elements [Passage position, Cave position]), (1, elements [LivingRoom position])]
   let rocks = Rock <$> S.toList (S.fromList [(x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3)] S.\\ dugPositions)
       initialRoom = [InitialRoom (3, 3)]
       forestBuildings = Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
-  return $ BuildingSpace (cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom ++ dugRockBuildings)
+  return $ BuildingSpace (cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom ++ dugRockBuildings ++ mandatoryRooms)
 
 generateValidOccupants :: [WorkerId] -> BuildingSpace -> Gen BuildingOccupants
 generateValidOccupants workerIds (BuildingSpace buildings) = do
@@ -186,9 +188,8 @@ generatePlayer :: PlayerId -> [WorkerId] -> [WorkplaceId] -> [WorkplaceId -> Gen
 generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds possibleStatusFunctions = do
   let currentWorkplaceId = head availableWorkplaceIds
   selectedStatus <- elements $ possibleStatusFunctions <*> pure currentWorkplaceId
-  generatedBuildingSpace@(BuildingSpace buildings) <- generateBuildingSpace
-  let supportedWorkerCount = sum $ buildingSupportedWorkers <$> buildings
-  totalWorkerCount <- choose (1, min 5 supportedWorkerCount)
+  totalWorkerCount <- choose (1, 5)
+  generatedBuildingSpace <- generateBuildingSpace totalWorkerCount
   alreadyBusyWorkerCount <- choose (if selectedStatus == AllWorkersBusyStatus then totalWorkerCount else 0, totalWorkerCount)
   let allWorkerIds = take totalWorkerCount availableWorkerIds
       allWorkplaceIds = take totalWorkerCount availableWorkplaceIds
