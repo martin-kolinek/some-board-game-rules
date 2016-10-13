@@ -4,13 +4,11 @@ module Generators where
 import Prelude hiding (lookup)
 import Test.QuickCheck
 import Data.Map.Strict (fromList, fromListWith, keys, (!), Map)
-import Data.Maybe (isNothing)
 import qualified Data.Set as S
 import Control.Monad (forM, foldM)
 import Text.Show.Pretty
-import Data.List.Split (splitPlaces)
-import Control.Monad.State
-import Control.Lens (view, over, _1, _2, _3, _4, Lens', (^.), lengthOf, filtered)
+import Data.List.Split (splitPlaces, chunksOf)
+import Control.Lens ((^.))
 import Data.Monoid ((<>))
 
 import Universe hiding (players)
@@ -148,190 +146,85 @@ genPlayers universe = elements $ getPlayers universe
 instance Arbitrary ArbitraryUniverse where
   arbitrary = do
     playerCount <- choose (1, 7) :: Gen Int
-    ids1 <- shuffle [1..10]
-    ids2 <- shuffle [1..50]
-    ids3 <- shuffle [1..50]
-    ids4 <- shuffle [1..80]
-    (result, _) <- flip runStateT (ids1, ids2, ids3, ids4) $ do
-      otherPlayersDone <- lift $ elements [True, False]
-      otherPlayerData <- mapM (const $ generateWaitingPlayer otherPlayersDone) [1 .. playerCount - 1]
-      currentPlayerData <- generateAnyPlayer otherPlayersDone
-      let allPlayerData = currentPlayerData : otherPlayerData
-          occupiedWorkplaces = mconcat $ fst <$> allPlayerData
-          universePlayers = fromList $ fmap (\x -> (x ^. P.playerId, x))snd <$> allPlayerData
-          freeWorkerCount = lengthOf (traverse . P.workers . traverse . currentWorkplace . filtered isNothing) universePlayers
-      freeWorkplaceCount <- lift $ choose (freeWorkerCount, 50)
-      freeWorkplaceData <- mapM (const (lift generateWorkplaceData)) [1..freeWorkplaceCount]
-      freeWorkplaceIds <- mapM (const newWorkplaceId) [1..freeWorkplaceCount]
-      let freeWorkplaces = fromList $ zip freeWorkplaceIds freeWorkplaceData
-      universeStartingPlayer <- lift $ elements $ keys universePlayers
-      return $ Universe (freeWorkplaces <> occupiedWorkplaces) universePlayers universeStartingPlayer
-    return $ ArbitraryUniverse $ result
+    workerIds <- shuffle $ WorkerId <$> [1..playerCount * 7]
+    allWorkplaceIds <- shuffle $ WorkplaceId <$> [1..playerCount * 10]
+    currentPlayerId : otherPlayerIds <- shuffle $ PlayerId <$> [1..playerCount]
+    let (playerWorkplaceIds, additionalWorkplaceIds) = splitAt (playerCount * 7) allWorkplaceIds
+    additionalWorkplaceData <- mapM (const generateWorkplaceData) additionalWorkplaceIds
+    otherPlayersDone <- elements [True, False]
+    let additionalWorkplaces = fromList $ zip additionalWorkplaceIds additionalWorkplaceData
+        currentAvailableWorkerIds : otherAvailableWorkerIds = chunksOf 7 workerIds
+        currentAvailableWorkplaceIds : otherAvailableWorkplaceIds = chunksOf 7 playerWorkplaceIds
+        currentPlayerAvailableStatuses = (if otherPlayersDone then [const AllWorkersBusyStatus] else []) ++
+          ((NormalStatus .) <$> [const MovingWorker,
+            const OccupantsInvalid,
+            const CuttingForest,
+            const DiggingPassage,
+            const DiggingCave,
+            MakingDecision . WorkerNeedDecision,
+            const $ MakingDecision CaveOrPassageDecision,
+            const BuildingLivingRoom])
+        otherPlayerAvailableStatuses = if otherPlayersDone then [const AllWorkersBusyStatus] else [const $ NormalStatus Waiting]
+    otherPlayersGenerated <- forM (zip otherPlayerIds (zip otherAvailableWorkerIds otherAvailableWorkplaceIds)) $
+      \(generatedPlayerId, (availableWorkerIds, availableWorkplaceIds)) ->
+        generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds otherPlayerAvailableStatuses
+    let otherPlayerData = fst <$> otherPlayersGenerated
+        otherPlayerWorkplaces = snd <$> otherPlayersGenerated
+    (currentPlayerData, currentPlayerWorkplaces) <- generatePlayer currentPlayerId currentAvailableWorkerIds currentAvailableWorkplaceIds currentPlayerAvailableStatuses
+    let allPlayers = fromList $ fmap (\x -> (_playerId x, x)) (currentPlayerData : otherPlayerData)
+        allWorkplaces = additionalWorkplaces <> currentPlayerWorkplaces <> mconcat otherPlayerWorkplaces
+    selectedStartingPlayer <- elements $ keys allPlayers
+    return $ ArbitraryUniverse $ Universe allWorkplaces allPlayers selectedStartingPlayer
 
-type GenWithIds a = StateT ([Int], [Int], [Int], [Int]) Gen a
+data GeneratedPlayerStatus = NormalStatus PlayerStatus | AllWorkersBusyStatus deriving (Show, Eq)
 
-newId :: Lens' ([Int], [Int], [Int], [Int]) [Int] -> (Int -> a) -> GenWithIds a
-newId component constructor = do
-  nextId <- gets (head . view component)
-  modify (over component tail)
-  return $ constructor nextId
+extractPlayerStatus :: GeneratedPlayerStatus -> PlayerStatus
+extractPlayerStatus (NormalStatus s) = s
+extractPlayerStatus _ = Waiting
 
-newPlayerId :: GenWithIds PlayerId
-newPlayerId = newId _1 PlayerId
-
-newWorkerId :: GenWithIds WorkerId
-newWorkerId = newId _2 WorkerId
-
-newDogId :: GenWithIds DogId
-newDogId = newId _3 DogId
-
-newWorkplaceId :: GenWithIds WorkplaceId
-newWorkplaceId = newId _4 WorkplaceId
-
-generateWaitingPlayer :: Bool -> GenWithIds (Map WorkplaceId WorkplaceData, PlayerData)
-generateWaitingPlayer allWorkersBusy = do
-  playerId <- newPlayerId
-  chosenWorkerCount <- lift $ choose (1, 5)
-  chosenBusyWorkers <- lift $ choose (if allWorkersBusy then chosenWorkerCount else 0, chosenWorkerCount)
-  chosenWorkerIds <- mapM (const newWorkerId) [1..chosenWorkerCount]
-  chosenWorkplaceIds <- mapM (const newWorkplaceId) [1..chosenBusyWorkers]
-  lift $ do
-    playerBuildingSpace@(BuildingSpace buildings) <- generateBuildingSpace
-    let supportedWorkers = sum $ buildingSupportedWorkers <$> buildings
-        workerCount = min chosenWorkerCount supportedWorkers
-        busyWorkers = min chosenBusyWorkers workerCount
-        workerIds = take workerCount chosenWorkerIds
-        workplaceIds = take busyWorkers chosenWorkplaceIds
-    workplaceData <- mapM (const generateWorkplaceData) [1..busyWorkers]
-    let busyWorkerState = WorkerState <$> Just <$> workplaceIds
-        freeWorkerState = repeat $ WorkerState Nothing
-        workers = fromList $ zip workerIds (busyWorkerState ++ freeWorkerState)
-        occupiedWorkplaces = fromList $ zip workplaceIds workplaceData
-    occupants <- generateOccupants workerIds playerBuildingSpace
-    resources <- generateResources
-    return $ (occupiedWorkplaces,
-              PlayerData
-               playerId
-               workers
-               playerBuildingSpace
-               occupants
-               Waiting
-               resources
-               initialAnimals)
-
-generateInvalidOccupantsPlayer :: GenWithIds (Map WorkplaceId WorkplaceData, PlayerData)
-generateInvalidOccupantsPlayer = do
-  playerId <- newPlayerId
-  chosenWorkerCount <- lift $ choose (1, 5)
-  chosenBusyWorkers <- lift $ choose (0, chosenWorkerCount)
-  chosenWorkerIds <- mapM (const newWorkerId) [1..chosenWorkerCount]
-  chosenWorkplaceIds <- mapM (const newWorkplaceId) [1..chosenBusyWorkers]
-  lift $ do
-    playerBuildingSpace@(BuildingSpace buildings) <- generateBuildingSpace
-    let supportedWorkers = sum $ buildingSupportedWorkers <$> buildings
-        workerCount = min chosenWorkerCount supportedWorkers
-        busyWorkers = min chosenBusyWorkers workerCount
-        workerIds = take workerCount chosenWorkerIds
-        workplaceIds = take busyWorkers chosenWorkplaceIds
-    workplaceData <- mapM (const generateWorkplaceData) [1..busyWorkers]
-    let busyWorkerState = WorkerState <$> Just <$> workplaceIds
-        freeWorkerState = repeat $ WorkerState Nothing
-        workers = fromList $ zip workerIds (busyWorkerState ++ freeWorkerState)
-        occupiedWorkplaces = fromList $ zip workplaceIds workplaceData
-    occupants <- generateInvalidOccupants workerIds
-    resources <- generateResources
-    return $ (occupiedWorkplaces,
-              PlayerData
-               playerId
-               workers
-               playerBuildingSpace
-               occupants
-               OccupantsInvalid
-               resources
-               initialAnimals)
-
-generateMovingWorkerPlayer :: GenWithIds (Map WorkplaceId WorkplaceData, PlayerData)
-generateMovingWorkerPlayer = do
-  playerId <- newPlayerId
-  chosenWorkerCount <- lift $ choose (1, 5)
-  chosenBusyWorkers <- lift $ choose (0, chosenWorkerCount - 1)
-  chosenWorkerIds <- mapM (const newWorkerId) [1..chosenWorkerCount]
-  chosenWorkplaceIds <- mapM (const newWorkplaceId) [1..chosenBusyWorkers]
-  lift $ do
-    playerBuildingSpace@(BuildingSpace buildings) <- generateBuildingSpace
-    let supportedWorkers = sum $ buildingSupportedWorkers <$> buildings
-        workerCount = min chosenWorkerCount supportedWorkers
-        busyWorkers = min chosenBusyWorkers (workerCount - 1)
-        workerIds = take workerCount chosenWorkerIds
-        workplaceIds = take busyWorkers chosenWorkplaceIds
-    workplaceData <- mapM (const generateWorkplaceData) [1..busyWorkers]
-    let busyWorkerState = WorkerState <$> Just <$> workplaceIds
-        freeWorkerState = repeat $ WorkerState Nothing
-        workers = fromList $ zip workerIds (busyWorkerState ++ freeWorkerState)
-        occupiedWorkplaces = fromList $ zip workplaceIds workplaceData
-    occupants <- generateOccupants workerIds playerBuildingSpace
-    resources <- generateResources
-    return $ (occupiedWorkplaces,
-              PlayerData
-               playerId
-               workers
-               playerBuildingSpace
-               occupants
-               MovingWorker
-               resources
-               initialAnimals)
-
-generateBusyPlayer :: GenWithIds (Map WorkplaceId WorkplaceData, PlayerData)
-generateBusyPlayer = do
-  playerId <- newPlayerId
-  chosenWorkerCount <- lift $ choose (1, 5)
-  chosenBusyWorkers <- lift $ choose (0, chosenWorkerCount - 1)
-  chosenWorkerIds <- mapM (const newWorkerId) [1..chosenWorkerCount]
-  chosenWorkplaceIds <- mapM (const newWorkplaceId) [1..chosenBusyWorkers]
-  currentWorkplaceId <- newWorkplaceId
-  lift $ do
-    playerBuildingSpace@(BuildingSpace buildings) <- generateBuildingSpace
-    let supportedWorkers = sum $ buildingSupportedWorkers <$> buildings
-        workerCount = min chosenWorkerCount supportedWorkers
-        busyWorkers = min chosenBusyWorkers (workerCount - 1)
-        workerIds = take workerCount chosenWorkerIds
-        workplaceIds = take busyWorkers chosenWorkplaceIds
-    workplaceData <- mapM (const generateWorkplaceData) [1..busyWorkers]
-    currentPlayerStatus <- elements [CuttingForest,
-                                            DiggingPassage,
-                                            DiggingCave,
-                                            BuildingLivingRoom,
-                                            MakingDecision CaveOrPassageDecision,
-                                            MakingDecision (WorkerNeedDecision currentWorkplaceId)]
-    currentWorkplaceData <- case currentPlayerStatus of
-      CuttingForest -> generateCutForest
-      DiggingPassage -> oneof [generateDigPassage, generateDigCave]
-      DiggingCave -> generateDigCave
-      BuildingLivingRoom -> elements [WorkerNeed]
-      MakingDecision CaveOrPassageDecision -> generateDigCave
-      MakingDecision (WorkerNeedDecision _) -> elements [WorkerNeed]
-      _ -> generateWorkplaceData
-    let busyWorkerState = (WorkerState $ Just currentWorkplaceId) : (WorkerState <$> Just <$> workplaceIds)
-        freeWorkerState = repeat $ WorkerState Nothing
-        workers = fromList $ zip workerIds (busyWorkerState ++ freeWorkerState)
-        occupiedWorkplaces = fromList $ zip (currentWorkplaceId : workplaceIds) (currentWorkplaceData : workplaceData)
-    occupants <- generateOccupants workerIds playerBuildingSpace
-    resources <- generateResources
-    return $ (occupiedWorkplaces,
-              PlayerData
-               playerId
-               workers
-               playerBuildingSpace
-               occupants
-               currentPlayerStatus
-               resources
-               initialAnimals)
-
-
-generateAnyPlayer :: Bool -> GenWithIds (Map WorkplaceId WorkplaceData, PlayerData)
-generateAnyPlayer includeWaiting = do
-  let waitingAlternatives = if includeWaiting then [(1, elements [generateWaitingPlayer True])] else []
-  generateFunc <- lift $ frequency $ [(1, elements [generateInvalidOccupantsPlayer]),
-                                      (1, elements [generateMovingWorkerPlayer]),
-                                      (10, elements [generateBusyPlayer])] ++ waitingAlternatives
-  generateFunc
+generatePlayer :: PlayerId -> [WorkerId] -> [WorkplaceId] -> [WorkplaceId -> GeneratedPlayerStatus] -> Gen (PlayerData, Map WorkplaceId WorkplaceData)
+generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds possibleStatusFunctions = do
+  let currentWorkplaceId = head availableWorkplaceIds
+  selectedStatus <- elements $ possibleStatusFunctions <*> pure currentWorkplaceId
+  generatedBuildingSpace@(BuildingSpace buildings) <- generateBuildingSpace
+  let supportedWorkerCount = sum $ buildingSupportedWorkers <$> buildings
+  totalWorkerCount <- choose (1, min 5 supportedWorkerCount)
+  alreadyBusyWorkerCount <- choose (if selectedStatus == AllWorkersBusyStatus then totalWorkerCount else 0, totalWorkerCount)
+  let allWorkerIds = take totalWorkerCount availableWorkerIds
+      allWorkplaceIds = take totalWorkerCount availableWorkplaceIds
+      alreadyBusyWorkplaceIds = take alreadyBusyWorkerCount (tail allWorkplaceIds)
+  alreadyBusyWorkplaceData <- mapM (const generateWorkplaceData) [1..alreadyBusyWorkerCount]
+  freeWorkplaceData <- mapM (const generateWorkplaceData) [1..totalWorkerCount - alreadyBusyWorkerCount - 1]
+  currentWorkplaceData <- case selectedStatus of
+    NormalStatus MovingWorker -> generateWorkplaceData
+    NormalStatus Waiting -> generateWorkplaceData
+    NormalStatus OccupantsInvalid -> generateWorkplaceData
+    NormalStatus CuttingForest -> generateCutForest
+    NormalStatus DiggingPassage -> oneof [generateDigCave, generateDigPassage]
+    NormalStatus DiggingCave -> generateDigCave
+    NormalStatus (MakingDecision (WorkerNeedDecision _)) -> elements [WorkerNeed]
+    NormalStatus (MakingDecision CaveOrPassageDecision) -> generateDigCave
+    NormalStatus BuildingLivingRoom -> elements [WorkerNeed]
+    AllWorkersBusyStatus -> generateWorkplaceData
+  let alreadyBusyWorkerStates = WorkerState . Just <$> alreadyBusyWorkplaceIds
+      currentWorkerState = WorkerState $ case selectedStatus of
+        NormalStatus MovingWorker -> Nothing
+        NormalStatus Waiting -> Nothing
+        _ -> Just currentWorkplaceId
+      freeWorkerStates = repeat $ WorkerState Nothing
+      allWorkerStates = alreadyBusyWorkerStates ++ (currentWorkerState : freeWorkerStates)
+      allWorkplaceData = (currentWorkplaceData : alreadyBusyWorkplaceData) ++ freeWorkplaceData
+      workplaceData = fromList $ zip allWorkplaceIds allWorkplaceData
+  generatedOccupants <- if selectedStatus == NormalStatus OccupantsInvalid
+                        then generateInvalidOccupants allWorkerIds
+                        else generateOccupants allWorkerIds generatedBuildingSpace
+  generatedResources <- generateResources
+  let playerData = PlayerData
+                     generatedPlayerId
+                     (fromList $ zip allWorkerIds allWorkerStates)
+                     generatedBuildingSpace
+                     generatedOccupants
+                     (extractPlayerStatus selectedStatus)
+                     generatedResources
+                     initialAnimals
+  return (playerData, workplaceData)
