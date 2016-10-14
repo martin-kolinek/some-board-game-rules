@@ -108,7 +108,7 @@ generateInvalidOccupants workerIds = do
 
 generateOccupants :: [WorkerId] -> BuildingSpace -> Gen BuildingOccupants
 generateOccupants workers playerBuildingSpace =
-  frequency [(2, generateValidOccupants workers playerBuildingSpace), (1, generateInvalidOccupants workers)]
+  oneof [generateValidOccupants workers playerBuildingSpace, generateInvalidOccupants workers]
 
 generateOccupantsForPlayer :: Universe -> PlayerId -> Gen BuildingOccupants
 generateOccupantsForPlayer universe playerId =
@@ -150,6 +150,7 @@ instance Arbitrary ArbitraryUniverse where
     playerCount <- choose (1, 7) :: Gen Int
     workerIds <- shuffle $ WorkerId <$> [1..playerCount * 7]
     allWorkplaceIds <- shuffle $ WorkplaceId <$> [1..playerCount * 10]
+    dogIds <- shuffle $ DogId <$> [1..playerCount * 10]
     currentPlayerId : otherPlayerIds <- shuffle $ PlayerId <$> [1..playerCount]
     let (playerWorkplaceIds, additionalWorkplaceIds) = splitAt (playerCount * 7) allWorkplaceIds
     additionalWorkplaceData <- mapM (const generateWorkplaceData) additionalWorkplaceIds
@@ -157,6 +158,7 @@ instance Arbitrary ArbitraryUniverse where
     let additionalWorkplaces = fromList $ zip additionalWorkplaceIds additionalWorkplaceData
         currentAvailableWorkerIds : otherAvailableWorkerIds = chunksOf 7 workerIds
         currentAvailableWorkplaceIds : otherAvailableWorkplaceIds = chunksOf 7 playerWorkplaceIds
+        currentAvailableDogIds : otherAvailableDogIds = chunksOf 10 dogIds
         currentPlayerAvailableStatuses = (if otherPlayersDone then [const AllWorkersBusyStatus] else []) ++
           ((NormalStatus .) <$> [const MovingWorker,
             const OccupantsInvalid,
@@ -167,12 +169,17 @@ instance Arbitrary ArbitraryUniverse where
             const $ MakingDecision CaveOrPassageDecision,
             const BuildingLivingRoom])
         otherPlayerAvailableStatuses = if otherPlayersDone then [const AllWorkersBusyStatus] else [const $ NormalStatus Waiting]
-    otherPlayersGenerated <- forM (zip otherPlayerIds (zip otherAvailableWorkerIds otherAvailableWorkplaceIds)) $
-      \(generatedPlayerId, (availableWorkerIds, availableWorkplaceIds)) ->
-        generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds otherPlayerAvailableStatuses
+    otherPlayersGenerated <- forM (zip otherPlayerIds (zip otherAvailableWorkerIds (zip otherAvailableWorkplaceIds otherAvailableDogIds))) $
+      \(generatedPlayerId, (availableWorkerIds, (availableWorkplaceIds, availableDogIds))) ->
+        generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availableDogIds otherPlayerAvailableStatuses
     let otherPlayerData = fst <$> otherPlayersGenerated
         otherPlayerWorkplaces = snd <$> otherPlayersGenerated
-    (currentPlayerData, currentPlayerWorkplaces) <- generatePlayer currentPlayerId currentAvailableWorkerIds currentAvailableWorkplaceIds currentPlayerAvailableStatuses
+    (currentPlayerData, currentPlayerWorkplaces) <- generatePlayer
+      currentPlayerId
+      currentAvailableWorkerIds
+      currentAvailableWorkplaceIds
+      currentAvailableDogIds
+      currentPlayerAvailableStatuses
     let allPlayers = fromList $ fmap (\x -> (_playerId x, x)) (currentPlayerData : otherPlayerData)
         allWorkplaces = additionalWorkplaces <> currentPlayerWorkplaces <> mconcat otherPlayerWorkplaces
     selectedStartingPlayer <- elements $ keys allPlayers
@@ -184,8 +191,8 @@ extractPlayerStatus :: GeneratedPlayerStatus -> PlayerStatus
 extractPlayerStatus (NormalStatus s) = s
 extractPlayerStatus _ = Waiting
 
-generatePlayer :: PlayerId -> [WorkerId] -> [WorkplaceId] -> [WorkplaceId -> GeneratedPlayerStatus] -> Gen (PlayerData, Map WorkplaceId WorkplaceData)
-generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds possibleStatusFunctions = do
+generatePlayer :: PlayerId -> [WorkerId] -> [WorkplaceId] -> [DogId] -> [WorkplaceId -> GeneratedPlayerStatus] -> Gen (PlayerData, Map WorkplaceId WorkplaceData)
+generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availableDogIds possibleStatusFunctions = do
   let currentWorkplaceId = head availableWorkplaceIds
   selectedStatus <- elements $ possibleStatusFunctions <*> pure currentWorkplaceId
   totalWorkerCount <- choose (1, 5)
@@ -220,6 +227,7 @@ generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds possib
                         then generateInvalidOccupants allWorkerIds
                         else generateOccupants allWorkerIds generatedBuildingSpace
   generatedResources <- generateResources
+  generatedAnimals <- generateAnimals availableDogIds
   let playerData = PlayerData
                      generatedPlayerId
                      (fromList $ zip allWorkerIds allWorkerStates)
@@ -227,5 +235,10 @@ generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds possib
                      generatedOccupants
                      (extractPlayerStatus selectedStatus)
                      generatedResources
-                     initialAnimals
+                     generatedAnimals
   return (playerData, workplaceData)
+
+generateAnimals :: [DogId] -> Gen Animals
+generateAnimals availableDogIds = do
+  dogCount <- choose (0, 10)
+  return $ Animals $ take dogCount availableDogIds
