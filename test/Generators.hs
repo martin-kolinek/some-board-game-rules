@@ -145,12 +145,20 @@ generateResources = oneof [generateEmptyResources, generateFullResources]
 genPlayers :: Universe -> Gen PlayerId
 genPlayers universe = elements $ getPlayers universe
 
+generateFastShuffledSequence :: Gen [Int]
+generateFastShuffledSequence = do
+  shuffled <- shuffle [1..5]
+  seqs <- forM shuffled $ \x -> do
+    rev <- elements [True, False]
+    return $ ((20 * x) +) <$> if rev then [20, 19..1] else [1..20]
+  return $ mconcat seqs
+
 instance Arbitrary ArbitraryUniverse where
   arbitrary = do
     playerCount <- choose (1, 7) :: Gen Int
-    workerIds <- shuffle $ WorkerId <$> [1..playerCount * 7]
-    allWorkplaceIds <- shuffle $ WorkplaceId <$> [1..playerCount * 10]
-    dogIds <- shuffle $ DogId <$> [1..playerCount * 10]
+    workerIds <- (fmap WorkerId) <$> generateFastShuffledSequence
+    allWorkplaceIds <- (fmap WorkplaceId) <$> generateFastShuffledSequence
+    dogIds <- (fmap DogId) <$> generateFastShuffledSequence
     currentPlayerId : otherPlayerIds <- shuffle $ PlayerId <$> [1..playerCount]
     let (playerWorkplaceIds, additionalWorkplaceIds) = splitAt (playerCount * 7) allWorkplaceIds
     additionalWorkplaceData <- mapM (const generateWorkplaceData) additionalWorkplaceIds
