@@ -15,7 +15,8 @@ data WorkplaceData =
   ResourceAddition |
   GatherWood Int |
   GatherFood Int |
-  MakeStartPlayer Int deriving (Eq, Show)
+  MakeStartPlayer Int |
+  HouseWork deriving (Eq, Show)
 
 data WorkerNeedOptions = HireWorker | BuildRoom deriving (Eq, Show)
 
@@ -58,6 +59,7 @@ assignResources (GatherWood wood) = over woodAmount (+wood)
 assignResources (GatherFood food)= over foodAmount (+food) . over wheatAmount (+1)
 assignResources (MakeStartPlayer food) = over foodAmount (+food) . over ironAmount (+2)
 assignResources WorkerNeed = id
+assignResources HouseWork = id
 
 initialWorkplaces :: Map WorkplaceId WorkplaceData
 initialWorkplaces = fromList $ zip workplaceIds updatedWorkplaceDatas

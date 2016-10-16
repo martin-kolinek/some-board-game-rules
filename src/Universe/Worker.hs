@@ -33,6 +33,6 @@ workerWorking :: WorkerState -> Bool
 workerWorking = isJust . view currentWorkplace
 
 newWorkerId :: Universe -> WorkerId
-newWorkerId universe = WorkerId $ (maximum workerNumbers + 1)
+newWorkerId universe = WorkerId (maximum workerNumbers + 1)
   where getNumberFromId (WorkerId number) = number
         workerNumbers = toListOf (players . traverse . workers . to keys . traverse . to getNumberFromId) universe

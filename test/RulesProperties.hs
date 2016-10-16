@@ -4,7 +4,7 @@ import Test.Tasty
 import Test.Tasty.QuickCheck
 import Data.Map (keys, (!), elems, insert)
 import qualified Data.Map as M
-import Data.List ((\\), intersect)
+import Data.List ((\\), intersect, nub)
 import Data.Maybe (maybeToList, isNothing, fromMaybe, fromJust, listToMaybe, isJust)
 import Control.Monad (guard, join, liftM2)
 import Data.AdditiveGroup
@@ -237,6 +237,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                 areWorkplaceDataOk (GatherWood orig) (GatherWood new) = new == orig + 1
                 areWorkplaceDataOk (GatherFood orig) (GatherFood new) = new == orig + 1
                 areWorkplaceDataOk (MakeStartPlayer orig) (MakeStartPlayer new) = new == orig + 1
+                areWorkplaceDataOk HouseWork HouseWork = True
                 areWorkplaceDataOk _ _ = False
             return $ all isWorkplaceId (keys originalWorkplaces)
       in prop,
@@ -465,6 +466,24 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             rightProp $ do
               nextUniverse <- startWorking workerId workplaceId universe
               return (Just (getStartingPlayer nextUniverse) == getCurrentPlayer universe)
+      in prop,
+    testProperty "When working in house work, dog is added" $
+      let prop (ArbitraryUniverse universe) = findEmptyHouseWorkWorkplaces universe /=[] && findWorkersToMove universe /= [] ==>
+            forAll (elements $ findEmptyHouseWorkWorkplaces universe) $ \workplaceId ->
+            forAll (elements $ findWorkersToMove universe) $ \workerId ->
+            rightProp $ do
+              nextUniverse <- startWorking workerId workplaceId universe
+              let currentPlayerId = fromJust $ getCurrentPlayer universe
+              return $ length (getDogs universe currentPlayerId) + 1 == length (getDogs nextUniverse currentPlayerId)
+      in prop,
+    testProperty "After working in house work, dogs ids are distinct" $
+      let prop (ArbitraryUniverse universe) = findEmptyHouseWorkWorkplaces universe /= [] && findWorkersToMove universe /= [] ==>
+            forAll (elements $ findEmptyHouseWorkWorkplaces universe) $ \workplaceId ->
+            forAll (elements $ findWorkersToMove universe) $ \workerId ->
+            rightProp $ do
+              nextUniverse <- startWorking workerId workplaceId universe
+              let nextDogs = [dogId | plId <- getPlayers nextUniverse, dogId <- getDogs nextUniverse plId]
+              return $ counterexample ("New dogs: " ++ show nextDogs) $ nextDogs == nub nextDogs
       in prop
   ]
 
@@ -586,6 +605,9 @@ findEmptyMakeStartPlayerWorkplaces :: Universe -> [WorkplaceId]
 findEmptyMakeStartPlayerWorkplaces = findEmptySpecificWorkplaces isMakeStartPlayer
   where isMakeStartPlayer (MakeStartPlayer _) = True
         isMakeStartPlayer _ = False
+
+findEmptyHouseWorkWorkplaces :: Universe -> [WorkplaceId]
+findEmptyHouseWorkWorkplaces = findEmptySpecificWorkplaces (==HouseWork)
 
 findEmptySpecificWorkplaces :: (WorkplaceData -> Bool) -> Universe -> [WorkplaceId]
 findEmptySpecificWorkplaces condition universe = (keys $ filteredWorkplaces) \\ findOccupiedWorkplaces universe

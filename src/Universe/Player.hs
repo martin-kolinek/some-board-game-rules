@@ -38,3 +38,12 @@ getStartingPlayer universe = universe ^. startingPlayer
 
 getDogs :: Universe -> PlayerId -> [DogId]
 getDogs universe plId = toListOf (players . ix plId . playerAnimals . dogs . traverse) universe
+
+newDogId :: Universe -> DogId
+newDogId universe = DogId (maximum dogNumbers + 1)
+  where getNumberFromId (DogId number) = number
+        dogNumbers = 0 : toListOf (players . traverse . playerAnimals . dogs . traverse . to getNumberFromId) universe
+
+addDog :: Universe -> PlayerData -> PlayerData
+addDog universe = over (playerAnimals . dogs) (dogId :)
+  where dogId = newDogId universe

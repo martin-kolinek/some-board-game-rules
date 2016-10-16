@@ -53,7 +53,8 @@ generateWorkplaceData = oneof [
   elements [ResourceAddition],
   generateGatherWood,
   generateGatherFood,
-  generateMakeStartPlayer]
+  generateMakeStartPlayer,
+  elements [HouseWork]]
 
 generateWorkplaces :: Int -> Gen WorkplaceData -> Gen [(WorkplaceId, WorkplaceData)]
 generateWorkplaces minNumber firstWorkplaceGen = do
