@@ -28,6 +28,7 @@ module Rules (
                 getOccupantErrors,
                 getPlayerStatus,
                 getStartingPlayer,
+                getDogs,
                 directionAddition,
                 allDirections,
                 availableBuildingPositions,

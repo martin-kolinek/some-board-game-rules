@@ -88,13 +88,15 @@ generateBuildingSpace requiredWorkers = do
       forestBuildings = Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
   return $ BuildingSpace (cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom ++ dugRockBuildings ++ mandatoryRooms)
 
-generateValidOccupants :: [WorkerId] -> BuildingSpace -> Gen BuildingOccupants
-generateValidOccupants workerIds (BuildingSpace buildings) = do
+generateValidOccupants :: [WorkerId] -> [DogId] -> BuildingSpace -> Gen BuildingOccupants
+generateValidOccupants workerIds dogIds (BuildingSpace buildings) = do
   shuffledOccupants <- shuffle $ WorkerOccupant <$> workerIds
   let buildingsWithSpace = filter ((>0) . buildingSupportedWorkers) buildings
       workersPerBuilding = splitPlaces (buildingSupportedWorkers <$> buildingsWithSpace) shuffledOccupants
       positionedWorkers = zip (head . buildingPositions <$> buildingsWithSpace) workersPerBuilding
-  return $ fromList positionedWorkers
+  dogPositions <- forM dogIds $ \_ -> (,) <$> choose (0, 5) <*> choose (0, 3)
+  let positionedDogs = zip dogPositions ((pure . DogOccupant) <$> dogIds)
+  return $ fromListWith (<>) (positionedWorkers ++ positionedDogs)
 
 generateInvalidOccupants :: [WorkerId] -> Gen BuildingOccupants
 generateInvalidOccupants workerIds = do
@@ -106,16 +108,17 @@ generateInvalidOccupants workerIds = do
   let positionsWithWorkers = zip positions (return . WorkerOccupant <$> shuffled)
   return $ fromListWith (++) positionsWithWorkers
 
-generateOccupants :: [WorkerId] -> BuildingSpace -> Gen BuildingOccupants
-generateOccupants workers playerBuildingSpace =
-  oneof [generateValidOccupants workers playerBuildingSpace, generateInvalidOccupants workers]
+generateOccupants :: [WorkerId] -> [DogId] -> BuildingSpace -> Gen BuildingOccupants
+generateOccupants workers dogIds playerBuildingSpace =
+  oneof [generateValidOccupants workers dogIds playerBuildingSpace, generateInvalidOccupants workers]
 
 generateOccupantsForPlayer :: Universe -> PlayerId -> Gen BuildingOccupants
 generateOccupantsForPlayer universe playerId =
-  let playerData2 = (universe ^. U.players) ! playerId
-      workerIds = keys (playerData2 ^. P.workers)
-      playerBuildingSpace = playerData2 ^. P.buildingSpace
-  in generateOccupants workerIds playerBuildingSpace
+  let somePlayerData = (universe ^. U.players) ! playerId
+      workerIds = keys (somePlayerData ^. P.workers)
+      playerBuildingSpace = somePlayerData ^. P.buildingSpace
+      playerDogs = somePlayerData ^. P.playerAnimals . dogs
+  in generateOccupants workerIds playerDogs playerBuildingSpace
 
 generateFullResources :: Gen Resources
 generateFullResources = Resources
@@ -231,11 +234,11 @@ generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availa
       allWorkerStates = alreadyBusyWorkerStates ++ (currentWorkerState : freeWorkerStates)
       allWorkplaceData = (currentWorkplaceData : alreadyBusyWorkplaceData) ++ freeWorkplaceData
       workplaceData = fromList $ zip allWorkplaceIds allWorkplaceData
+  generatedAnimals <- generateAnimals availableDogIds
   generatedOccupants <- if selectedStatus == NormalStatus OccupantsInvalid
                         then generateInvalidOccupants allWorkerIds
-                        else generateOccupants allWorkerIds generatedBuildingSpace
+                        else generateOccupants allWorkerIds (generatedAnimals ^. dogs) generatedBuildingSpace
   generatedResources <- generateResources
-  generatedAnimals <- generateAnimals availableDogIds
   let playerData = PlayerData
                      generatedPlayerId
                      (fromList $ zip allWorkerIds allWorkerStates)

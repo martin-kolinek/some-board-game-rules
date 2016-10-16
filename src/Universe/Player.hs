@@ -35,3 +35,6 @@ nextPlayer universe = do
 
 getStartingPlayer :: Universe -> PlayerId
 getStartingPlayer universe = universe ^. startingPlayer
+
+getDogs :: Universe -> PlayerId -> [DogId]
+getDogs universe plId = toListOf (players . ix plId . playerAnimals . dogs . traverse) universe

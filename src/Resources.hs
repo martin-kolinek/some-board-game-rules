@@ -49,5 +49,7 @@ data Animals = Animals {
 
 newtype DogId = DogId Int deriving (Show, Eq, Ord)
 
+makeLenses ''Animals
+
 initialAnimals :: Animals
 initialAnimals = Animals []

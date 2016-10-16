@@ -3,6 +3,7 @@
 module Building where
 
 import Util
+import Resources
 
 import Data.Maybe
 import Control.Monad.Except
@@ -133,14 +134,20 @@ buildNewBuildings buildingSpace developmentCheck suitabilityCheck newBuildings =
     return $ buildingConstructor newPosition
   return $ foldl' build buildingSpace buildings
 
-data BuildingOccupant = WorkerOccupant WorkerId deriving (Eq, Show, Ord)
+data BuildingOccupant = WorkerOccupant WorkerId | DogOccupant DogId deriving (Eq, Show, Ord)
 
 type BuildingOccupants = M.Map Position [BuildingOccupant]
 
 type OccupantError = (String, Position)
 
+isWorkerOccupant :: BuildingOccupant -> Bool
+isWorkerOccupant (WorkerOccupant _) = True
+isWorkerOccupant _ = False
+
 areBuildingOccupantsValid :: MonadWriter [OccupantError] m => Building -> [BuildingOccupant] -> m ()
-areBuildingOccupantsValid building occupants = checkWriter (length occupants <= buildingSupportedWorkers building) ("Too many people here", head $ buildingPositions building)
+areBuildingOccupantsValid building occupants =
+  checkWriter (length workerOccupants <= buildingSupportedWorkers building) ("Too many people here", head $ buildingPositions building)
+  where workerOccupants = filter isWorkerOccupant occupants
 
 areOccupantsValid :: [BuildingOccupant] -> BuildingSpace -> BuildingOccupants -> [OccupantError]
 areOccupantsValid allOccupants (BuildingSpace buildings) occupants = snd $ runWriter $ do
@@ -158,11 +165,13 @@ initialOccupants :: [BuildingOccupant] -> BuildingSpace -> BuildingOccupants
 initialOccupants allOccupants _ = M.fromListWith mappend $ zip [(3, 3), (3, 3)] (pure <$> allOccupants)
 
 canSupportAdditionalWorker :: [BuildingOccupant] -> BuildingSpace -> Bool
-canSupportAdditionalWorker allOccupants (BuildingSpace buildings) = length allOccupants < (sum $ buildingSupportedWorkers <$> buildings)
+canSupportAdditionalWorker allOccupants (BuildingSpace buildings) = length workerOccupants < (sum $ buildingSupportedWorkers <$> buildings)
+  where workerOccupants = filter isWorkerOccupant allOccupants
 
 findSpaceForWorker :: BuildingSpace -> BuildingOccupant -> BuildingOccupants -> BuildingOccupants
 findSpaceForWorker (BuildingSpace buildings) newOccupant occupants = fromMaybe occupants $ do
-  let buildingHasFreeSpace building = buildingSupportedWorkers building > (length $ join $ catMaybes $ (`M.lookup` occupants) <$> buildingPositions building)
+  let buildingHasFreeSpace building = buildingSupportedWorkers building >
+        (length $ filter isWorkerOccupant $ join $ catMaybes $ (`M.lookup` occupants) <$> buildingPositions building)
   buildingToUse <- listToMaybe $ filter buildingHasFreeSpace buildings
   positionToUse <- listToMaybe $ buildingPositions buildingToUse
   return $ M.alter (Just . (newOccupant :) . fromMaybe []) positionToUse occupants

@@ -36,7 +36,7 @@ data DecisionType = WorkerNeedDecision WorkplaceId | CaveOrPassageDecision deriv
 makeLenses ''PlayerData
 
 allOccupants :: PlayerData -> [BuildingOccupant]
-allOccupants plData = WorkerOccupant <$> keys (plData ^. workers)
+allOccupants plData = (WorkerOccupant <$> keys (plData ^. workers)) ++ (DogOccupant <$> (plData ^. playerAnimals . dogs))
 
 verifyOccupants :: PlayerData -> [OccupantError]
 verifyOccupants plData = areOccupantsValid (allOccupants plData) buildings occupants

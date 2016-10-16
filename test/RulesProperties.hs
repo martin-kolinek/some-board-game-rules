@@ -2,16 +2,16 @@ module RulesProperties where
 
 import Test.Tasty
 import Test.Tasty.QuickCheck
-import Data.Map (keys, fromList, (!), elems, insert)
+import Data.Map (keys, (!), elems, insert)
 import qualified Data.Map as M
 import Data.List ((\\), intersect)
 import Data.Maybe (maybeToList, isNothing, fromMaybe, fromJust, listToMaybe, isJust)
 import Control.Monad (guard, join, liftM2)
-import Data.List.Split (chunksOf)
 import Data.AdditiveGroup
 import qualified Data.Set as S
 import Text.Show.Pretty (ppShow)
 import Data.Foldable (foldl')
+import Data.Monoid ((<>))
 
 import Generators
 import Rules
@@ -319,7 +319,9 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
               return $ any ((==destinationPosition) . snd) errors
             where playersWithNoOccupantErrors = [plId | plId <- getPlayers universe, getOccupantErrors universe plId == []]
                   originalOccupants playerId = getBuildingOccupants universe playerId
-                  occupantsToMove playerId = join $ elems $ originalOccupants playerId
+                  occupantsToMove playerId = filter isWorker $ join $ elems $ originalOccupants playerId
+                  isWorker (WorkerOccupant _) = True
+                  isWorker _ = False
                   isPositionInvalid playerId pos = intersect [InitialRoom pos, LivingRoom pos] (getBuildingSpace universe playerId) == []
                   destinationPositions playerId = filter (isPositionInvalid playerId) availableBuildingPositions
       in prop,
@@ -342,10 +344,13 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             forAll (elements $ playersWithFreeBuilding) $ \playerId ->
             forAll (elements $ originalOccupants playerId) $ \occupant ->
             rightProp $ do
-              let newOccupants = fromList $ zip [(3, 2), (3, 3)] (chunksOf 2 (originalOccupants playerId ++ [occupant]))
+              let newOccupants = positionOccupants (getBuildingSpace universe playerId) (originalOccupants playerId ++ [occupant])
               nextUniverse <- alterOccupants playerId newOccupants universe
               let errors = getOccupantErrors nextUniverse playerId
-              return $ not $ null errors
+              return $
+                counterexample ("new occupants: " ++ show newOccupants) $
+                counterexample ("original occupants: " ++ show (originalOccupants playerId)) $
+                not $ null errors
             where playersWithFreeBuilding = [plId | plId <- getPlayers universe, length (getWorkers universe plId) <= 3]
                   originalOccupants playerId = join $ elems $ getBuildingOccupants universe playerId
       in prop,
@@ -355,7 +360,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             forAll (elements $ getPlayers universe \\ [playerId]) $ \otherPlayerId ->
             forAll (elements $ originalOccupants otherPlayerId) $ \occupant ->
             rightProp $ do
-              let newOccupants = fromList $ zip [(3, 2), (3, 3)] (chunksOf 2 (originalOccupants playerId ++ [occupant]))
+              let newOccupants = positionOccupants (getBuildingSpace universe playerId) (originalOccupants playerId ++ [occupant])
               nextUniverse <- alterOccupants playerId newOccupants universe
               let errors = getOccupantErrors nextUniverse playerId
               return $ not $ null errors
@@ -623,9 +628,20 @@ isChoosingWorkerNeed _ = False
 createValidOccupants :: Universe -> PlayerId -> M.Map Position [BuildingOccupant]
 createValidOccupants universe playerId =
   let workers = WorkerOccupant <$> getWorkers universe playerId
-      buildings = getBuildingSpace universe playerId
+      dogs = DogOccupant <$> getDogs universe playerId
+  in positionOccupants (getBuildingSpace universe playerId) (workers <> dogs)
+
+positionOccupants :: [Building] -> [BuildingOccupant] -> BuildingOccupants
+positionOccupants buildings allOccupants =
+  let workers = filter isWorker allOccupants
+      isWorker (WorkerOccupant _) = True
+      isWorker _ = False
+      dogs = filter isDog allOccupants
+      isDog (DogOccupant _) = True
+      isDog _ = False
       accumulateWorkers (occupants, remainingWorkers) (LivingRoom pos)  = (insert pos (take 1 remainingWorkers) occupants, drop 1 remainingWorkers)
       accumulateWorkers (occupants, remainingWorkers) (InitialRoom pos) = (insert pos (take 2 remainingWorkers) occupants, drop 2 remainingWorkers)
       accumulateWorkers accumulator _ = accumulator
-      (resultOccupants, _) = foldl' accumulateWorkers (M.empty, workers) buildings
-  in resultOccupants
+      (resultOccupants, nonPositionedWorkers) = foldl' accumulateWorkers (M.empty, workers) buildings
+      additionalPosition = M.singleton (3, 3) nonPositionedWorkers
+  in M.unionWith (<>) resultOccupants (M.singleton (0, 0) dogs <> additionalPosition)
