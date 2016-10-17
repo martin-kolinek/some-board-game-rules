@@ -179,6 +179,7 @@ instance Arbitrary ArbitraryUniverse where
             const DiggingCave,
             MakingDecision . WorkerNeedDecision,
             const $ MakingDecision CaveOrPassageDecision,
+            const $ MakingDecision AnyRoomDecision,
             const BuildingLivingRoom])
         otherPlayerAvailableStatuses = if otherPlayersDone then [const AllWorkersBusyStatus] else [const $ NormalStatus Waiting]
     otherPlayersGenerated <- forM (zip otherPlayerIds (zip otherAvailableWorkerIds (zip otherAvailableWorkplaceIds otherAvailableDogIds))) $
@@ -225,6 +226,7 @@ generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availa
     NormalStatus (MakingDecision (WorkerNeedDecision _)) -> elements [WorkerNeed]
     NormalStatus (MakingDecision CaveOrPassageDecision) -> generateDigCave
     NormalStatus BuildingLivingRoom -> elements [WorkerNeed]
+    NormalStatus (MakingDecision AnyRoomDecision) -> elements [HouseWork]
     AllWorkersBusyStatus -> generateWorkplaceData
   let alreadyBusyWorkerStates = WorkerState . Just <$> alreadyBusyWorkplaceIds
       currentWorkerState = WorkerState $ case selectedStatus of

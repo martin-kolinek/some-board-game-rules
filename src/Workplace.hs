@@ -22,9 +22,12 @@ data WorkerNeedOptions = HireWorker | BuildRoom deriving (Eq, Show)
 
 data CaveOrPassageOptions = ChooseCave | ChoosePassage | NoDigging deriving (Eq, Show)
 
+data AnyRoomOptions = ChooseNoRoom | ChooseLivingRoom deriving (Eq, Show)
+
 data Options =
   WorkerNeedOption WorkerNeedOptions |
-  CaveOrPassageOption CaveOrPassageOptions deriving (Eq, Show)
+  CaveOrPassageOption CaveOrPassageOptions |
+  AnyRoomOption AnyRoomOptions deriving (Eq, Show)
 
 updateWorkplaceAfterTurn :: WorkplaceData -> WorkplaceData
 updateWorkplaceAfterTurn (CutForest 0) = CutForest 3

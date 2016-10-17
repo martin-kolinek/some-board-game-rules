@@ -96,6 +96,7 @@ chooseOption option universe = do
 chooseOptionWithDecisionType :: MonadError [Char] m => DecisionType -> Options -> Universe -> m Universe
 chooseOptionWithDecisionType (WorkerNeedDecision workplaceId) (WorkerNeedOption option) = chooseWorkerNeedOption workplaceId option
 chooseOptionWithDecisionType CaveOrPassageDecision (CaveOrPassageOption option) = chooseCaveOrPassage option
+chooseOptionWithDecisionType AnyRoomDecision (AnyRoomOption option) = chooseAnyRoom option
 chooseOptionWithDecisionType _ _ = const $ throwError "Not a valid decision for current state"
 
 chooseWorkerNeedOption :: MonadError [Char] m => WorkplaceId -> WorkerNeedOptions -> Universe -> m Universe
@@ -117,3 +118,7 @@ chooseCaveOrPassage :: MonadError String m => CaveOrPassageOptions -> Universe -
 chooseCaveOrPassage ChooseCave = return . set (currentPlayerData . playerStatus) DiggingCave
 chooseCaveOrPassage ChoosePassage = return . set (currentPlayerData . playerStatus) DiggingPassage
 chooseCaveOrPassage NoDigging = return . over currentPlayerData stopTurn
+
+chooseAnyRoom :: MonadError String m => AnyRoomOptions -> Universe -> m Universe
+chooseAnyRoom ChooseNoRoom = return . over currentPlayerData stopTurn
+chooseAnyRoom ChooseLivingRoom = return . set (currentPlayerData . playerStatus) BuildingLivingRoom

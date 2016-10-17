@@ -49,7 +49,7 @@ applyAction wpId workplaceData = applySpecificAction wpId workplaceData . over (
           where setStartingPlayer universe = set startingPlayer nextStartingPlayer universe
                   where firstPlayer = head $ keys $ universe ^. players
                         nextStartingPlayer = fromMaybe firstPlayer $ getCurrentPlayer universe
-        applySpecificAction _ HouseWork = over currentPlayerData stopTurn . addDogToCurrentPlayer
+        applySpecificAction _ HouseWork = (set (currentPlayerData . playerStatus) (MakingDecision AnyRoomDecision)) . addDogToCurrentPlayer
           where addDogToCurrentPlayer universe = over currentPlayerData (addDog universe) universe
 
 applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData

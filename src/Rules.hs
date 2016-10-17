@@ -16,6 +16,7 @@ module Rules (
                 Options (..),
                 WorkerNeedOptions(..),
                 CaveOrPassageOptions(..),
+                AnyRoomOptions(..),
                 getPlayers,
                 getCurrentPlayer,
                 getWorkers,

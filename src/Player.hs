@@ -31,7 +31,7 @@ data PlayerStatus = MovingWorker |
                     BuildingLivingRoom
   deriving (Show, Eq)
 
-data DecisionType = WorkerNeedDecision WorkplaceId | CaveOrPassageDecision deriving (Show, Eq)
+data DecisionType = WorkerNeedDecision WorkplaceId | CaveOrPassageDecision | AnyRoomDecision deriving (Show, Eq)
 
 makeLenses ''PlayerData
 

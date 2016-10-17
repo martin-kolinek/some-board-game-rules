@@ -43,8 +43,9 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "Cutting forest" $ prop findEmptyCutForestWorkplaces (const True) (const CuttingForest),
         testProperty "Digging passage" $ prop findEmptyDigPassageWorkplaces (const True) (const DiggingPassage),
         testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces (const True) (const (MakingDecision CaveOrPassageDecision)),
-        testProperty "Child desire" $ prop findEmptyWorkerNeedWorkplaces (liftM2 (||) currentPlayerHasFreeRoom currentPlayerCanBuildRoom) (MakingDecision . WorkerNeedDecision),
-        testProperty "Gathering food" $ prop findEmptyGatherFoodWorkplaces (const True) (const CuttingForest)
+        testProperty "Worker need" $ prop findEmptyWorkerNeedWorkplaces (liftM2 (||) currentPlayerHasFreeRoom currentPlayerCanBuildRoom) (MakingDecision . WorkerNeedDecision),
+        testProperty "Gathering food" $ prop findEmptyGatherFoodWorkplaces (const True) (const CuttingForest),
+        testProperty "House work" $ prop findEmptyHouseWorkWorkplaces (const True) (const (MakingDecision AnyRoomDecision))
       ],
     testProperty "Finishing turn unassigns all workers" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> rightProp $ do
@@ -97,10 +98,10 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
               universeAfterChoose <- chooseOption (WorkerNeedOption HireWorker) universe
               return $ checkResultingUniverse nextPlayerId universeAfterChoose
             where nextPlayerId = nextPlayerToMoveWorker universe Nothing
-          chooseNoDiggingProp (ArbitraryUniverse universe) = coverNextPlayer nextPlayerId $
-            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just (MakingDecision CaveOrPassageDecision) && currentPlayerHasValidOccupants universe ==>
+          chooseProp decisionType selectedOption (ArbitraryUniverse universe) = coverNextPlayer nextPlayerId $
+            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just (MakingDecision decisionType) && currentPlayerHasValidOccupants universe ==>
             rightProp $ do
-              universeAfterChoose <- chooseOption (CaveOrPassageOption NoDigging) universe
+              universeAfterChoose <- chooseOption selectedOption universe
               return $ checkResultingUniverse nextPlayerId universeAfterChoose
             where nextPlayerId = nextPlayerToMoveWorker universe Nothing
           startWorkingProp workplaceFunc (ArbitraryUniverse universe) =
@@ -118,10 +119,11 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "After digging cave" $ selectPositionProp currentPlayerDigCaveLocations,
         testProperty "After building a room" $ selectPositionProp currentPlayerBuildLivingRoomLocations,
         testProperty "After choosing create child" $ chooseChildProp,
-        testProperty "After choosing no digging" $ chooseNoDiggingProp,
+        testProperty "After choosing no digging" $ chooseProp CaveOrPassageDecision (CaveOrPassageOption NoDigging),
         testProperty "After working in resource addition" $ startWorkingProp findEmptyResourceAdditionWorkplaces,
         testProperty "After working in gather wood" $ startWorkingProp findEmptyGatherWoodWorkplaces,
-        testProperty "After working in make start player" $ startWorkingProp findEmptyMakeStartPlayerWorkplaces
+        testProperty "After working in make start player" $ startWorkingProp findEmptyMakeStartPlayerWorkplaces,
+        testProperty "After choosing no room" $ chooseProp AnyRoomDecision (AnyRoomOption ChooseNoRoom)
       ],
     testGroup "OccupantsInvalid status" $
       let prop positionFunc (ArbitraryUniverse universe) = positions /= [] && not (currentPlayerHasValidOccupants universe) ==>
@@ -139,10 +141,10 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
               universeAfterChoose <- chooseOption (WorkerNeedOption HireWorker) universe
               let playerStatus = (getPlayerStatus universeAfterChoose <$> getCurrentPlayer universe)
               return $ counterexample (show $ getOccupantErrors universeAfterChoose <$> getCurrentPlayer universe) $ playerStatus === Just OccupantsInvalid
-          chooseNoDiggingProp (ArbitraryUniverse universe) =
-            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just (MakingDecision CaveOrPassageDecision) && not (currentPlayerHasValidOccupants universe) ==>
+          chooseProp decisionType selectedOption (ArbitraryUniverse universe) =
+            (getPlayerStatus universe <$> getCurrentPlayer universe) == Just (MakingDecision decisionType) && not (currentPlayerHasValidOccupants universe) ==>
             rightProp $ do
-              universeAfterChoose <- chooseOption (CaveOrPassageOption NoDigging) universe
+              universeAfterChoose <- chooseOption selectedOption universe
               return $ (getPlayerStatus universeAfterChoose <$> getCurrentPlayer universe) === Just OccupantsInvalid
           startWorkingProp workplaceFunc (ArbitraryUniverse universe) =
             workplaceFunc universe /= [] && findWorkersToMove universe /= [] && not (currentPlayerHasValidOccupants universe) ==>
@@ -157,10 +159,11 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "Digging a cave" $ prop currentPlayerDigCaveLocations,
         testProperty "Building a room" $ prop currentPlayerBuildLivingRoomLocations,
         testProperty "Choosing create child" $ chooseChildProp,
-        testProperty "Choosing no digging" $ chooseNoDiggingProp,
+        testProperty "Choosing no digging" $ chooseProp CaveOrPassageDecision (CaveOrPassageOption NoDigging),
         testProperty "Starting working in resource addition" $ startWorkingProp findEmptyResourceAdditionWorkplaces,
         testProperty "Starting working in gather wood" $ startWorkingProp findEmptyGatherWoodWorkplaces,
-        testProperty "After working in make start player" $ startWorkingProp findEmptyMakeStartPlayerWorkplaces
+        testProperty "After working in make start player" $ startWorkingProp findEmptyMakeStartPlayerWorkplaces,
+        testProperty "Choosing no room" $ chooseProp AnyRoomDecision (AnyRoomOption ChooseNoRoom)
       ],
     testProperty "Fixing occupants in invalid occupants starts next player" $
       let prop (ArbitraryUniverse universe) = currentPlayerIsInInvalidOccupantsState ==> either (error) id $ do
