@@ -15,7 +15,6 @@ data PlayerData = PlayerData {
   _playerId :: PlayerId,
   _workers :: Map WorkerId WorkerState,
   _buildingSpace :: BuildingSpace,
-  _buildingOccupants :: BuildingOccupants,
   _playerStatus :: PlayerStatus,
   _playerResources :: Resources,
   _playerAnimals :: Animals
@@ -39,9 +38,8 @@ allOccupants :: PlayerData -> [BuildingOccupant]
 allOccupants plData = (WorkerOccupant <$> keys (plData ^. workers)) ++ (DogOccupant <$> (plData ^. playerAnimals . dogs))
 
 verifyOccupants :: PlayerData -> [OccupantError]
-verifyOccupants plData = areOccupantsValid (allOccupants plData) buildings occupants
+verifyOccupants plData = areOccupantsValid (allOccupants plData) buildings
   where buildings = plData ^. buildingSpace
-        occupants = plData ^. buildingOccupants
 
 checkOccupantsAfterTurn :: PlayerData -> PlayerData
 checkOccupantsAfterTurn plData =
@@ -55,5 +53,11 @@ stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid
 initialPlayers :: Map PlayerId PlayerData
 initialPlayers = fromList
   [(PlayerId i,
-    PlayerData (PlayerId i) (createWorkers (i * 2 - 1) 2) initialBuildingSpace empty (if i == 1 then MovingWorker else Waiting) initialResources initialAnimals)
-      | i <- [1..2]]
+    PlayerData
+     (PlayerId i)
+     initialWorkers
+     (initialBuildingSpace $ WorkerOccupant <$> keys initialWorkers)
+     (if i == 1 then MovingWorker else Waiting)
+     initialResources
+     initialAnimals)
+  | i <- [1..2], let initialWorkers = createWorkers (i * 2 - 1) 2]

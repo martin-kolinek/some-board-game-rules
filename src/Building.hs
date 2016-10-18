@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 module Building where
@@ -13,6 +14,7 @@ import Worker
 import Control.Monad.Writer
 import qualified Data.Map as M
 import Data.AdditiveGroup
+import Control.Lens
 
 type Position = (Int, Int)
 
@@ -27,6 +29,17 @@ data Building =
   InitialRoom Position deriving (Show, Eq)
 
 data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight deriving (Show, Eq, Enum, Ord)
+
+data BuildingOccupant = WorkerOccupant WorkerId | DogOccupant DogId deriving (Eq, Show, Ord)
+
+type BuildingOccupants = M.Map Position [BuildingOccupant]
+
+type OccupantError = (String, Position)
+
+data BuildingSpace = BuildingSpace {
+  _buildingSpaceBuildings :: [Building],
+  _buildingSpaceOccupants :: BuildingOccupants
+} deriving (Show, Eq)
 
 allDirections :: [Direction]
 allDirections = [DirectionUp .. DirectionRight]
@@ -52,23 +65,24 @@ buildingSupportedWorkers (InitialRoom _) = 2
 buildingSupportedWorkers (LivingRoom _) = 1
 buildingSupportedWorkers _ = 0
 
-newtype BuildingSpace = BuildingSpace [Building] deriving (Show, Eq)
+makeLenses ''BuildingSpace
 
-initialBuildingSpace :: BuildingSpace
-initialBuildingSpace =
+initialBuildingSpace :: [BuildingOccupant] -> BuildingSpace
+initialBuildingSpace workers =
   let forests = [Forest (x, y) | x <- [0..2], y <- [0..3]]
       rocks = [Rock (x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)]
       initialRoom = [InitialRoom (3, 3), Cave (3, 2)]
-  in BuildingSpace (forests ++ rocks ++ initialRoom)
+      buildings = (forests ++ rocks ++ initialRoom)
+  in BuildingSpace buildings (initialOccupants workers buildings)
 
 getBuildings :: BuildingSpace -> [Building]
-getBuildings (BuildingSpace buildings) = buildings
+getBuildings = view buildingSpaceBuildings
 
 availableBuildingPositions :: [Position]
-availableBuildingPositions = getBuildings initialBuildingSpace >>= buildingPositions
+availableBuildingPositions = getBuildings (initialBuildingSpace []) >>= buildingPositions
 
-getBuilding :: BuildingSpace -> Position -> Maybe Building
-getBuilding (BuildingSpace buildings) position = listToMaybe [b | b <- buildings, position `elem` buildingPositions b]
+getBuilding :: [Building] -> Position -> Maybe Building
+getBuilding buildings position = listToMaybe [b | b <- buildings, position `elem` buildingPositions b]
 
 isForest :: Building -> Bool
 isForest (Forest _) = True
@@ -82,15 +96,15 @@ isCave :: Building -> Bool
 isCave (Cave _) = True
 isCave _ = False
 
-build :: BuildingSpace -> Building -> BuildingSpace
-build (BuildingSpace buildings) building =
+build :: [Building] -> Building -> [Building]
+build buildings building =
   let positions = buildingPositions building
-      filtered = filter (null . intersect positions . buildingPositions) buildings
-      newBuildings = building : filtered
+      filteredBuildings = filter (null . intersect positions . buildingPositions) buildings
+      newBuildings = building : filteredBuildings
       newPositions = buildingPositions =<< newBuildings
       notOverlapping = nub newPositions == newPositions
       originalPositionsOccupied = sort (buildingPositions =<< buildings) == sort newPositions
-  in BuildingSpace $ assert (notOverlapping && originalPositionsOccupied) $ building : filtered
+  in assert (notOverlapping && originalPositionsOccupied) $ newBuildings
 
 isDevelopedOutside :: Building -> Bool
 isDevelopedOutside (Field _) = True
@@ -105,40 +119,44 @@ isDevelopedInside (InitialRoom _) = True
 isDevelopedInside _ = False
 
 cutForest :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
-cutForest position direction buildingSpace =
-  buildNewBuildings buildingSpace isDevelopedOutside isForest [(position, Grass), (position ^+^ directionAddition direction, Field)]
+cutForest position direction =
+  buildNewBuildingsInBuildingSpace isDevelopedOutside isForest [(position, Grass), (position ^+^ directionAddition direction, Field)]
 
 digPassage :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
-digPassage position direction buildingSpace =
-  buildNewBuildings buildingSpace isDevelopedInside isRock [(position, Cave), (position ^+^ directionAddition direction, Passage)]
+digPassage position direction =
+  buildNewBuildingsInBuildingSpace isDevelopedInside isRock [(position, Cave), (position ^+^ directionAddition direction, Passage)]
 
 digCave :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
-digCave position direction buildingSpace =
-  buildNewBuildings buildingSpace isDevelopedInside isRock [(position, Cave), (position ^+^ directionAddition direction, Cave)]
+digCave position direction =
+  buildNewBuildingsInBuildingSpace isDevelopedInside isRock [(position, Cave), (position ^+^ directionAddition direction, Cave)]
 
 buildLivingRoom :: MonadError String m => Position -> BuildingSpace -> m BuildingSpace
-buildLivingRoom position buildingSpace =
-  buildNewBuildings buildingSpace (const True) isCave [(position, LivingRoom)]
+buildLivingRoom position = buildNewBuildingsInBuildingSpace (const True) isCave [(position, LivingRoom)]
 
 type DevelopmentCheck = Building -> Bool
 type SuitabilityCheck = Building -> Bool
 
-buildNewBuildings :: MonadError String m => BuildingSpace -> (Building -> Bool) -> (Building -> Bool) -> [(Position, Position -> Building)] -> m BuildingSpace
-buildNewBuildings buildingSpace developmentCheck suitabilityCheck newBuildings = do
-  let neighbourBuildings pos = catMaybes $ getBuilding buildingSpace <$> [pos ^+^ directionAddition dir | dir <- allDirections]
+buildNewBuildingsInBuildingSpace ::
+  MonadError String f =>
+  DevelopmentCheck
+  -> SuitabilityCheck
+  -> [(Position, Position -> Building)]
+  -> BuildingSpace
+  -> f BuildingSpace
+buildNewBuildingsInBuildingSpace developmentCheck suitabilityCheck newBuildings =
+  traverseOf buildingSpaceBuildings (buildNewBuildings developmentCheck suitabilityCheck newBuildings)
+
+buildNewBuildings :: MonadError String m => DevelopmentCheck -> SuitabilityCheck -> [(Position, Position -> Building)] -> [Building] -> m [Building]
+buildNewBuildings developmentCheck suitabilityCheck newBuildings originalBuildings = do
+  let neighbourBuildings pos = catMaybes $ getBuilding originalBuildings <$> [pos ^+^ directionAddition dir | dir <- allDirections]
       hasDevelopedNeighbours pos = any developmentCheck (neighbourBuildings pos)
   check (any (hasDevelopedNeighbours . fst) newBuildings) "Cannot reach yet"
   buildings <- forM newBuildings $ \(newPosition, buildingConstructor) -> do
-    building <- checkMaybe "Invalid position" (getBuilding buildingSpace newPosition)
+    building <- checkMaybe "Invalid position" (getBuilding originalBuildings newPosition)
     check (suitabilityCheck building) "Position not suitable"
     return $ buildingConstructor newPosition
-  return $ foldl' build buildingSpace buildings
+  return $ foldl' build originalBuildings buildings
 
-data BuildingOccupant = WorkerOccupant WorkerId | DogOccupant DogId deriving (Eq, Show, Ord)
-
-type BuildingOccupants = M.Map Position [BuildingOccupant]
-
-type OccupantError = (String, Position)
 
 isWorkerOccupant :: BuildingOccupant -> Bool
 isWorkerOccupant (WorkerOccupant _) = True
@@ -149,8 +167,8 @@ areBuildingOccupantsValid building occupants =
   checkWriter (length workerOccupants <= buildingSupportedWorkers building) ("Too many people here", head $ buildingPositions building)
   where workerOccupants = filter isWorkerOccupant occupants
 
-areOccupantsValid :: [BuildingOccupant] -> BuildingSpace -> BuildingOccupants -> [OccupantError]
-areOccupantsValid allOccupants (BuildingSpace buildings) occupants = snd $ runWriter $ do
+areOccupantsValid :: [BuildingOccupant] -> BuildingSpace -> [OccupantError]
+areOccupantsValid allOccupants (BuildingSpace buildings occupants) = snd $ runWriter $ do
   forM_ buildings $ \building -> do
     let positions = buildingPositions building
         buildingOccupants = concat $ catMaybes $ (`M.lookup` occupants) <$> positions
@@ -161,15 +179,15 @@ areOccupantsValid allOccupants (BuildingSpace buildings) occupants = snd $ runWr
   checkWriter (nub positionedOccupants == positionedOccupants) ("Occupant in multiple places", (0, 0))
   return ()
 
-initialOccupants :: [BuildingOccupant] -> BuildingSpace -> BuildingOccupants
+initialOccupants :: [BuildingOccupant] -> [Building] -> BuildingOccupants
 initialOccupants allOccupants _ = M.fromListWith mappend $ zip [(3, 3), (3, 3)] (pure <$> allOccupants)
 
 canSupportAdditionalWorker :: [BuildingOccupant] -> BuildingSpace -> Bool
-canSupportAdditionalWorker allOccupants (BuildingSpace buildings) = length workerOccupants < (sum $ buildingSupportedWorkers <$> buildings)
+canSupportAdditionalWorker allOccupants (BuildingSpace buildings _) = length workerOccupants < (sum $ buildingSupportedWorkers <$> buildings)
   where workerOccupants = filter isWorkerOccupant allOccupants
 
-findSpaceForWorker :: BuildingSpace -> BuildingOccupant -> BuildingOccupants -> BuildingOccupants
-findSpaceForWorker (BuildingSpace buildings) newOccupant occupants = fromMaybe occupants $ do
+findSpaceForWorker :: BuildingSpace -> BuildingOccupant -> BuildingOccupants
+findSpaceForWorker (BuildingSpace buildings occupants) newOccupant = fromMaybe occupants $ do
   let buildingHasFreeSpace building = buildingSupportedWorkers building >
         (length $ filter isWorkerOccupant $ join $ catMaybes $ (`M.lookup` occupants) <$> buildingPositions building)
   buildingToUse <- listToMaybe $ filter buildingHasFreeSpace buildings

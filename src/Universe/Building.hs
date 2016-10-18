@@ -17,7 +17,7 @@ getBuildingSpace :: Universe -> PlayerId -> [Building]
 getBuildingSpace universe player = toListOf (players . ix player . buildingSpace . folding getBuildings) universe
 
 getBuildingOccupants :: Universe -> PlayerId -> BuildingOccupants
-getBuildingOccupants universe player = fromMaybe empty $ universe ^? (players . ix player . buildingOccupants)
+getBuildingOccupants universe player = fromMaybe empty $ universe ^? (players . ix player . buildingSpace . buildingSpaceOccupants)
 
 getAllOccupants :: Universe -> PlayerId -> [BuildingOccupant]
 getAllOccupants universe player = toListOf (players . ix player . folding getPlayerPossibleOccupants) universe

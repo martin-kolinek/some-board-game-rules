@@ -97,7 +97,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             currentPlayerHasFreeRoom universe
             ==> rightProp $ do
               universeAfterChoose <- chooseOption (WorkerNeedOption HireWorker) universe
-              return $ checkResultingUniverse nextPlayerId universeAfterChoose
+              return $ counterexample ("Universe after: " ++ ppShow universeAfterChoose) $ checkResultingUniverse nextPlayerId universeAfterChoose
             where nextPlayerId = nextPlayerToMoveWorker universe Nothing
           chooseProp decisionType selectedOption (ArbitraryUniverse universe) = coverNextPlayer nextPlayerId $
             (getPlayerStatus universe <$> getCurrentPlayer universe) == Just (MakingDecision decisionType) && currentPlayerHasValidOccupants universe ==>

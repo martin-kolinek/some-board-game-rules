@@ -43,7 +43,7 @@ cancelSelection universe =
 
 alterOccupants :: MonadError String m => PlayerId -> BuildingOccupants -> Universe -> m Universe
 alterOccupants player occupants universe =
-  let withNewOccupants = set (players . ix player . buildingOccupants) occupants universe
+  let withNewOccupants = set (players . ix player . buildingSpace . buildingSpaceOccupants) occupants universe
       withCheckedOccupants = over (players . ix player) checkOccupantsAfterTurn withNewOccupants
   in return $ startNextPlayer universe withCheckedOccupants
 
@@ -104,7 +104,7 @@ chooseWorkerNeedOption workplaceId HireWorker universe = do
   check (currentPlayerCanMakeChild universe) "No room for a child"
   let workerId = newWorkerId universe
       addWorker = insert workerId (WorkerState $ Just workplaceId)
-      alterPlayerOccupants plData = over buildingOccupants (findSpaceForWorker (plData ^. buildingSpace) (WorkerOccupant workerId)) plData
+      alterPlayerOccupants plData = set (buildingSpace . buildingSpaceOccupants) (findSpaceForWorker (plData ^. buildingSpace) (WorkerOccupant workerId)) plData
   return $ over currentPlayerData (stopTurn . alterPlayerOccupants . over workers addWorker) universe
 chooseWorkerNeedOption _ BuildRoom universe = do
   check (currentPlayerCanBuildRoom universe) "Unable to build a room"

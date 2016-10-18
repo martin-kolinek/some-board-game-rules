@@ -6,7 +6,6 @@ module Universe where
 
 import Player
 import Workplace
-import Building
 
 import Data.Map
 import Control.Lens
@@ -20,7 +19,4 @@ data Universe = Universe {
 makeLenses ''Universe
 
 initialUniverse :: Universe
-initialUniverse =
-  let withoutOccupants = Universe initialWorkplaces initialPlayers (head $ keys initialPlayers)
-      assignInitialWorkers plData = set buildingOccupants (initialOccupants (allOccupants plData) (plData ^. buildingSpace)) plData
-  in over (players . traverse) assignInitialWorkers withoutOccupants
+initialUniverse = Universe initialWorkplaces initialPlayers (head $ keys initialPlayers)
