@@ -51,6 +51,7 @@ applyAction wpId workplaceData = applySpecificAction wpId workplaceData . over (
                         nextStartingPlayer = fromMaybe firstPlayer $ getCurrentPlayer universe
         applySpecificAction _ HouseWork = (set (currentPlayerData . playerStatus) (MakingDecision AnyRoomDecision)) . addDogToCurrentPlayer
           where addDogToCurrentPlayer universe = over currentPlayerData (addDog universe) universe
+        applySpecificAction _ Farming = set (currentPlayerData . playerStatus) CuttingForest
 
 applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
 applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)

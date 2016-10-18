@@ -45,7 +45,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces (const True) (const (MakingDecision CaveOrPassageDecision)),
         testProperty "Worker need" $ prop findEmptyWorkerNeedWorkplaces (liftM2 (||) currentPlayerHasFreeRoom currentPlayerCanBuildRoom) (MakingDecision . WorkerNeedDecision),
         testProperty "Gathering food" $ prop findEmptyGatherFoodWorkplaces (const True) (const CuttingForest),
-        testProperty "House work" $ prop findEmptyHouseWorkWorkplaces (const True) (const (MakingDecision AnyRoomDecision))
+        testProperty "House work" $ prop findEmptyHouseWorkWorkplaces (const True) (const (MakingDecision AnyRoomDecision)),
+        testProperty "Farming" $ prop findEmptyFarmingWorkplaces (const True) (const CuttingForest)
       ],
     testProperty "Finishing turn unassigns all workers" $
       let prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> rightProp $ do
@@ -241,6 +242,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                 areWorkplaceDataOk (GatherFood orig) (GatherFood new) = new == orig + 1
                 areWorkplaceDataOk (MakeStartPlayer orig) (MakeStartPlayer new) = new == orig + 1
                 areWorkplaceDataOk HouseWork HouseWork = True
+                areWorkplaceDataOk Farming Farming = True
                 areWorkplaceDataOk _ _ = False
             return $ all isWorkplaceId (keys originalWorkplaces)
       in prop,
@@ -611,6 +613,9 @@ findEmptyMakeStartPlayerWorkplaces = findEmptySpecificWorkplaces isMakeStartPlay
 
 findEmptyHouseWorkWorkplaces :: Universe -> [WorkplaceId]
 findEmptyHouseWorkWorkplaces = findEmptySpecificWorkplaces (==HouseWork)
+
+findEmptyFarmingWorkplaces :: Universe -> [WorkplaceId]
+findEmptyFarmingWorkplaces = findEmptySpecificWorkplaces (== Farming)
 
 findEmptySpecificWorkplaces :: (WorkplaceData -> Bool) -> Universe -> [WorkplaceId]
 findEmptySpecificWorkplaces condition universe = (keys $ filteredWorkplaces) \\ findOccupiedWorkplaces universe
