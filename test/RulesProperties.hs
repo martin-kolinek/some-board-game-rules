@@ -114,6 +114,13 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
               rightProp $ do
                 nextUniverse <- startWorking workerId workplaceId universe
                 return $ counterexample (ppShow nextUniverse) $ checkResultingUniverse nextPlayerId nextUniverse
+          plantCropsProp (ArbitraryUniverse universe) =
+            (getPlayerStatus universe <$> getCurrentPlayer universe) == (Just PlantingCrops) && currentPlayerHasValidOccupants universe ==>
+            let nextPlayerId = nextPlayerToMoveWorker universe Nothing
+            in coverNextPlayer nextPlayerId $
+              rightProp $ do
+                nextUniverse <- plantCrops [] universe
+                return $ counterexample (ppShow nextUniverse) $ checkResultingUniverse nextPlayerId nextUniverse
       in [
         testProperty "After cutting forest" $ selectPositionProp currentPlayerCutForestLocations,
         testProperty "After digging passage" $ selectPositionProp currentPlayerDigPassageLocations,
@@ -124,7 +131,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "After working in resource addition" $ startWorkingProp findEmptyResourceAdditionWorkplaces,
         testProperty "After working in gather wood" $ startWorkingProp findEmptyGatherWoodWorkplaces,
         testProperty "After working in make start player" $ startWorkingProp findEmptyMakeStartPlayerWorkplaces,
-        testProperty "After choosing no room" $ chooseProp AnyRoomDecision (AnyRoomOption ChooseNoRoom)
+        testProperty "After choosing no room" $ chooseProp AnyRoomDecision (AnyRoomOption ChooseNoRoom),
+        testProperty "After planting crops" $ plantCropsProp
       ],
     testGroup "OccupantsInvalid status" $
       let prop positionFunc (ArbitraryUniverse universe) = positions /= [] && not (currentPlayerHasValidOccupants universe) ==>
@@ -154,6 +162,11 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             rightProp $ do
               nextUniverse <- startWorking workerId workplaceId universe
               return $ (getPlayerStatus nextUniverse <$> getCurrentPlayer universe) == Just OccupantsInvalid
+          plantCropsProp (ArbitraryUniverse universe) =
+            (getPlayerStatus universe <$> getCurrentPlayer universe) == (Just PlantingCrops) && not (currentPlayerHasValidOccupants universe) ==>
+            rightProp $ do
+                nextUniverse <- plantCrops [] universe
+                return $ counterexample (ppShow nextUniverse) $ (getPlayerStatus nextUniverse <$> getCurrentPlayer universe) == Just OccupantsInvalid
       in [
         testProperty "Cutting a forest" $ prop currentPlayerCutForestLocations,
         testProperty "Digging a passage" $ prop currentPlayerDigPassageLocations,
@@ -164,7 +177,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "Starting working in resource addition" $ startWorkingProp findEmptyResourceAdditionWorkplaces,
         testProperty "Starting working in gather wood" $ startWorkingProp findEmptyGatherWoodWorkplaces,
         testProperty "After working in make start player" $ startWorkingProp findEmptyMakeStartPlayerWorkplaces,
-        testProperty "Choosing no room" $ chooseProp AnyRoomDecision (AnyRoomOption ChooseNoRoom)
+        testProperty "Choosing no room" $ chooseProp AnyRoomDecision (AnyRoomOption ChooseNoRoom),
+        testProperty "Planting crops" $ plantCropsProp
       ],
     testProperty "Fixing occupants in invalid occupants starts next player" $
       let prop (ArbitraryUniverse universe) = currentPlayerIsInInvalidOccupantsState ==> either (error) id $ do

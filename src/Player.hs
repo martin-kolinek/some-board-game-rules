@@ -27,7 +27,8 @@ data PlayerStatus = MovingWorker |
                     DiggingPassage |
                     DiggingCave |
                     MakingDecision DecisionType |
-                    BuildingLivingRoom
+                    BuildingLivingRoom |
+                    PlantingCrops
   deriving (Show, Eq)
 
 data DecisionType = WorkerNeedDecision WorkplaceId | CaveOrPassageDecision | AnyRoomDecision deriving (Show, Eq)

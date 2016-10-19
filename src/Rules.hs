@@ -40,6 +40,7 @@ module Rules (
                 alterOccupants,
                 cancelSelection,
                 chooseOption,
+                plantCrops,
                 getPlayerResources,
                 getWoodAmount,
                 getStoneAmount,

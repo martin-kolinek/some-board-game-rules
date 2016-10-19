@@ -4,8 +4,10 @@ module Universe.Actions where
 import Prelude hiding (lookup)
 import Control.Monad.Except
 import Control.Lens hiding (universe)
+import Data.List (sortOn, groupBy)
 import Data.Map
 import Data.Maybe
+import Data.Function (on)
 
 import Universe.Player
 import Universe.Worker
@@ -122,3 +124,18 @@ chooseCaveOrPassage NoDigging = return . over currentPlayerData stopTurn
 chooseAnyRoom :: MonadError String m => AnyRoomOptions -> Universe -> m Universe
 chooseAnyRoom ChooseNoRoom = return . over currentPlayerData stopTurn
 chooseAnyRoom ChooseLivingRoom = return . set (currentPlayerData . playerStatus) BuildingLivingRoom
+
+type CropToPlant = (CropType, Position)
+
+plantCrops :: MonadError String m => [CropToPlant] -> Universe -> m Universe
+plantCrops crops universe = do
+  let groupedCrops = groupBy ((==) `on` fst) $ sortOn fst crops
+      plantingPlayerTraversal :: Traversal' Universe PlayerData
+      plantingPlayerTraversal = players . traverse . filtered (has $ playerStatus . filtered (== PlantingCrops))
+  playerData <- checkMaybe "Not currently planting crops" $ universe ^? plantingPlayerTraversal
+  check (has plantingPlayerTraversal universe) "Not currently planting crops"
+  check (all ((<=2) . length) groupedCrops) "Too many crops"
+  updatedBuildingSpace <- foldM (flip $ uncurry plantCrop) (playerData ^. buildingSpace) crops
+  let withUpdatedBuildingSpace = set (plantingPlayerTraversal . buildingSpace) updatedBuildingSpace universe
+      withStoppedTurn = over plantingPlayerTraversal stopTurn withUpdatedBuildingSpace
+  return $ startNextPlayer universe withStoppedTurn

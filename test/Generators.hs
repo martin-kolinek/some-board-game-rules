@@ -3,7 +3,7 @@ module Generators where
 
 import Prelude hiding (lookup)
 import Test.QuickCheck
-import Data.Map.Strict (fromList, fromListWith, keys, (!), Map)
+import Data.Map.Strict (fromList, fromListWith, keys, (!), Map, empty)
 import qualified Data.Set as S
 import Control.Monad (forM, foldM)
 import Text.Show.Pretty
@@ -181,7 +181,8 @@ instance Arbitrary ArbitraryUniverse where
             MakingDecision . WorkerNeedDecision,
             const $ MakingDecision CaveOrPassageDecision,
             const $ MakingDecision AnyRoomDecision,
-            const BuildingLivingRoom])
+            const BuildingLivingRoom,
+            const PlantingCrops])
         otherPlayerAvailableStatuses = if otherPlayersDone then [const AllWorkersBusyStatus] else [const $ NormalStatus Waiting]
     otherPlayersGenerated <- forM (zip otherPlayerIds (zip otherAvailableWorkerIds (zip otherAvailableWorkplaceIds otherAvailableDogIds))) $
       \(generatedPlayerId, (availableWorkerIds, (availableWorkplaceIds, availableDogIds))) ->
@@ -228,6 +229,7 @@ generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availa
     NormalStatus (MakingDecision CaveOrPassageDecision) -> generateDigCave
     NormalStatus BuildingLivingRoom -> elements [WorkerNeed]
     NormalStatus (MakingDecision AnyRoomDecision) -> elements [HouseWork]
+    NormalStatus PlantingCrops -> elements [Farming]
     AllWorkersBusyStatus -> generateWorkplaceData
   let alreadyBusyWorkerStates = WorkerState . Just <$> alreadyBusyWorkplaceIds
       currentWorkerState = WorkerState $ case selectedStatus of
@@ -246,7 +248,7 @@ generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availa
   let playerData = PlayerData
                      generatedPlayerId
                      (fromList $ zip allWorkerIds allWorkerStates)
-                     (BuildingSpace generatedBuildings generatedOccupants)
+                     (BuildingSpace generatedBuildings generatedOccupants empty)
                      (extractPlayerStatus selectedStatus)
                      generatedResources
                      generatedAnimals

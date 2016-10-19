@@ -36,9 +36,14 @@ type BuildingOccupants = M.Map Position [BuildingOccupant]
 
 type OccupantError = (String, Position)
 
+data CropType = Potatoes | Wheat deriving (Eq, Show, Ord)
+
+data PlantedCrop = PlantedCrop CropType Int deriving (Eq, Show)
+
 data BuildingSpace = BuildingSpace {
   _buildingSpaceBuildings :: [Building],
-  _buildingSpaceOccupants :: BuildingOccupants
+  _buildingSpaceOccupants :: BuildingOccupants,
+  _buildingSpaceCrops :: M.Map Position PlantedCrop
 } deriving (Show, Eq)
 
 allDirections :: [Direction]
@@ -73,7 +78,7 @@ initialBuildingSpace workers =
       rocks = [Rock (x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)]
       initialRoom = [InitialRoom (3, 3), Cave (3, 2)]
       buildings = (forests ++ rocks ++ initialRoom)
-  in BuildingSpace buildings (initialOccupants workers buildings)
+  in BuildingSpace buildings (initialOccupants workers buildings) M.empty
 
 getBuildings :: BuildingSpace -> [Building]
 getBuildings = view buildingSpaceBuildings
@@ -168,7 +173,7 @@ areBuildingOccupantsValid building occupants =
   where workerOccupants = filter isWorkerOccupant occupants
 
 areOccupantsValid :: [BuildingOccupant] -> BuildingSpace -> [OccupantError]
-areOccupantsValid allOccupants (BuildingSpace buildings occupants) = snd $ runWriter $ do
+areOccupantsValid allOccupants (BuildingSpace buildings occupants _) = snd $ runWriter $ do
   forM_ buildings $ \building -> do
     let positions = buildingPositions building
         buildingOccupants = concat $ catMaybes $ (`M.lookup` occupants) <$> positions
@@ -183,13 +188,21 @@ initialOccupants :: [BuildingOccupant] -> [Building] -> BuildingOccupants
 initialOccupants allOccupants _ = M.fromListWith mappend $ zip [(3, 3), (3, 3)] (pure <$> allOccupants)
 
 canSupportAdditionalWorker :: [BuildingOccupant] -> BuildingSpace -> Bool
-canSupportAdditionalWorker allOccupants (BuildingSpace buildings _) = length workerOccupants < (sum $ buildingSupportedWorkers <$> buildings)
+canSupportAdditionalWorker allOccupants (BuildingSpace buildings _ _) = length workerOccupants < (sum $ buildingSupportedWorkers <$> buildings)
   where workerOccupants = filter isWorkerOccupant allOccupants
 
 findSpaceForWorker :: BuildingSpace -> BuildingOccupant -> BuildingOccupants
-findSpaceForWorker (BuildingSpace buildings occupants) newOccupant = fromMaybe occupants $ do
+findSpaceForWorker (BuildingSpace buildings occupants _) newOccupant = fromMaybe occupants $ do
   let buildingHasFreeSpace building = buildingSupportedWorkers building >
         (length $ filter isWorkerOccupant $ join $ catMaybes $ (`M.lookup` occupants) <$> buildingPositions building)
   buildingToUse <- listToMaybe $ filter buildingHasFreeSpace buildings
   positionToUse <- listToMaybe $ buildingPositions buildingToUse
   return $ M.alter (Just . (newOccupant :) . fromMaybe []) positionToUse occupants
+
+plantCrop :: MonadError [Char] m => CropType -> Position -> BuildingSpace -> m BuildingSpace
+plantCrop cropType position buildingSpace = do
+  check (Field position `elem` buildingSpace ^. buildingSpaceBuildings) "Must plant on field"
+  check (M.notMember position $ buildingSpace ^. buildingSpaceCrops) "Cannot plant over other crops"
+  let plantCropType Wheat = PlantedCrop Wheat 3
+      plantCropType Potatoes = PlantedCrop Potatoes 2
+  return $ over buildingSpaceCrops (M.insert position (plantCropType cropType)) buildingSpace
