@@ -2,7 +2,8 @@ module Universe.Player where
 
 import Control.Lens hiding (universe)
 import Data.Maybe
-import Data.Map hiding (filter)
+import Data.Map hiding (filter, null)
+import Data.List (intersect, null)
 
 import Player
 import Universe
@@ -47,3 +48,13 @@ newDogId universe = DogId (maximum dogNumbers + 1)
 addDog :: Universe -> PlayerData -> PlayerData
 addDog universe = over (playerAnimals . dogs) (dogId :)
   where dogId = newDogId universe
+
+isSelectingPosition :: Universe -> PlayerId -> Bool
+isSelectingPosition universe plId = not $ null $ (universe ^.. (players . ix plId . playerStatus)) `intersect`
+  [CuttingForest, DiggingCave, DiggingPassage, BuildingLivingRoom]
+
+isPlantingCrops :: Universe -> PlayerId -> Bool
+isPlantingCrops universe plId = universe ^? (players . ix plId . playerStatus) == Just PlantingCrops
+
+isMovingWorker :: Universe -> PlayerId -> Bool
+isMovingWorker universe plId = universe ^? (players . ix plId . playerStatus) == Just MovingWorker

@@ -6,7 +6,6 @@ module Rules (
                 BuildingOccupants,
                 WorkplaceData(..),
                 BuildingOccupant(..),
-                PlayerStatus(..),
                 Building(..),
                 Direction(..),
                 OccupantError,
@@ -27,10 +26,12 @@ module Rules (
                 getBuildingOccupants,
                 getAllOccupants,
                 getOccupantErrors,
-                getPlayerStatus,
                 getStartingPlayer,
-                getDogs,
                 directionAddition,
+                getPossibleDecisions,
+                isMovingWorker,
+                isPlantingCrops,
+                isSelectingPosition,
                 allDirections,
                 availableBuildingPositions,
                 initialUniverse,
@@ -58,8 +59,10 @@ import Building
 import Player
 import Universe
 import Resources
+import Decisions
 import Universe.Actions
 import Universe.Player
 import Universe.Workplace
 import Universe.Worker
 import Universe.Building
+import Universe.Decisions

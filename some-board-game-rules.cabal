@@ -16,8 +16,8 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Rules, Universe, Building, Worker, Workplace, Util, Player, Resources
-                       Universe.Actions, Universe.Building, Universe.Player, Universe.Worker, Universe.Workplace
+  exposed-modules:     Rules, Universe, Building, Worker, Workplace, Util, Player, Resources, Decisions
+                       Universe.Actions, Universe.Building, Universe.Player, Universe.Worker, Universe.Workplace, Universe.Decisions
   -- other-modules:
   -- other-extensions:
   build-depends:       base,
@@ -32,9 +32,9 @@ library
 test-suite tests
   type:               exitcode-stdio-1.0
   main-is:            Main.hs
-  other-modules:      Rules, Universe, Building, Util, Worker, Workplace, Player, Resources
+  other-modules:      Rules, Universe, Building, Util, Worker, Workplace, Player, Resources, Decisions
                       Generators, ArbitraryUniverseTest, TestFramework, UniverseTest, BuildingTest, RulesProperties, 
-                      Universe.Actions, Universe.Building, Universe.Player, Universe.Worker, Universe.Workplace
+                      Universe.Actions, Universe.Building, Universe.Player, Universe.Worker, Universe.Workplace, Universe.Decisions
   hs-source-dirs:     test src
   default-language:   Haskell2010
   build-depends:      base,
