@@ -2,14 +2,13 @@ module Universe.Decisions where
 
 import Control.Lens hiding (universe)
 
-import Universe.Player
 import Universe
 import Player
 import Decisions
 
-getPossibleDecisions :: Universe -> [Decisions.Options]
-getPossibleDecisions universe = do
-  plData <- universe ^.. currentPlayerData
+getPossibleDecisions :: Universe -> PlayerId -> [Decisions.Options]
+getPossibleDecisions universe plId = do
+  plData <- universe ^.. (players . ix plId)
   case plData ^. playerStatus of
     MakingDecision decisionType -> decisionOptions decisionType
     _ -> []
