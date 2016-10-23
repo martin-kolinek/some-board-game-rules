@@ -104,23 +104,21 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
           playerHasValidOccupants plId = do
             errors <- getsUniverse getOccupantErrors <*> pure plId
             pre $ null errors
+          workAndPositionProperty workplaceFunc positionFunc = universeProperty $ do
+            workplaceId <- pickAnyEmptyWorkplace workplaceFunc
+            (plId, workerId) <- pickWorkerToMove
+            playerHasValidOccupants plId
+            applyToUniverse $ startWorking workerId workplaceId
+            cancel <- pick $ elements [True, False]
+            if cancel
+              then applyToUniverse cancelSelection
+              else do
+                (position, direction) <- pickSpecificPosition positionFunc plId
+                applyToUniverse $ selectPosition position direction
+            checkNextPlayer plId
       in [
-        testProperty "After cutting forest" $ universeProperty $ do
-          workplaceId <- pickAnyEmptyWorkplace findEmptyCutForestWorkplaces
-          (plId, workerId) <- pickWorkerToMove
-          playerHasValidOccupants plId
-          applyToUniverse $ startWorking workerId workplaceId
-          (position, direction) <- pickSpecificPosition availableForestPositions plId
-          applyToUniverse $ selectPosition position direction
-          checkNextPlayer plId,
-        testProperty "After digging a passage" $ universeProperty $ do
-          workplaceId <- pickAnyEmptyWorkplace findEmptyDigPassageWorkplaces
-          (plId, workerId) <- pickWorkerToMove
-          playerHasValidOccupants plId
-          applyToUniverse $ startWorking workerId workplaceId
-          (position, direction) <- pickSpecificPosition availableRockPositions plId
-          applyToUniverse $ selectPosition position direction
-          checkNextPlayer plId
+        testProperty "After cutting forest" $ workAndPositionProperty findEmptyCutForestWorkplaces availableForestPositions,
+        testProperty "After digging a passage" $ workAndPositionProperty findEmptyDigPassageWorkplaces availableRockPositions
       ],
     -- testGroup "Next player moves worker" $
     --   let checkResultingUniverse nextPlayerId resultUniverse = case nextPlayerId of
