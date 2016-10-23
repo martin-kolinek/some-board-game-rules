@@ -19,7 +19,7 @@ import TestFramework
 
 rulesPropertiesTests :: TestTree
 rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules properties" [
-    testProperty "Starting working assigns worker" $ universeProperty GameSuccess $ do
+    testProperty "Starting working assigns worker" $ universeProperty $ do
         workplaceId <- pickEmptyWorkplace
         (_, workerId) <- pickWorkerToMove
         do
@@ -32,7 +32,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         assert $ workerWorkplace == Just workplaceId
     ,
     testGroup "Starting working makes position selection possible" $
-      let prop workplaceSelector = universeProperty GameSuccess $ do
+      let prop workplaceSelector = universeProperty $ do
             workplaceId <- pickAnyEmptyWorkplace workplaceSelector
             (playerId, workerId) <- pickWorkerToMove
             applyToUniverse $ startWorking workerId workplaceId
@@ -45,7 +45,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "Farming" $ prop findEmptyFarmingWorkplaces
       ],
     testGroup "Starting working makes decision available" $
-      let prop workplaceSelector precondition decisions = universeProperty GameSuccess $ do
+      let prop workplaceSelector precondition decisions = universeProperty $ do
             pre =<< getsUniverse precondition
             workplaceId <- pickAnyEmptyWorkplace workplaceSelector
             (playerId, workerId) <- pickWorkerToMove
@@ -58,25 +58,26 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
           prop findEmptyWorkerNeedWorkplaces (liftM2 (||) currentPlayerHasFreeRoom currentPlayerCanBuildRoom) (WorkerNeedOption <$> [HireWorker ..]),
         testProperty "House work" $ prop findEmptyHouseWorkWorkplaces (const True) (AnyRoomOption <$> [ChooseNoRoom ..])
       ],
-    testProperty "Finishing turn unassigns all workers" $ universeProperty GameSuccess $ do
+    testProperty "Finishing turn unassigns all workers" $ universeProperty $ do
       pre =<< getsUniverse allPlayersWaiting
       applyToUniverse finishTurn
       updatedUniverse <- getUniverse
       let workerFree = (== Nothing) . getWorkerWorkplace updatedUniverse
           workers = [wId | plId <- getPlayers updatedUniverse, wId <- getWorkers updatedUniverse plId]
       assert $ all workerFree workers,
-    testProperty "Finishing turn starts starting player" $ universeProperty GameSuccess $ do
+    testProperty "Finishing turn starts starting player" $ universeProperty $ do
       pre =<< getsUniverse allPlayersWaiting
       startingPlayer <- getsUniverse getStartingPlayer
       applyToUniverse finishTurn
       currentPlayer <- getsUniverse getCurrentPlayer
       assert $ currentPlayer == Just startingPlayer,
-    testProperty "Finishing turn is not possible without all players waiting" $ universeProperty GameFailure $ do
+    testProperty "Finishing turn is not possible without all players waiting" $ universeProperty $ do
       pre =<< getsUniverse (not . allPlayersWaiting)
       currentPlayer <- getsUniverse getCurrentPlayer
       monitor (counterexample $ "Current player: " ++ show currentPlayer)
-      applyToUniverse finishTurn,
-    testProperty "Moving same player twice causes an error" $ universeProperty GameFailure $ do
+      applyToUniverse finishTurn
+      shouldHaveFailed,
+    testProperty "Moving same player twice causes an error" $ universeProperty $ do
       universe <- getUniverse
       let workersToMove = findWorkersToMove universe
           workplaces = findEmptyWorkplaces universe
@@ -85,16 +86,42 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       pre $ length workersToMove >= 2
       pre $ length workplaces >= 2
       applyToUniverse $ startWorking (snd $ workersToMove !! 0) (workplaces !! 0)
-      applyToUniverse $ startWorking (snd $ workersToMove !! 1) (workplaces !! 1),
-    testProperty "Getting workplace workers works" $
-      let prop (ArbitraryUniverse universe) = (not . null) (findOccupiedWorkplaces universe) ==>
-            forAll (elements $ findOccupiedWorkplaces universe) $ \workplaceId ->
-            let occupants = getWorkplaceOccupants universe workplaceId
-                workplaceIsNotEmpty = (not . null) occupants
-                workerWorksInWorkplace workerId = getWorkerWorkplace universe workerId == Just workplaceId
-                allWorkersWorkInWorkplace = all workerWorksInWorkplace occupants
-            in workplaceIsNotEmpty && allWorkersWorkInWorkplace
-      in prop,
+      applyToUniverse $ startWorking (snd $ workersToMove !! 1) (workplaces !! 1)
+      shouldHaveFailed,
+    testProperty "Getting workplace workers works" $ \(ArbitraryUniverse universe) ->
+        (not . null) (findOccupiedWorkplaces universe) ==>
+        forAll (elements $ findOccupiedWorkplaces universe) $ \workplaceId ->
+        let occupants = getWorkplaceOccupants universe workplaceId
+            workplaceIsNotEmpty = (not . null) occupants
+            workerWorksInWorkplace workerId = getWorkerWorkplace universe workerId == Just workplaceId
+            allWorkersWorkInWorkplace = all workerWorksInWorkplace occupants
+        in workplaceIsNotEmpty && allWorkersWorkInWorkplace,
+    testGroup "Next player moves worker" $
+      let checkNextPlayer previousPlayerId = do
+            nextPlayerId <- getsUniverse nextPlayerToMoveWorker <*> pure (previousPlayerId)
+            currentPlayerId <- getsUniverse getCurrentPlayer
+            assert $ currentPlayerId == nextPlayerId
+          playerHasValidOccupants plId = do
+            errors <- getsUniverse getOccupantErrors <*> pure plId
+            pre $ null errors
+      in [
+        testProperty "After cutting forest" $ universeProperty $ do
+          workplaceId <- pickAnyEmptyWorkplace findEmptyCutForestWorkplaces
+          (plId, workerId) <- pickWorkerToMove
+          playerHasValidOccupants plId
+          applyToUniverse $ startWorking workerId workplaceId
+          (position, direction) <- pickSpecificPosition availableForestPositions plId
+          applyToUniverse $ selectPosition position direction
+          checkNextPlayer plId,
+        testProperty "After digging a passage" $ universeProperty $ do
+          workplaceId <- pickAnyEmptyWorkplace findEmptyDigPassageWorkplaces
+          (plId, workerId) <- pickWorkerToMove
+          playerHasValidOccupants plId
+          applyToUniverse $ startWorking workerId workplaceId
+          (position, direction) <- pickSpecificPosition availableRockPositions plId
+          applyToUniverse $ selectPosition position direction
+          checkNextPlayer plId
+      ],
     -- testGroup "Next player moves worker" $
     --   let checkResultingUniverse nextPlayerId resultUniverse = case nextPlayerId of
     --         Just nextId -> counterexample (show nextId) $ getPlayerStatus resultUniverse nextId === MovingWorker
@@ -536,6 +563,12 @@ pickWorkerToMove = do
   pre $ not $ null $ workers
   pick $ elements workers
 
+pickSpecificPosition :: (Universe -> PlayerId -> [(Position, Direction)]) -> PlayerId -> UniversePropertyMonad (Position, Direction)
+pickSpecificPosition func plId = do
+  positions <- getsUniverse func <*> pure plId
+  pre $ not $ null $ positions
+  pick $ elements positions
+
 currentPlayerHasEnoughResourcesForLivingRoom :: Universe -> Bool
 currentPlayerHasEnoughResourcesForLivingRoom universe = fromMaybe False $ do
   currentPlayerId <- getCurrentPlayer universe
@@ -552,13 +585,12 @@ leftProp result = case result of
   Left _ -> property True
   Right x -> counterexample ("Expected error but got: " ++ ppShow x) False
 
-nextPlayerToMoveWorker :: Universe -> Maybe WorkerId -> Maybe PlayerId
-nextPlayerToMoveWorker universe currentWorkerId = do
-  currentPlayerId <- getCurrentPlayer universe
+nextPlayerToMoveWorker :: Universe -> PlayerId -> Maybe PlayerId
+nextPlayerToMoveWorker universe currentPlayerId =
   let furtherPlayerIds = tail $ dropWhile (/= currentPlayerId) $ getPlayers universe ++ getPlayers universe
-      isWorkerFree workerId = isNothing (getWorkerWorkplace universe workerId) && currentWorkerId /= Just workerId
+      isWorkerFree workerId = isNothing (getWorkerWorkplace universe workerId)
       playersWithFreeWorkers = [plId | plId <- furtherPlayerIds, any isWorkerFree (getWorkers universe plId)]
-  listToMaybe playersWithFreeWorkers
+  in listToMaybe playersWithFreeWorkers
 
 availableForestPositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableForestPositions = availableSpecificPositions isCuttable isDevelopedOutside False

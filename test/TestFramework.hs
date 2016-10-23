@@ -50,30 +50,37 @@ getWorkplace number = (!! number) . keys . getWorkplaces <$> get
 apply :: (forall m. MonadError String m => (a -> m a)) -> FlowTest a ()
 apply action = put =<< action =<< get
 
-type UniversePropertyMonad = PropertyM (ExceptT String (State Universe))
+type UniversePropertyMonad = PropertyM (State (Either String Universe))
 
-data ResultExpectation = GameSuccess | GameFailure deriving (Show, Eq)
-
-universeProperty :: ResultExpectation -> UniversePropertyMonad a -> ArbitraryUniverse -> Property
-universeProperty expectation action (ArbitraryUniverse universe) = monadic extractProperty (action >> (assert $ expectation == GameSuccess))
-  where extractProperty act = checkEither $ runState (runExceptT act) universe
-        checkEither (Right prop, resultUniverse) =
+universeProperty :: UniversePropertyMonad a -> ArbitraryUniverse -> Property
+universeProperty action (ArbitraryUniverse universe) = monadic extractProperty action
+  where extractProperty act = checkResult $ runState act (Right universe)
+        checkResult (prop, Right resultUniverse) =
           counterexample ("Resulting universe: " ++ ppShow resultUniverse) $
-          prop .||.
-          (counterexample "Didn't expect success" $ expectation == GameSuccess)
-        checkEither (Left msg, resultUniverse) =
-          counterexample ("Resulting universe: " ++ ppShow resultUniverse) $
+          prop
+        checkResult (prop, Left msg) =
           counterexample ("Unexpected error: " ++ msg) $
-          expectation == GameFailure
+          prop
 
 getUniverse :: UniversePropertyMonad Universe
-getUniverse = run get
+getUniverse = do
+  universeOrError <- run get
+  case universeOrError of
+    Right universe -> return universe
+    Left msg -> stop $ counterexample ("Tried to access universe, but was already failed: " ++ msg) False
 
 getsUniverse :: (Universe -> a) -> UniversePropertyMonad a
-getsUniverse x = run $ gets x
+getsUniverse x = x <$> getUniverse
 
 applyToUniverse :: (forall m. MonadError String m => Universe -> m Universe) -> UniversePropertyMonad ()
 applyToUniverse action = do
-  u <- getUniverse
-  nextU <- run $ action u
-  run $ put nextU
+  currentState <- run get
+  let nextState = action =<< currentState
+  run $ put nextState
+
+shouldHaveFailed :: UniversePropertyMonad ()
+shouldHaveFailed = do
+  universeOrError <- run get
+  case universeOrError of
+    Right universe -> stop $ counterexample ("Was expecting failure, but was successful: " ++ ppShow universe) False
+    Left _ -> return ()
