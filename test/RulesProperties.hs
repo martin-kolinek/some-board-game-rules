@@ -5,6 +5,7 @@ import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic
 import Data.Map (keys, (!), elems, insert)
 import qualified Data.Map as M
+import qualified Data.Set as S
 import Data.List ((\\), intersect, sort)
 import Data.Maybe (maybeToList, isNothing, fromMaybe, listToMaybe)
 import Control.Monad (guard, join, liftM2)
@@ -567,6 +568,12 @@ pickSpecificPosition func plId = do
   pre $ not $ null $ positions
   pick $ elements positions
 
+pickWrongPosition :: (Universe -> PlayerId -> [(Position, Direction)]) -> PlayerId -> UniversePropertyMonad (Position, Direction)
+pickWrongPosition func plId = do
+  let allPositions = [((x, y), dir) | x <- [-1..6], y <- [-1..4], dir <- allDirections]
+  positions <- getsUniverse func <*> pure plId
+  pick $ elements $ S.toList $ S.fromList allPositions S.\\ S.fromList positions
+
 currentPlayerHasEnoughResourcesForLivingRoom :: Universe -> Bool
 currentPlayerHasEnoughResourcesForLivingRoom universe = fromMaybe False $ do
   currentPlayerId <- getCurrentPlayer universe
@@ -722,3 +729,12 @@ positionOccupants buildings allOccupants =
       (resultOccupants, nonPositionedWorkers) = foldl' accumulateWorkers (M.empty, workers) buildings
       additionalPosition = M.singleton (3, 3) nonPositionedWorkers
   in M.unionWith (<>) resultOccupants (M.singleton (0, 0) dogs <> additionalPosition)
+
+validateNextPlayer :: PlayerId -> UniversePropertyMonad ()
+validateNextPlayer previousPlayerId = do
+  nextPlayerId <- getsUniverse nextPlayerToMoveWorker <*> pure (previousPlayerId)
+  currentPlayerId <- getsUniverse getCurrentPlayer
+  assert $ currentPlayerId == nextPlayerId
+
+prePlayerHasValidOccupants :: PlayerId -> UniversePropertyMonad ()
+prePlayerHasValidOccupants plId = pre =<< null <$> (getsUniverse getOccupantErrors <*> pure plId)

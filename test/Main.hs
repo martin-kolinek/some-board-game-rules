@@ -5,7 +5,13 @@ import UniverseTest
 import BuildingTest
 import ArbitraryUniverseTest
 import RulesProperties
+import Workplaces.CutForest
 
 main :: IO ()
 main = defaultMain $ do
-  testGroup "Tests" [universeTests, buildingTests, arbitraryUniverseTests, rulesPropertiesTests]
+  testGroup "Tests" [
+    universeTests,
+    buildingTests,
+    arbitraryUniverseTests,
+    rulesPropertiesTests,
+    cutForestTests]
