@@ -5,9 +5,8 @@ import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic
 import Data.Map (keys, (!), elems, insert)
 import qualified Data.Map as M
-import qualified Data.Set as S
 import Data.List ((\\), intersect, sort)
-import Data.Maybe (maybeToList, isNothing, fromMaybe, listToMaybe)
+import Data.Maybe (maybeToList, isNothing, fromMaybe)
 import Control.Monad (guard, join, liftM2)
 import Data.AdditiveGroup
 import Text.Show.Pretty (ppShow)
@@ -562,18 +561,6 @@ pickWorkerToMove = do
   pre $ not $ null $ workers
   pick $ elements workers
 
-pickSpecificPosition :: (Universe -> PlayerId -> [(Position, Direction)]) -> PlayerId -> UniversePropertyMonad (Position, Direction)
-pickSpecificPosition func plId = do
-  positions <- getsUniverse func <*> pure plId
-  pre $ not $ null $ positions
-  pick $ elements positions
-
-pickWrongPosition :: (Universe -> PlayerId -> [(Position, Direction)]) -> PlayerId -> UniversePropertyMonad (Position, Direction)
-pickWrongPosition func plId = do
-  let allPositions = [((x, y), dir) | x <- [-1..6], y <- [-1..4], dir <- allDirections]
-  positions <- getsUniverse func <*> pure plId
-  pick $ elements $ S.toList $ S.fromList allPositions S.\\ S.fromList positions
-
 currentPlayerHasEnoughResourcesForLivingRoom :: Universe -> Bool
 currentPlayerHasEnoughResourcesForLivingRoom universe = fromMaybe False $ do
   currentPlayerId <- getCurrentPlayer universe
@@ -589,13 +576,6 @@ leftProp :: Show a => Either String a -> Property
 leftProp result = case result of
   Left _ -> property True
   Right x -> counterexample ("Expected error but got: " ++ ppShow x) False
-
-nextPlayerToMoveWorker :: Universe -> PlayerId -> Maybe PlayerId
-nextPlayerToMoveWorker universe currentPlayerId =
-  let furtherPlayerIds = tail $ dropWhile (/= currentPlayerId) $ getPlayers universe ++ getPlayers universe
-      isWorkerFree workerId = isNothing (getWorkerWorkplace universe workerId)
-      playersWithFreeWorkers = [plId | plId <- furtherPlayerIds, any isWorkerFree (getWorkers universe plId)]
-  in listToMaybe playersWithFreeWorkers
 
 availableForestPositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableForestPositions = availableSpecificPositions isCuttable isDevelopedOutside False
@@ -730,11 +710,3 @@ positionOccupants buildings allOccupants =
       additionalPosition = M.singleton (3, 3) nonPositionedWorkers
   in M.unionWith (<>) resultOccupants (M.singleton (0, 0) dogs <> additionalPosition)
 
-validateNextPlayer :: PlayerId -> UniversePropertyMonad ()
-validateNextPlayer previousPlayerId = do
-  nextPlayerId <- getsUniverse nextPlayerToMoveWorker <*> pure (previousPlayerId)
-  currentPlayerId <- getsUniverse getCurrentPlayer
-  assert $ currentPlayerId == nextPlayerId
-
-prePlayerHasValidOccupants :: PlayerId -> UniversePropertyMonad ()
-prePlayerHasValidOccupants plId = pre =<< null <$> (getsUniverse getOccupantErrors <*> pure plId)

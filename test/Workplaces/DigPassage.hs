@@ -9,47 +9,45 @@ import Test.Tasty.QuickCheck
 import Test.Tasty
 import TestFramework
 import Test.QuickCheck.Monadic
-import Generators
 import RulesProperties
 
 digPassageTests :: TestTree
 digPassageTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Dig passage tests" [
-    testProperty "Starting working start position selection" $ digPassageProperty $ \playerId workerId workplaceId -> do
-      applyToUniverse $ startWorking workerId workplaceId
+    testProperty "Starting working start position selection" $ universeProperty $ do
+      (playerId, _, _) <- startWorkingInDigPassage
       assert =<< getsUniverse isSelectingPosition <*> pure playerId,
-    testProperty "Starting working and selecting invalid position fails" $ digPassageProperty $ \playerId workerId workplaceId -> do
-      applyToUniverse $ startWorking workerId workplaceId
-      (pos, dir) <- pickWrongPosition availableRockPositions playerId
-      applyToUniverse $ selectPosition pos dir
+    testProperty "Starting working and selecting invalid position fails" $ universeProperty $ do
+      (playerId, _, _) <- startWorkingInDigPassage
+      _ <- selectWrongPosition availableRockPositions playerId
       shouldHaveFailed,
-    testProperty "Starting working and selecting valid position builds cave and passage" $ digPassageProperty $ \playerId workerId workplaceId -> do
-      applyToUniverse $ startWorking workerId workplaceId
-      (pos, dir) <- pickSpecificPosition availableRockPositions playerId
-      applyToUniverse $ selectPosition pos dir
+    testProperty "Starting working and selecting valid position builds cave and passage" $ universeProperty $ do
+      (playerId, _, _) <- startWorkingInDigPassage
+      (pos, dir) <- selectCorrectPosition availableRockPositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
       assert $ Cave pos `elem` buildings
       assert $ Passage (pos ^+^ directionAddition dir) `elem` buildings,
-    testProperty "Starting working and canceling starts next player turn" $ digPassageProperty $ \playerId workerId workplaceId -> do
-      prePlayerHasValidOccupants playerId
-      applyToUniverse $ startWorking workerId workplaceId
+    testProperty "Starting working and canceling starts next player turn" $ universeProperty $ do
+      (playerId, _, _) <- startWorkingInDigPassage
+      checkPlayerHasValidOccupants playerId
       applyToUniverse cancelSelection
       validateNextPlayer playerId,
-    testProperty "Starting working and selecting position starts next player turn" $ digPassageProperty $ \playerId workerId workplaceId -> do
-      prePlayerHasValidOccupants playerId
-      applyToUniverse $ startWorking workerId workplaceId
-      (pos, dir) <- pickSpecificPosition availableRockPositions playerId
-      applyToUniverse $ selectPosition pos dir
+    testProperty "Starting working and selecting position starts next player turn" $ universeProperty $ do
+      (playerId, _, _) <- startWorkingInDigPassage
+      checkPlayerHasValidOccupants playerId
+      _ <- selectCorrectPosition availableRockPositions playerId
       validateNextPlayer playerId,
-    testProperty "Starting working adds wood" $ digPassageProperty $ \playerId workerId workplaceId -> do
-      originalStone <- getStoneAmount <$> (getsUniverse getPlayerResources <*> pure playerId)
-      (DigPassage workplaceAmount) <- (! workplaceId) <$> getsUniverse getWorkplaces
-      applyToUniverse $ startWorking workerId workplaceId
+    testProperty "Starting working adds wood" $ universeProperty $ do
+      originalUniverse <- getUniverse
+      (playerId, _, workplaceId) <- startWorkingInDigPassage
+      let originalStone = getStoneAmount $ (getPlayerResources originalUniverse playerId)
+          DigPassage workplaceAmount = getWorkplaces originalUniverse ! workplaceId
       newStone <- getStoneAmount <$> (getsUniverse getPlayerResources <*> pure playerId)
       assert $ newStone == originalStone + workplaceAmount
   ]
 
-digPassageProperty :: (PlayerId -> WorkerId -> WorkplaceId -> UniversePropertyMonad a) -> ArbitraryUniverse -> Property
-digPassageProperty action = universeProperty $ do
-  workplaceId <- pickAnyEmptyWorkplace findEmptyDigPassageWorkplaces
-  (playerId, workerId) <- pickWorkerToMove
-  action playerId workerId workplaceId
+isDigPassage :: WorkplaceData -> Bool
+isDigPassage (DigPassage _) = True
+isDigPassage _ = False
+
+startWorkingInDigPassage :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
+startWorkingInDigPassage = startWorkingInWorkplaceType isDigPassage
