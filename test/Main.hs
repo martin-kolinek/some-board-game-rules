@@ -7,6 +7,7 @@ import ArbitraryUniverseTest
 import RulesProperties
 import Workplaces.CutForest
 import Workplaces.DigPassage
+import Workplaces.DigCave
 
 main :: IO ()
 main = defaultMain $ do
@@ -16,4 +17,5 @@ main = defaultMain $ do
     arbitraryUniverseTests,
     rulesPropertiesTests,
     cutForestTests,
-    digPassageTests]
+    digPassageTests,
+    digCaveTests]
