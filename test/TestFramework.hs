@@ -154,3 +154,6 @@ validateNextPlayer previousPlayerId = do
 
 checkPlayerHasValidOccupants :: PlayerId -> UniversePropertyMonad ()
 checkPlayerHasValidOccupants plId = pre =<< null <$> (getsUniverse getOccupantErrors <*> pure plId)
+
+validatePlayerHasValidOccupants :: PlayerId -> UniversePropertyMonad ()
+validatePlayerHasValidOccupants plId = assert =<< null <$> (getsUniverse getOccupantErrors <*> pure plId)

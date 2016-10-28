@@ -82,9 +82,11 @@ generateBuildingSpace requiredWorkers = do
   cutForestBuildings <- forM (S.toList cutPositions) $ \position ->
     elements [Field position, Grass position]
   dugRockShuffled <- shuffle $ S.toList dugPositions
-  let mandatoryRooms = LivingRoom <$> take requiredWorkers dugRockShuffled
-  dugRockBuildings <- forM (drop requiredWorkers dugRockShuffled) $ \position ->
-    frequency [(1, elements [Passage position, Cave position]), (1, elements [LivingRoom position])]
+  let mandatoryRooms = LivingRoom <$> take (requiredWorkers - 2) dugRockShuffled
+  hasAdditionalRooms <- elements [True, False]
+  dugRockBuildings <- forM (drop (requiredWorkers - 2) dugRockShuffled) $ \position ->
+    if hasAdditionalRooms then elements $ [Passage, Cave, LivingRoom] <*> pure position
+                          else elements $ [Passage, Cave] <*> pure position
   let rocks = Rock <$> S.toList (S.fromList [(x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3)] S.\\ dugPositions)
       initialRoom = [InitialRoom (3, 3)]
       forestBuildings = Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)

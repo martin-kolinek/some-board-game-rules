@@ -51,7 +51,20 @@ digCaveTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest test
         let originalStone = getStoneAmount $ (getPlayerResources originalUniverse playerId)
             DigCave workplaceAmount = getWorkplaces originalUniverse ! workplaceId
         newStone <- getStoneAmount <$> (getsUniverse getPlayerResources <*> pure playerId)
-        assert $ newStone == originalStone + workplaceAmount
+        assert $ newStone == originalStone + workplaceAmount,
+    testProperty "Starting working, choosing digging, and selecting invalid position fails" $ universeProperty $ do
+      (playerId, _, _) <- startWorkingInDigCave
+      decision <- pick $ elements [CaveOrPassageOption ChooseCave, CaveOrPassageOption ChoosePassage]
+      applyToUniverse $ chooseOption decision
+      _ <- selectWrongPosition availableRockPositions playerId
+      shouldHaveFailed,
+    testProperty "Starting working, choosing digging, and selecting correct position starts next player" $ universeProperty $ do
+      (playerId, _, _) <- startWorkingInDigCave
+      checkPlayerHasValidOccupants playerId
+      decision <- pick $ elements [CaveOrPassageOption ChooseCave, CaveOrPassageOption ChoosePassage]
+      applyToUniverse $ chooseOption decision
+      _ <- selectCorrectPosition availableRockPositions playerId
+      validateNextPlayer playerId
   ]
 
 isDigCave :: WorkplaceData -> Bool

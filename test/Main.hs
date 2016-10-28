@@ -8,6 +8,7 @@ import RulesProperties
 import Workplaces.CutForest
 import Workplaces.DigPassage
 import Workplaces.DigCave
+import Workplaces.WorkerNeed
 
 main :: IO ()
 main = defaultMain $ do
@@ -18,4 +19,5 @@ main = defaultMain $ do
     rulesPropertiesTests,
     cutForestTests,
     digPassageTests,
-    digCaveTests]
+    digCaveTests,
+    workerNeedTests]
