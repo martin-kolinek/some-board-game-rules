@@ -9,6 +9,8 @@ import Workplaces.CutForest
 import Workplaces.DigPassage
 import Workplaces.DigCave
 import Workplaces.WorkerNeed
+import Workplaces.ResourceAddition
+import Workplaces.GatherWood
 
 main :: IO ()
 main = defaultMain $ do
@@ -20,4 +22,6 @@ main = defaultMain $ do
     cutForestTests,
     digPassageTests,
     digCaveTests,
-    workerNeedTests]
+    workerNeedTests,
+    resourceAdditionTests,
+    gatherWoodTests]

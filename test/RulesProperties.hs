@@ -344,7 +344,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         testProperty "Digging passage" $ prop findEmptyDigPassageWorkplaces [(getStoneAmount, getWorkplaceStoneAmount)],
         testProperty "Digging cave" $ prop findEmptyDigCaveWorkplaces [(getStoneAmount, getWorkplaceStoneAmount)],
         testProperty "Resource addition" $ prop findEmptyResourceAdditionWorkplaces
-          [(getStoneAmount, const 1), (getWoodAmount, const 1), (getIronAmount, const 1), (getFoodAmount, const 1), (getGoldAmount, const 1)],
+          [(getStoneAmount, const 1), (getWoodAmount, const 1), (getIronAmount, const 1), (getFoodAmount, const 1), (getMoney, const 2)],
         testProperty "Gather wood" $ prop findEmptyGatherWoodWorkplaces [(getWoodAmount, getWorkplaceWoodAmount)],
         testProperty "Gather food" $ prop findEmptyGatherFoodWorkplaces [(getFoodAmount, getWorkplaceFoodAmount), (getWheatAmount, const 1)],
         testProperty "Make start worker" $ prop findEmptyMakeStartPlayerWorkplaces [(getFoodAmount, getWorkplaceFoodAmount), (getIronAmount, const 2)]

@@ -48,7 +48,7 @@ assignResources ResourceAddition =
   over woodAmount (+1) .
   over ironAmount (+1) .
   over foodAmount (+1) .
-  over goldAmount (+1)
+  over money (+2)
 assignResources (GatherWood wood) = over woodAmount (+wood)
 assignResources (GatherFood food)= over foodAmount (+food) . over wheatAmount (+1)
 assignResources (MakeStartPlayer food) = over foodAmount (+food) . over ironAmount (+2)
