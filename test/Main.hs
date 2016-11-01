@@ -11,6 +11,8 @@ import Workplaces.DigCave
 import Workplaces.WorkerNeed
 import Workplaces.ResourceAddition
 import Workplaces.GatherWood
+import Workplaces.GatherFood
+import Workplaces.MakeStartPlayer
 
 main :: IO ()
 main = defaultMain $ do
@@ -24,4 +26,6 @@ main = defaultMain $ do
     digCaveTests,
     workerNeedTests,
     resourceAdditionTests,
-    gatherWoodTests]
+    gatherWoodTests,
+    gatherFoodTests,
+    startPlayerTests]
