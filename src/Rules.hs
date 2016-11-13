@@ -16,6 +16,7 @@ module Rules (
                 WorkerNeedOptions(..),
                 CaveOrPassageOptions(..),
                 AnyRoomOptions(..),
+                DogId,
                 getPlayers,
                 getCurrentPlayer,
                 getWorkers,
@@ -50,7 +51,8 @@ module Rules (
                 getWheatAmount,
                 getPotatoAmount,
                 getMoney,
-                getFoodAmount
+                getFoodAmount,
+                getDogs
              ) where
 
 import Worker

@@ -9,6 +9,7 @@ import Player
 import Universe
 import Worker
 import Resources
+import Building
 
 getCurrentPlayer :: Universe -> Maybe PlayerId
 getCurrentPlayer universe =
@@ -46,8 +47,9 @@ newDogId universe = DogId (maximum dogNumbers + 1)
         dogNumbers = 0 : toListOf (players . traverse . playerAnimals . dogs . traverse . to getNumberFromId) universe
 
 addDog :: Universe -> PlayerData -> PlayerData
-addDog universe = over (playerAnimals . dogs) (dogId :)
+addDog universe = over (buildingSpace . buildingSpaceOccupants) addDogToOccupants . over (playerAnimals . dogs) (dogId :)
   where dogId = newDogId universe
+        addDogToOccupants occupants = alter (Just . (DogOccupant dogId :) . fromMaybe []) (0, 0) occupants
 
 isSelectingPosition :: Universe -> PlayerId -> Bool
 isSelectingPosition universe plId = not $ null $ (universe ^.. (players . ix plId . playerStatus)) `intersect`
