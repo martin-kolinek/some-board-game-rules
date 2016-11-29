@@ -41,7 +41,7 @@ cancelSelection universe =
   checkMaybe "Nothing to cancel" $ do
     currentPlayerStatus <- universe ^? (currentPlayerData . playerStatus)
     guard (currentPlayerStatus `elem` [CuttingForest, DiggingPassage, DiggingCave])
-    let universeWithPlayerWaiting = set (currentPlayerData . playerStatus) Waiting universe
+    let universeWithPlayerWaiting = over currentPlayerData stopTurn universe
     return $ startNextPlayer universe universeWithPlayerWaiting
 
 alterOccupants :: MonadError String m => PlayerId -> BuildingOccupants -> Universe -> m Universe

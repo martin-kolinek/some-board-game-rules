@@ -23,7 +23,8 @@ getAllOccupants :: Universe -> PlayerId -> [BuildingOccupant]
 getAllOccupants universe player = toListOf (players . ix player . folding getPlayerPossibleOccupants) universe
 
 getPlayerPossibleOccupants :: PlayerData -> [BuildingOccupant]
-getPlayerPossibleOccupants playerData = WorkerOccupant <$> toListOf (workers . folding keys) playerData
+getPlayerPossibleOccupants playerData =
+  (DogOccupant <$> toListOf (playerAnimals . dogs . traverse) playerData) ++ (WorkerOccupant <$> toListOf (workers . folding keys) playerData)
 
 currentPlayerCanBuildRoom :: Universe -> Bool
 currentPlayerCanBuildRoom universe = has (currentPlayerData . buildingSpace . to getBuildings . traverse . filtered isCave) universe &&
