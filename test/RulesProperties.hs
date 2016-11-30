@@ -8,7 +8,6 @@ import qualified Data.Map as M
 import Data.List ((\\), intersect)
 import Data.Maybe (maybeToList, isNothing, fromMaybe)
 import Control.Monad (guard, join, forM_)
-import Data.AdditiveGroup
 import Text.Show.Pretty (ppShow)
 import Data.Foldable (foldl')
 import Data.Monoid ((<>))
@@ -16,6 +15,7 @@ import Data.Monoid ((<>))
 import Generators
 import Rules
 import TestFramework
+import TestHelpers
 
 rulesPropertiesTests :: TestTree
 rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules properties" [
@@ -221,12 +221,6 @@ pickWorkerToMove = do
   pre $ not $ null $ workers
   pick $ elements workers
 
-currentPlayerHasEnoughResourcesForLivingRoom :: Universe -> Bool
-currentPlayerHasEnoughResourcesForLivingRoom universe = fromMaybe False $ do
-  currentPlayerId <- getCurrentPlayer universe
-  let resources = getPlayerResources universe currentPlayerId
-  return $ getWoodAmount resources >= 4 && getStoneAmount resources >= 3
-
 rightProp :: Testable a => Either String a -> Property
 rightProp result = case result of
   Left msg -> counterexample ("Should be successful but is: " ++ msg) False
@@ -237,90 +231,14 @@ leftProp result = case result of
   Left _ -> property True
   Right x -> counterexample ("Expected error but got: " ++ ppShow x) False
 
-availableForestPositions :: Universe -> PlayerId -> [(Position, Direction)]
-availableForestPositions = availableSpecificPositions isCuttable isDevelopedOutside False
-  where isCuttable buildingSpace pos = Forest pos `elem` buildingSpace
-        isDevelopedOutside buildingSpace pos = not $ null $ intersect [Field pos, Grass pos, InitialRoom pos] buildingSpace
-
-availableRockPositions :: Universe -> PlayerId -> [(Position, Direction)]
-availableRockPositions = availableSpecificPositions isDiggable isDevelopedInside False
-  where isDiggable buildingSpace pos = Rock pos `elem` buildingSpace
-        isDevelopedInside buildingSpace pos = not $ null $ intersect [InitialRoom pos, Cave pos, Passage pos] buildingSpace
-
-availableSingleCavePositions :: Universe -> PlayerId -> [(Position, Direction)]
-availableSingleCavePositions = availableSpecificPositions isBuildable (const $ const True) True
-  where isBuildable buildingSpace pos = Cave pos `elem` buildingSpace
-
-availableSpecificPositions :: ([Building] -> Position -> Bool) -> ([Building] -> Position -> Bool) -> Bool -> Universe -> PlayerId -> [(Position, Direction)]
-availableSpecificPositions freeCondition developedCondition ignoreDirection universe playerId = [(pos, direction) |
-                             direction <- allDirections,
-                             pos <- availableBuildingPositions,
-                             freeCondition buildingSpace pos,
-                             freeCondition buildingSpace (pos ^+^ directionAddition direction) || ignoreDirection,
-                             neighbourPositionsReachable $ if ignoreDirection then [pos] else [pos, pos ^+^ directionAddition direction]]
-  where neighbourPositionsReachable positions = any (developedCondition buildingSpace) [pos ^+^ directionAddition dir | pos <- positions, dir <- allDirections]
-        buildingSpace = currentPlayerBuildingSpace universe playerId
-
-currentPlayerBuildingSpace :: Universe -> PlayerId -> [Building]
-currentPlayerBuildingSpace universe playerId = getBuildingSpace universe playerId
-
-currentPlayerHasValidOccupants :: Universe -> Bool
-currentPlayerHasValidOccupants universe = (getOccupantErrors universe <$> getCurrentPlayer universe) == Just []
-
 findOccupiedWorkplaces :: Universe -> [WorkplaceId]
 findOccupiedWorkplaces universe = do
   playerId <- getPlayers universe
   workerId <- getWorkers universe playerId
   maybeToList $ getWorkerWorkplace universe workerId
 
-findEmptyCutForestWorkplaces :: Universe -> [WorkplaceId]
-findEmptyCutForestWorkplaces = findEmptySpecificWorkplaces isCutForest
-  where isCutForest (CutForest _) = True
-        isCutForest _ = False
-
-findEmptyDigPassageWorkplaces :: Universe -> [WorkplaceId]
-findEmptyDigPassageWorkplaces = findEmptySpecificWorkplaces isDigPassage
-  where isDigPassage (DigPassage _) = True
-        isDigPassage _ = False
-
-findEmptyDigCaveWorkplaces :: Universe -> [WorkplaceId]
-findEmptyDigCaveWorkplaces = findEmptySpecificWorkplaces isDigCave
-  where isDigCave (DigCave _) = True
-        isDigCave _ = False
-
-findEmptyWorkerNeedWorkplaces :: Universe -> [WorkplaceId]
-findEmptyWorkerNeedWorkplaces = findEmptySpecificWorkplaces (==WorkerNeed)
-
-findEmptyResourceAdditionWorkplaces :: Universe -> [WorkplaceId]
-findEmptyResourceAdditionWorkplaces = findEmptySpecificWorkplaces (==ResourceAddition)
-
-findEmptyGatherWoodWorkplaces :: Universe -> [WorkplaceId]
-findEmptyGatherWoodWorkplaces = findEmptySpecificWorkplaces isGatherWood
-  where isGatherWood (GatherWood _) = True
-        isGatherWood _ = False
-
-findEmptyGatherFoodWorkplaces :: Universe -> [WorkplaceId]
-findEmptyGatherFoodWorkplaces = findEmptySpecificWorkplaces isGatherFood
-  where isGatherFood (GatherFood _) = True
-        isGatherFood _ = False
-
-findEmptyMakeStartPlayerWorkplaces :: Universe -> [WorkplaceId]
-findEmptyMakeStartPlayerWorkplaces = findEmptySpecificWorkplaces isMakeStartPlayer
-  where isMakeStartPlayer (MakeStartPlayer _) = True
-        isMakeStartPlayer _ = False
-
-findEmptyHouseWorkWorkplaces :: Universe -> [WorkplaceId]
-findEmptyHouseWorkWorkplaces = findEmptySpecificWorkplaces (==HouseWork)
-
-findEmptyFarmingWorkplaces :: Universe -> [WorkplaceId]
-findEmptyFarmingWorkplaces = findEmptySpecificWorkplaces (== Farming)
-
-findEmptySpecificWorkplaces :: (WorkplaceData -> Bool) -> Universe -> [WorkplaceId]
-findEmptySpecificWorkplaces condition universe = (keys $ filteredWorkplaces) \\ findOccupiedWorkplaces universe
-  where filteredWorkplaces = M.filter condition $ getWorkplaces universe
-
 findEmptyWorkplaces :: Universe -> [WorkplaceId]
-findEmptyWorkplaces = findEmptySpecificWorkplaces (const True)
+findEmptyWorkplaces universe = (keys $ getWorkplaces universe) \\ findOccupiedWorkplaces universe
 
 findWorkersToMove :: Universe -> [(PlayerId, WorkerId)]
 findWorkersToMove universe = do
@@ -332,20 +250,6 @@ findWorkersToMove universe = do
 
 allPlayersWaiting :: Universe -> Bool
 allPlayersWaiting universe = getCurrentPlayer universe == Nothing
-
-currentPlayerHasFreeRoom :: Universe -> Bool
-currentPlayerHasFreeRoom universe = fromMaybe False $ do
-  currentPlayerId <- getCurrentPlayer universe
-  let buildingSpace = getBuildingSpace universe currentPlayerId
-      buildingCount (LivingRoom _) = 1
-      buildingCount (InitialRoom _) = 2
-      buildingCount _ = 0
-      totalRoom = sum $ buildingCount <$> buildingSpace
-  return (totalRoom > (length $ getWorkers universe currentPlayerId))
-
-currentPlayerCanBuildRoom :: Universe -> Bool
-currentPlayerCanBuildRoom universe = (not $ null $ join $ maybeToList $ availableSingleCavePositions universe <$> getCurrentPlayer universe) &&
-  currentPlayerHasEnoughResourcesForLivingRoom universe
 
 createValidOccupants :: Universe -> PlayerId -> M.Map Position [BuildingOccupant]
 createValidOccupants universe playerId =

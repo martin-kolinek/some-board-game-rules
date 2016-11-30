@@ -1,6 +1,8 @@
 module Workplaces.DigCave where
 
 import Rules
+import TestFramework
+import TestHelpers
 
 import Data.AdditiveGroup
 import Data.Map ((!))
@@ -8,8 +10,6 @@ import Data.Map ((!))
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic
-import TestFramework
-import RulesProperties
 
 import qualified Data.Set as S
 

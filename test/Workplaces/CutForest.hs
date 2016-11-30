@@ -1,15 +1,14 @@
 module Workplaces.CutForest where
 
 import Rules
+import TestFramework
+import TestHelpers
 
 import Data.AdditiveGroup
 import Data.Map ((!))
-
 import Test.Tasty.QuickCheck
 import Test.Tasty
 import Test.QuickCheck.Monadic
-import TestFramework
-import RulesProperties
 
 cutForestTests :: TestTree
 cutForestTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest tests" $ [

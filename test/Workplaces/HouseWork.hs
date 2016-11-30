@@ -1,15 +1,15 @@
 module Workplaces.HouseWork where
 
 import Rules
+import TestHelpers
+import TestFramework
 
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic
-import TestFramework
 import qualified Data.Set as S
 import Data.Map (elems)
 import Control.Monad (join)
-import RulesProperties
 
 houseWorkTests :: TestTree
 houseWorkTests = localOption (QuickCheckMaxRatio 500) $ testGroup "House work tests" $ [

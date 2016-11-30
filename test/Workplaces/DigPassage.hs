@@ -1,15 +1,15 @@
 module Workplaces.DigPassage where
 
 import Rules
+import TestFramework
+import TestHelpers
 
 import Data.AdditiveGroup
 import Data.Map ((!))
 
 import Test.Tasty.QuickCheck
 import Test.Tasty
-import TestFramework
 import Test.QuickCheck.Monadic
-import RulesProperties
 
 digPassageTests :: TestTree
 digPassageTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Dig passage tests" [

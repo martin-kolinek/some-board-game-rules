@@ -33,7 +33,7 @@ test-suite tests
   type:               exitcode-stdio-1.0
   main-is:            Main.hs
   other-modules:      Rules, Universe, Building, Util, Worker, Workplace, Player, Resources, Decisions
-                      Generators, ArbitraryUniverseTest, TestFramework, UniverseTest, BuildingTest, RulesProperties, 
+                      Generators, ArbitraryUniverseTest, TestFramework, RulesProperties, 
                       Universe.Actions, Universe.Building, Universe.Player, Universe.Worker, Universe.Workplace, Universe.Decisions
                       Workplaces.CutForest, Workplaces.DigPassage, Workplaces.DigCave, Workplaces.WorkerNeed, Workplaces.ResourceAddition, Workplaces.GatherWood,
                       Workplaces.GatherFood, Workplaces.HouseWork, Workplaces.MakeStartPlayer

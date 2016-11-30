@@ -1,16 +1,15 @@
 module Workplaces.WorkerNeed where
 
 import Rules
+import TestFramework
+import TestHelpers
 
 import Data.List (sort, (\\), nub)
 import Data.Map (elems)
 import qualified Data.Set as S
-
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic
-import TestFramework
-import RulesProperties
 
 workerNeedTests :: TestTree
 workerNeedTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Worker need tests" $ [

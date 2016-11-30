@@ -1,10 +1,11 @@
 module Workplaces.ResourceAddition where
 
 import Rules
+import TestFramework
+import TestHelpers
 
 import Test.Tasty
 import Test.Tasty.QuickCheck
-import TestFramework
 import Test.QuickCheck.Monadic
 
 resourceAdditionTests :: TestTree

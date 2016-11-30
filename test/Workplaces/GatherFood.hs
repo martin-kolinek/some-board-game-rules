@@ -1,15 +1,14 @@
 module Workplaces.GatherFood where
 
 import Rules
+import TestFramework
+import TestHelpers
 
 import Data.AdditiveGroup
 import Data.Map ((!))
-
 import Test.Tasty.QuickCheck
 import Test.Tasty
 import Test.QuickCheck.Monadic
-import TestFramework
-import RulesProperties
 
 gatherFoodTests :: TestTree
 gatherFoodTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Gather food tests" $ [

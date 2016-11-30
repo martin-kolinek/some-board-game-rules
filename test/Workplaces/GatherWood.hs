@@ -1,13 +1,13 @@
 module Workplaces.GatherWood where
 
 import Rules
+import TestFramework
+import TestHelpers
 
 import Data.Map ((!))
-
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic
-import TestFramework
 
 gatherWoodTests :: TestTree
 gatherWoodTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Resource addition tests" $ [

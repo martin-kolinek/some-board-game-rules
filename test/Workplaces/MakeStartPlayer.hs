@@ -1,11 +1,12 @@
 module Workplaces.MakeStartPlayer where
 
+import Rules
+import TestFramework
+import TestHelpers
+
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic
-import TestFramework
-
-import Rules
 
 startPlayerTests :: TestTree
 startPlayerTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Make start player tests" $ [
