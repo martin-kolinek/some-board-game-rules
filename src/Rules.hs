@@ -1,59 +1,79 @@
 module Rules (
-                Universe,
-                WorkerId,
-                WorkplaceId,
-                PlayerId,
-                BuildingOccupants,
-                WorkplaceData(..),
-                BuildingOccupant(..),
-                Building(..),
-                Direction(..),
-                OccupantError,
-                Position,
-                DecisionType (..),
-                Resources,
-                Options (..),
-                WorkerNeedOptions(..),
-                CaveOrPassageOptions(..),
-                AnyRoomOptions(..),
-                DogId,
-                getPlayers,
-                getCurrentPlayer,
-                getWorkers,
-                getWorkplaces,
-                getWorkerWorkplace,
-                getWorkplaceOccupants,
-                getBuildingSpace,
-                getBuildingOccupants,
-                getAllOccupants,
-                getOccupantErrors,
-                getStartingPlayer,
-                directionAddition,
-                getPossibleDecisions,
-                isMovingWorker,
-                isPlantingCrops,
-                isSelectingPosition,
-                allDirections,
-                availableBuildingPositions,
-                initialUniverse,
-                startWorking,
-                finishTurn,
-                selectPosition,
-                alterOccupants,
-                cancelSelection,
-                chooseOption,
-                plantCrops,
-                getPlayerResources,
-                getWoodAmount,
-                getStoneAmount,
-                getGoldAmount,
-                getIronAmount,
-                getWheatAmount,
-                getPotatoAmount,
-                getMoney,
-                getFoodAmount,
-                getDogs
-             ) where
+  -- * Types
+  -- ** Main universe type
+  Universe,
+  -- ** Identifier types
+  WorkerId,
+  WorkplaceId,
+  PlayerId,
+  DogId,
+  -- ** Workplaces
+  WorkplaceData(..),
+  -- ** Resources
+  Resources,
+  -- ** Buildings
+  Building(..),
+  BuildingOccupant(..),
+  BuildingOccupants,
+  Direction(..),
+  Position,
+  OccupantError,
+  -- ** Decisions
+  DecisionType (..),
+  Options (..),
+  WorkerNeedOptions(..),
+  CaveOrPassageOptions(..),
+  AnyRoomOptions(..),
+
+  -- * Access functions
+  -- ** Players
+  getPlayers,
+  getCurrentPlayer,
+  getStartingPlayer,
+  -- ** Workers
+  getWorkers,
+  getWorkplaces,
+  getWorkerWorkplace,
+  getWorkplaceOccupants,
+  -- ** Buildings
+  getBuildingSpace,
+  getBuildingOccupants,
+  getAllOccupants,
+  getOccupantErrors,
+  -- ** Resources
+  getPlayerResources,
+  getWoodAmount,
+  getStoneAmount,
+  getGoldAmount,
+  getIronAmount,
+  getWheatAmount,
+  getPotatoAmount,
+  getMoney,
+  getFoodAmount,
+  getDogs,
+  -- ** Player status functions
+  getPossibleDecisions,
+  isMovingWorker,
+  isPlantingCrops,
+  isSelectingPosition,
+
+  -- * Action functions
+  startWorking,
+  finishTurn,
+  selectPosition,
+  alterOccupants,
+  cancelSelection,
+  chooseOption,
+  plantCrops,
+
+  -- * Starting state
+  initialUniverse,
+
+  -- * Utility functions
+  directionAddition,
+  allDirections,
+  availableBuildingPositions,
+  ) where
 
 import Worker
 import Workplace
