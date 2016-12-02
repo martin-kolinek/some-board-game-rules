@@ -22,6 +22,9 @@ getBuildingOccupants universe player = fromMaybe empty $ universe ^? (players . 
 getAllOccupants :: Universe -> PlayerId -> [BuildingOccupant]
 getAllOccupants universe player = toListOf (players . ix player . folding getPlayerPossibleOccupants) universe
 
+getPlantedCrops :: Universe -> PlayerId -> Map Position PlantedCrop
+getPlantedCrops universe player = fromMaybe empty $ universe ^? (players . ix player . buildingSpace . buildingSpaceCrops)
+
 getPlayerPossibleOccupants :: PlayerData -> [BuildingOccupant]
 getPlayerPossibleOccupants playerData =
   (DogOccupant <$> toListOf (playerAnimals . dogs . traverse) playerData) ++ (WorkerOccupant <$> toListOf (workers . folding keys) playerData)

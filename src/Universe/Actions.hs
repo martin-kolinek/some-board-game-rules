@@ -134,7 +134,6 @@ plantCrops crops universe = do
       plantingPlayerTraversal :: Traversal' Universe PlayerData
       plantingPlayerTraversal = players . traverse . filtered (has $ playerStatus . filtered (== PlantingCrops))
   playerData <- checkMaybe "Not currently planting crops" $ universe ^? plantingPlayerTraversal
-  check (has plantingPlayerTraversal universe) "Not currently planting crops"
   check (all ((<=2) . length) groupedCrops) "Too many crops"
   updatedBuildingSpace <- foldM (flip $ uncurry plantCrop) (playerData ^. buildingSpace) crops
   let withUpdatedBuildingSpace = set (plantingPlayerTraversal . buildingSpace) updatedBuildingSpace universe

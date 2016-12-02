@@ -18,6 +18,9 @@ module Rules (
   Direction(..),
   Position,
   OccupantError,
+  CropToPlant,
+  CropType,
+  PlantedCrop,
   -- ** Decisions
   DecisionType (..),
   Options (..),
@@ -40,6 +43,7 @@ module Rules (
   getBuildingOccupants,
   getAllOccupants,
   getOccupantErrors,
+  getPlantedCrops,
   -- ** Resources
   getPlayerResources,
   getWoodAmount,
