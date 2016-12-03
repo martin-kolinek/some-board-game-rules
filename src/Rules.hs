@@ -19,8 +19,8 @@ module Rules (
   Position,
   OccupantError,
   CropToPlant,
-  CropType,
-  PlantedCrop,
+  CropType(..),
+  PlantedCrop(..),
   -- ** Decisions
   DecisionType (..),
   Options (..),

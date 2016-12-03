@@ -12,6 +12,7 @@ import Workplaces.GatherWood
 import Workplaces.GatherFood
 import Workplaces.MakeStartPlayer
 import Workplaces.HouseWork
+import Workplaces.Farming
 
 main :: IO ()
 main = defaultMain $ do
@@ -26,4 +27,5 @@ main = defaultMain $ do
     gatherWoodTests,
     gatherFoodTests,
     startPlayerTests,
-    houseWorkTests]
+    houseWorkTests,
+    farmingTests]

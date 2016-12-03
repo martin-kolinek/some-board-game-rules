@@ -36,7 +36,7 @@ test-suite tests
                       Generators, ArbitraryUniverseTest, TestFramework, RulesProperties, 
                       Universe.Actions, Universe.Building, Universe.Player, Universe.Worker, Universe.Workplace, Universe.Decisions
                       Workplaces.CutForest, Workplaces.DigPassage, Workplaces.DigCave, Workplaces.WorkerNeed, Workplaces.ResourceAddition, Workplaces.GatherWood,
-                      Workplaces.GatherFood, Workplaces.HouseWork, Workplaces.MakeStartPlayer
+                      Workplaces.GatherFood, Workplaces.HouseWork, Workplaces.MakeStartPlayer, Workplaces.Farming
   hs-source-dirs:     test src
   default-language:   Haskell2010
   build-depends:      base,
