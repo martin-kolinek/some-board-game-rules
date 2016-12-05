@@ -45,10 +45,11 @@ farmingTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Farming tests" 
       buildingSpace <- getsUniverse getBuildingSpace <*> pure playerId
       validPositions <- pickPlantingPositions playerId
       invalidPositions <- pick $ shuffle $ nonFieldPositions =<< buildingSpace
-      invalidCount <- pick $ choose (1, 4)
-      validCount <- pick $ choose (0, 4 - invalidCount)
+      cropTypes <- pickCropTypes playerId True True
+      pre $ length cropTypes > 1
+      invalidCount <- pick $ choose (1, length cropTypes)
+      validCount <- pick $ choose (0, length cropTypes - invalidCount)
       positions <- pick $ shuffle $ take invalidCount invalidPositions ++ take validCount validPositions
-      cropTypes <- pick $ shuffle [Potatoes, Potatoes, Wheat, Wheat]
       applyToUniverse $ plantCrops (zip cropTypes positions)
       shouldHaveFailed,
     testProperty "Planting too many crops is not possible" $ universeProperty $ do
@@ -59,6 +60,15 @@ farmingTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Farming tests" 
       additionalCount <- pick $ choose (0, length positions - 3)
       additionalCrops <- pick $ vectorOf additionalCount $ elements [Potatoes, Wheat]
       crops <- pick $ shuffle $ additionalCrops ++ (replicate 3 tooManyType)
+      applyToUniverse $ plantCrops (zip crops positions)
+      shouldHaveFailed,
+    testProperty "Planting more than had is not possible" $ universeProperty $ do
+      (playerId, _, _) <- startWorkingInFarming
+      positions <- pickPlantingPositions playerId
+      potatoCorrect <- pick $ elements [True, False]
+      wheatCorrect <- pick $ elements [not potatoCorrect, False]
+      crops <- pickCropTypes playerId wheatCorrect potatoCorrect
+      pre $ length positions >= length crops
       applyToUniverse $ plantCrops (zip crops positions)
       shouldHaveFailed
   ]
@@ -80,5 +90,16 @@ pickCropsToPlant :: PlayerId -> UniversePropertyMonad [(CropType, Position)]
 pickCropsToPlant plId = do
   positions <- pickPlantingPositions plId
   count <- pick $ choose (0, 4)
-  cropTypes <- pick $ shuffle [Potatoes, Potatoes, Wheat, Wheat]
+  cropTypes <- pickCropTypes plId True True
   return $ take count $ zip cropTypes positions
+
+pickCropTypes :: PlayerId -> Bool -> Bool -> UniversePropertyMonad [CropType]
+pickCropTypes plId wheatCorrect potatoCorrect = do
+  resources <- getsUniverse getPlayerResources <*> pure plId
+  let getAmount correct getter = if correct then pick $ choose (0, min 2 (getter resources))
+        else do
+          pre $ getter resources < 2
+          pick $ choose (getter resources + 1, 2)
+  potatoCount <- getAmount potatoCorrect getPotatoAmount
+  wheatCount <- getAmount wheatCorrect getWheatAmount
+  pick $ shuffle (replicate potatoCount Potatoes ++ replicate wheatCount Wheat)
