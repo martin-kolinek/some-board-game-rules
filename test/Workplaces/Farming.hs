@@ -70,7 +70,19 @@ farmingTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Farming tests" 
       crops <- pickCropTypes playerId wheatCorrect potatoCorrect
       pre $ length positions >= length crops
       applyToUniverse $ plantCrops (zip crops positions)
-      shouldHaveFailed
+      shouldHaveFailed,
+    testProperty "Planting crops subtracts resources" $ universeProperty $ do
+      (playerId, _, _) <- startWorkingInFarming
+      originalResources <- getsUniverse getPlayerResources <*> pure playerId
+      crops <- pickCropsToPlant playerId
+      pre $ not $ null $ crops
+      applyToUniverse $ plantCrops crops
+      newResources <- getsUniverse getPlayerResources <*> pure playerId
+      let potatoCount = length $ filter (== Potatoes) $ fst <$> crops
+          wheatCount = length $ filter (== Wheat) $ fst <$> crops
+      assert $ potatoCount == getPotatoAmount originalResources - getPotatoAmount newResources
+      assert $ wheatCount == getWheatAmount originalResources - getWheatAmount newResources
+      return ()
   ]
 
 startWorkingInFarming :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)

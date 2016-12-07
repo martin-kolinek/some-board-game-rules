@@ -4,8 +4,8 @@ module Universe.Actions where
 import Prelude hiding (lookup)
 import Control.Monad.Except
 import Control.Lens hiding (universe)
-import Data.List (sortOn, groupBy)
-import Data.Map
+import Data.List (sortOn, groupBy, foldl')
+import Data.Map hiding (foldl')
 import Data.Maybe
 import Data.Function (on)
 
@@ -135,11 +135,14 @@ plantCrops crops universe = do
       plantingPlayerTraversal = players . traverse . filtered (has $ playerStatus . filtered (== PlantingCrops))
   playerData <- checkMaybe "Not currently planting crops" $ universe ^? plantingPlayerTraversal
   check (all ((<=2) . length) groupedCrops) "Too many crops"
-  let checkCropAmount group = playerData ^. (playerResources . cropLens (fst . head $ group)) >= length group
+  let cropAmountLens group = playerResources . cropLens (fst . head $ group)
+      checkCropAmount group = playerData ^. cropAmountLens group >= length group
       cropLens Potatoes = potatoAmount
       cropLens Wheat = wheatAmount
+      updateResources group = over (plantingPlayerTraversal . cropAmountLens group) (subtract (length group))
   check (all checkCropAmount groupedCrops) "Not enough crops"
   updatedBuildingSpace <- foldM (flip $ uncurry plantCrop) (playerData ^. buildingSpace) crops
   let withUpdatedBuildingSpace = set (plantingPlayerTraversal . buildingSpace) updatedBuildingSpace universe
-      withStoppedTurn = over plantingPlayerTraversal stopTurn withUpdatedBuildingSpace
+      withRemovedResources = foldl' (flip updateResources) withUpdatedBuildingSpace groupedCrops
+      withStoppedTurn = over plantingPlayerTraversal stopTurn withRemovedResources
   return $ startNextPlayer universe withStoppedTurn
