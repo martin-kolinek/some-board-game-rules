@@ -3,13 +3,14 @@ module Generators where
 
 import Prelude hiding (lookup)
 import Test.QuickCheck
-import Data.Map.Strict (fromList, fromListWith, keys, (!), Map, empty)
+import Data.Map.Strict (fromList, fromListWith, keys, (!), Map, empty, singleton)
 import qualified Data.Set as S
 import Control.Monad (forM, foldM)
 import Text.Show.Pretty
 import Data.List.Split (splitPlaces, chunksOf)
 import Control.Lens ((^.))
 import Data.Monoid ((<>))
+import Data.Maybe (mapMaybe)
 
 import Universe hiding (players)
 import qualified Universe as U
@@ -146,6 +147,21 @@ generateEmptyResources = Resources
   <*> choose (0, 2)
   <*> choose (0, 2)
 
+generatePlantedCrops :: [Building] -> Gen (Map Position PlantedCrop)
+generatePlantedCrops buildings = do
+  let getValidPosition (Field pos) = Just pos
+      getValidPosition _ = Nothing
+      possiblePositions = mapMaybe getValidPosition buildings
+  plantedCropList <- forM possiblePositions $ \position -> do
+    isEmpty <- elements [True, False]
+    if isEmpty
+      then return empty
+      else do
+        cropType <- elements [Potatoes, Wheat]
+        cropCount <- choose (1 :: Int, if cropType == Potatoes then 2 else 3)
+        return $ singleton position (PlantedCrop cropType cropCount)
+  return $ mconcat plantedCropList
+
 generateResources :: Gen Resources
 generateResources = oneof [generateEmptyResources, generateFullResources]
 
@@ -247,10 +263,11 @@ generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availa
                         then generateInvalidOccupants allWorkerIds
                         else generateOccupants allWorkerIds (generatedAnimals ^. dogs) generatedBuildings
   generatedResources <- generateResources
+  generatedPlantedCrops <- generatePlantedCrops generatedBuildings
   let playerData = PlayerData
                      generatedPlayerId
                      (fromList $ zip allWorkerIds allWorkerStates)
-                     (BuildingSpace generatedBuildings generatedOccupants empty)
+                     (BuildingSpace generatedBuildings generatedOccupants generatedPlantedCrops)
                      (extractPlayerStatus selectedStatus)
                      generatedResources
                      generatedAnimals

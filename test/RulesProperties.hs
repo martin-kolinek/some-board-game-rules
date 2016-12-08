@@ -188,7 +188,54 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
               return $ not $ null errors
             where playersWithFreeBuilding = [plId | plId <- getPlayers universe, length (getWorkers universe plId) <= 3]
                   originalOccupants playerId = join $ elems $ getBuildingOccupants universe playerId
-      in prop
+      in prop,
+    testProperty "Finishing turn removes crops" $ universeProperty $ do
+      pre =<< getsUniverse allPlayersWaiting
+      universe <- getUniverse
+      let cropsExist plId = not $ M.null $ getPlantedCrops universe plId
+      pre $ any cropsExist (getPlayers universe)
+      applyToUniverse finishTurn
+      forM_ (getPlayers universe) $ \playerId -> do
+        let validatePlantedCrop (Just (PlantedCrop origType origCount)) (Just (PlantedCrop newType newCount)) = origType == newType && newCount == origCount - 1
+            validatePlantedCrop (Just (PlantedCrop _ 1)) Nothing = True
+            validatePlantedCrop Nothing Nothing = True
+            validatePlantedCrop _ _ = False
+            originalPlantedCrops = getPlantedCrops universe playerId
+        newPlantedCrops <- getsUniverse getPlantedCrops <*> pure playerId
+        forM_ availableBuildingPositions $ \position -> do
+          if (validatePlantedCrop (M.lookup position originalPlantedCrops) (M.lookup position newPlantedCrops))
+            then return ()
+            else do
+              monitor $ counterexample $ "Player = " ++ (show playerId) ++ " position = " ++ (show position)
+              assert False,
+    testProperty "Finishing turn adds crop resources" $ universeProperty $ do
+      pre =<< getsUniverse allPlayersWaiting
+      universe <- getUniverse
+      applyToUniverse finishTurn
+      let cropsExist plId = not $ M.null $ getPlantedCrops universe plId
+      pre $ any cropsExist (getPlayers universe)
+      forM_ (getPlayers universe) $ \playerId -> do
+        let countCropType tp (PlantedCrop plantedType _) = if tp == plantedType then 1 else 0
+            countCrop tp = sum $ countCropType tp <$> (M.elems $ getPlantedCrops universe playerId)
+            cropAmount Potatoes = getPotatoAmount
+            cropAmount Wheat = getWheatAmount
+            originalResources = getPlayerResources universe playerId
+        newResources <- getsUniverse getPlayerResources <*> pure playerId
+        let verifyCrop tp = cropAmount tp newResources - cropAmount tp originalResources == countCrop tp
+        assert $ verifyCrop Potatoes
+        assert $ verifyCrop Wheat
+      return (),
+    testProperty "There are no planted crops with zero" $ universeProperty $ do
+      pre =<< getsUniverse allPlayersWaiting
+      universe <- getUniverse
+      applyToUniverse finishTurn
+      let cropsExist plId = not $ M.null $ getPlantedCrops universe plId
+          plantedCropIsValid (PlantedCrop _ 0) = False
+          plantedCropIsValid _ = True
+      pre $ any cropsExist (getPlayers universe)
+      forM_ (getPlayers universe) $ \playerId -> do
+        crops <- getsUniverse getPlantedCrops <*> pure playerId
+        assert $ all plantedCropIsValid $ elems crops
   ]
 
 allPossibleOptions :: [Options]

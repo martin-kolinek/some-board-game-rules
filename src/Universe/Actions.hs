@@ -85,7 +85,8 @@ finishTurn universe = do
   let withWorkersFreed = set (players . traverse . workers . traverse) initialWorkerState universe
       withFirstPlayerMovingWorker = set (players . ix (universe ^. startingPlayer) . playerStatus) MovingWorker withWorkersFreed
       withUpdatedWorkplaces = updateWorkplacesAfterTurn withFirstPlayerMovingWorker
-  return withUpdatedWorkplaces
+      withCollectedCrops = over (players . traverse) collectCrops withUpdatedWorkplaces
+  return withCollectedCrops
 
 chooseOption :: MonadError String m => Options -> Universe -> m Universe
 chooseOption option universe = do
@@ -135,10 +136,8 @@ plantCrops crops universe = do
       plantingPlayerTraversal = players . traverse . filtered (has $ playerStatus . filtered (== PlantingCrops))
   playerData <- checkMaybe "Not currently planting crops" $ universe ^? plantingPlayerTraversal
   check (all ((<=2) . length) groupedCrops) "Too many crops"
-  let cropAmountLens group = playerResources . cropLens (fst . head $ group)
+  let cropAmountLens group = playerResources . cropResource (fst . head $ group)
       checkCropAmount group = playerData ^. cropAmountLens group >= length group
-      cropLens Potatoes = potatoAmount
-      cropLens Wheat = wheatAmount
       updateResources group = over (plantingPlayerTraversal . cropAmountLens group) (subtract (length group))
   check (all checkCropAmount groupedCrops) "Not enough crops"
   updatedBuildingSpace <- foldM (flip $ uncurry plantCrop) (playerData ^. buildingSpace) crops

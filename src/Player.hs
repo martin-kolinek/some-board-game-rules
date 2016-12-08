@@ -6,8 +6,9 @@ import Building
 import Workplace
 import Resources
 
-import Data.Map
+import Data.Map hiding (foldl')
 import Control.Lens
+import Data.List (sort, group, foldl')
 
 newtype PlayerId = PlayerId Int deriving (Eq, Ord, Show)
 
@@ -50,6 +51,18 @@ checkOccupantsAfterTurn plData =
 
 stopTurn :: PlayerData -> PlayerData
 stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid
+
+collectCrops :: PlayerData -> PlayerData
+collectCrops playerData =
+  let grouped = group $ sort $ toListOf (buildingSpace . buildingSpaceCrops . traverse . to plantedCropType) playerData
+      addResource plData cropGroup = over (playerResources . cropResource (head cropGroup)) (+ (length cropGroup)) plData
+      withAddedResources = foldl' addResource playerData grouped
+      removeCrop (Just (PlantedCrop _ 1)) = Nothing
+      removeCrop (Just (PlantedCrop tp n)) = Just (PlantedCrop tp (n-1))
+      removeCrop _ = Nothing
+      removeCropAt pos = over (buildingSpace . buildingSpaceCrops . at pos) removeCrop
+      plantedCropType (PlantedCrop tp _) = tp
+  in foldl' (flip removeCropAt) withAddedResources availableBuildingPositions
 
 initialPlayers :: Map PlayerId PlayerData
 initialPlayers = fromList

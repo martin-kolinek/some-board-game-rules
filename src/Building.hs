@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 
@@ -206,3 +207,7 @@ plantCrop cropType position buildingSpace = do
   let plantCropType Wheat = PlantedCrop Wheat 3
       plantCropType Potatoes = PlantedCrop Potatoes 2
   return $ over buildingSpaceCrops (M.insert position (plantCropType cropType)) buildingSpace
+
+cropResource :: CropType -> Lens' Resources Int
+cropResource Potatoes = potatoAmount
+cropResource Wheat = wheatAmount
