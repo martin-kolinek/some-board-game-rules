@@ -30,7 +30,7 @@ getPlayerPossibleOccupants playerData =
   (DogOccupant <$> toListOf (playerAnimals . dogs . traverse) playerData) ++ (WorkerOccupant <$> toListOf (workers . folding keys) playerData)
 
 currentPlayerCanBuildRoom :: Universe -> Bool
-currentPlayerCanBuildRoom universe = has (currentPlayerData . buildingSpace . to getBuildings . traverse . filtered isCave) universe &&
+currentPlayerCanBuildRoom universe = has (currentPlayerData . buildingSpace . to getBuildings . traverse . filtered ((==Cave) . getBuildingType)) universe &&
   has (currentPlayerData . playerResources . woodAmount . filtered (>=4)) universe &&
   has (currentPlayerData . playerResources . stoneAmount . filtered (>=3)) universe
 

@@ -12,7 +12,7 @@ import Data.List ((\\))
 import Data.Map (keys, lookup)
 
 farmingTests :: TestTree
-farmingTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Farming tests" $ [
+farmingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Farming tests" $ [
     testProperty "Starting working makes planting crops available" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInFarming
       plCrops <- getsUniverse isPlantingCrops <*> pure playerId
@@ -34,14 +34,7 @@ farmingTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Farming tests" 
       validateNextPlayer playerId,
     testProperty "Planting crops not on fields is not possible" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInFarming
-      let nonFieldPositions (Field _) = []
-          nonFieldPositions (Forest pos) = [pos]
-          nonFieldPositions (Grass pos) = [pos]
-          nonFieldPositions (Rock pos) = [pos]
-          nonFieldPositions (Cave pos) = [pos]
-          nonFieldPositions (Passage pos) = [pos]
-          nonFieldPositions (LivingRoom pos) = [pos]
-          nonFieldPositions (InitialRoom pos) = [pos]
+      let nonFieldPositions (Building buildingType pos) = if buildingType == Field then [] else [pos]
       buildingSpace <- getsUniverse getBuildingSpace <*> pure playerId
       validPositions <- pickPlantingPositions playerId
       invalidPositions <- pick $ shuffle $ nonFieldPositions =<< buildingSpace
@@ -92,7 +85,7 @@ pickPlantingPositions :: PlayerId -> UniversePropertyMonad [Position]
 pickPlantingPositions plId = do
   buildingSpace <- getsUniverse getBuildingSpace <*> pure plId
   existingCrops <- getsUniverse getPlantedCrops <*> pure plId
-  let fieldPosition (Field pos) = [pos]
+  let fieldPosition (Building Field pos) = [pos]
       fieldPosition _ = []
       allFieldPositions = buildingSpace >>= fieldPosition
       freeFieldPositions = allFieldPositions \\ keys existingCrops

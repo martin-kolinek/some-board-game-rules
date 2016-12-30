@@ -107,19 +107,17 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
       in prop,
     testProperty "Caves exist" $
       let prop (ArbitraryUniverse universe) =
-            has (players . traverse . buildingSpace . to getBuildings . traverse . filtered isCave) universe ==> True
+            has (players . traverse . buildingSpace . to getBuildings . traverse . to getBuildingType . filtered (== Cave)) universe ==> True
       in prop,
     testProperty "Passages exist" $
       let prop (ArbitraryUniverse universe) =
             has (players . traverse . buildingSpace . to getBuildings . traverse . filtered isPassage) universe ==> True
-            where isPassage (Passage _) = True
-                  isPassage _ = False
+            where isPassage = (== Passage) . getBuildingType
       in prop,
     testProperty "Living rooms exist" $
       let prop (ArbitraryUniverse universe) =
             has (players . traverse . buildingSpace . to getBuildings . traverse . filtered isLivingRoom) universe ==> True
-            where isLivingRoom (LivingRoom _) = True
-                  isLivingRoom _ = False
+            where isLivingRoom = (== LivingRoom) . getBuildingType
       in prop,
     testProperty "Current player can be the last player" $
       let prop (ArbitraryUniverse universe) =

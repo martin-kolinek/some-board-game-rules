@@ -54,7 +54,7 @@ houseWorkTests = localOption (QuickCheckMaxRatio 500) $ testGroup "House work te
       applyToUniverse $ chooseOption (AnyRoomOption ChooseLivingRoom)
       (pos, _) <- selectCorrectPosition availableSingleCavePositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
-      assert $ LivingRoom pos `elem` buildings
+      assert $ Building LivingRoom pos `elem` buildings
   ]
 
 startWorkingInHouseWork :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)

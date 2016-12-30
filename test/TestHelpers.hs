@@ -81,17 +81,17 @@ validatePlayerHasValidOccupants plId = assert =<< null <$> (getsUniverse getOccu
 
 availableForestPositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableForestPositions = availableSpecificPositions isCuttable isDevelopedOutside False
-  where isCuttable buildingSpace pos = Forest pos `elem` buildingSpace
-        isDevelopedOutside buildingSpace pos = not $ null $ intersect [Field pos, Grass pos, InitialRoom pos] buildingSpace
+  where isCuttable buildingSpace pos = Building Forest pos `elem` buildingSpace
+        isDevelopedOutside buildingSpace pos = not $ null $ intersect [Building Field pos, Building Grass pos, Building InitialRoom pos] buildingSpace
 
 availableRockPositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableRockPositions = availableSpecificPositions isDiggable isDevelopedInside False
-  where isDiggable buildingSpace pos = Rock pos `elem` buildingSpace
-        isDevelopedInside buildingSpace pos = not $ null $ intersect [InitialRoom pos, Cave pos, Passage pos] buildingSpace
+  where isDiggable buildingSpace pos = Building Rock pos `elem` buildingSpace
+        isDevelopedInside buildingSpace pos = not $ null $ intersect [Building InitialRoom pos, Building Cave pos, Building Passage pos] buildingSpace
 
 availableSingleCavePositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableSingleCavePositions = availableSpecificPositions isBuildable (const $ const True) True
-  where isBuildable buildingSpace pos = Cave pos `elem` buildingSpace
+  where isBuildable buildingSpace pos = Building Cave pos `elem` buildingSpace
 
 availableSpecificPositions :: ([Building] -> Position -> Bool) -> ([Building] -> Position -> Bool) -> Bool -> Universe -> PlayerId -> [(Position, Direction)]
 availableSpecificPositions freeCondition developedCondition ignoreDirection universe playerId = [(pos, direction) |
@@ -116,8 +116,8 @@ currentPlayerHasFreeRoom :: Universe -> Bool
 currentPlayerHasFreeRoom universe = fromMaybe False $ do
   currentPlayerId <- getCurrentPlayer universe
   let buildingSpace = getBuildingSpace universe currentPlayerId
-      buildingCount (LivingRoom _) = 1
-      buildingCount (InitialRoom _) = 2
+      buildingCount (Building LivingRoom _) = 1
+      buildingCount (Building InitialRoom _) = 2
       buildingCount _ = 0
       totalRoom = sum $ buildingCount <$> buildingSpace
   return (totalRoom > (length $ getWorkers universe currentPlayerId))

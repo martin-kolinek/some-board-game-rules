@@ -36,15 +36,15 @@ digCaveTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest test
         applyToUniverse $ chooseOption (CaveOrPassageOption ChooseCave)
         (pos, dir) <- selectCorrectPosition availableRockPositions playerId
         buildings <- getsUniverse getBuildingSpace <*> pure playerId
-        assert $ Cave pos `elem` buildings
-        assert $ Cave (pos ^+^ directionAddition dir) `elem` buildings,
+        assert $ Building Cave pos `elem` buildings
+        assert $ Building Cave (pos ^+^ directionAddition dir) `elem` buildings,
     testProperty "Starting working, and digging passage adds cave" $ universeProperty $ do
         (playerId, _, _) <- startWorkingInDigCave
         applyToUniverse $ chooseOption (CaveOrPassageOption ChoosePassage)
         (pos, dir) <- selectCorrectPosition availableRockPositions playerId
         buildings <- getsUniverse getBuildingSpace <*> pure playerId
-        assert $ Cave pos `elem` buildings
-        assert $ Passage (pos ^+^ directionAddition dir) `elem` buildings,
+        assert $ Building Cave pos `elem` buildings
+        assert $ Building Passage (pos ^+^ directionAddition dir) `elem` buildings,
     testProperty "Starting working adds stone" $ universeProperty $ do
         originalUniverse <- getUniverse
         (playerId, _, workplaceId) <- startWorkingInDigCave

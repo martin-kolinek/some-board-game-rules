@@ -14,7 +14,8 @@ gatherFoodTests :: TestTree
 gatherFoodTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Gather food tests" $ [
     testProperty "Starting working start position selection" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInGatherFood
-      assert =<< getsUniverse isSelectingPosition <*> pure playerId,
+      buildings <- getsUniverse currentlyBuiltBuildings <*> pure playerId
+      assert $ buildings == [Grass, Field],
     testProperty "Starting working and selecting invalid position fails" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInGatherFood
       _ <- selectWrongPosition availableForestPositions playerId
@@ -23,8 +24,8 @@ gatherFoodTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Gather food 
       (playerId, _, _) <- startWorkingInGatherFood
       (pos, dir) <- selectCorrectPosition availableForestPositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
-      assert $ Grass pos `elem` buildings
-      assert $ Field (pos ^+^ directionAddition dir) `elem` buildings,
+      assert $ Building Grass pos `elem` buildings
+      assert $ Building Field (pos ^+^ directionAddition dir) `elem` buildings,
     testProperty "Starting working and canceling starts next player turn" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInGatherFood
       checkPlayerHasValidOccupants playerId

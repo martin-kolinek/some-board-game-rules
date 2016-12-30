@@ -12,7 +12,8 @@ module Rules (
   -- ** Resources
   Resources,
   -- ** Buildings
-  Building(..),
+  Building(Building),
+  BuildingType(..),
   BuildingOccupant(..),
   BuildingOccupants,
   Direction(..),
@@ -59,7 +60,8 @@ module Rules (
   getPossibleDecisions,
   isMovingWorker,
   isPlantingCrops,
-  isSelectingPosition,
+  canCancelBuilding,
+  currentlyBuiltBuildings,
 
   -- * Action functions
   startWorking,

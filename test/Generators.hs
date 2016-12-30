@@ -81,16 +81,16 @@ generateBuildingSpace requiredWorkers = do
   (_, cutPositions) <- foldM (expand isValidForest) (S.singleton (2, 3), S.empty) [1..cutForestCount]
   (_, dugPositions) <- foldM (expand isValidRock) (S.fromList [(4, 3), (3, 2)], S.empty) [1..dugRockCount]
   cutForestBuildings <- forM (S.toList cutPositions) $ \position ->
-    elements [Field position, Grass position]
+    elements [Building Field position, Building Grass position]
   dugRockShuffled <- shuffle $ S.toList dugPositions
-  let mandatoryRooms = LivingRoom <$> take (requiredWorkers - 2) dugRockShuffled
+  let mandatoryRooms = Building LivingRoom <$> take (requiredWorkers - 2) dugRockShuffled
   hasAdditionalRooms <- elements [True, False]
   dugRockBuildings <- forM (drop (requiredWorkers - 2) dugRockShuffled) $ \position ->
-    if hasAdditionalRooms then elements $ [Passage, Cave, LivingRoom] <*> pure position
-                          else elements $ [Passage, Cave] <*> pure position
-  let rocks = Rock <$> S.toList (S.fromList [(x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3)] S.\\ dugPositions)
-      initialRoom = [InitialRoom (3, 3)]
-      forestBuildings = Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
+    if hasAdditionalRooms then elements $ [Building Passage, Building Cave, Building LivingRoom] <*> pure position
+                          else elements $ [Building Passage, Building Cave] <*> pure position
+  let rocks = Building Rock <$> S.toList (S.fromList [(x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3)] S.\\ dugPositions)
+      initialRoom = [Building InitialRoom (3, 3)]
+      forestBuildings = Building Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
   return $ cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom ++ dugRockBuildings ++ mandatoryRooms
 
 generateValidOccupants :: [WorkerId] -> [DogId] -> [Building] -> Gen BuildingOccupants
@@ -149,7 +149,7 @@ generateEmptyResources = Resources
 
 generatePlantedCrops :: [Building] -> Gen (Map Position PlantedCrop)
 generatePlantedCrops buildings = do
-  let getValidPosition (Field pos) = Just pos
+  let getValidPosition (Building Field pos) = Just pos
       getValidPosition _ = Nothing
       possiblePositions = mapMaybe getValidPosition buildings
   plantedCropList <- forM possiblePositions $ \position -> do

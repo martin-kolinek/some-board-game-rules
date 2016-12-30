@@ -19,15 +19,17 @@ import Control.Lens
 
 type Position = (Int, Int)
 
-data Building =
-  Forest Position |
-  Grass Position |
-  Rock Position |
-  Field Position |
-  Cave Position |
-  Passage Position |
-  LivingRoom Position |
-  InitialRoom Position deriving (Show, Eq)
+data BuildingType =
+  Forest |
+  Grass |
+  Rock |
+  Field |
+  Cave |
+  Passage |
+  LivingRoom |
+  InitialRoom deriving (Show, Eq)
+
+data Building = Building BuildingType Position deriving (Show, Eq)
 
 data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight deriving (Show, Eq, Enum, Ord)
 
@@ -57,27 +59,20 @@ directionAddition DirectionLeft = (-1, 0)
 directionAddition DirectionRight = (1, 0)
 
 buildingPositions :: Building -> [Position]
-buildingPositions (Forest pos) = [pos]
-buildingPositions (Grass pos) = [pos]
-buildingPositions (Rock pos) = [pos]
-buildingPositions (Field pos) = [pos]
-buildingPositions (InitialRoom pos) = [pos]
-buildingPositions (Cave pos) = [pos]
-buildingPositions (Passage pos) = [pos]
-buildingPositions (LivingRoom pos) = [pos]
+buildingPositions (Building _ pos) = [pos]
 
 buildingSupportedWorkers :: Building -> Int
-buildingSupportedWorkers (InitialRoom _) = 2
-buildingSupportedWorkers (LivingRoom _) = 1
+buildingSupportedWorkers (Building InitialRoom _) = 2
+buildingSupportedWorkers (Building LivingRoom _) = 1
 buildingSupportedWorkers _ = 0
 
 makeLenses ''BuildingSpace
 
 initialBuildingSpace :: [BuildingOccupant] -> BuildingSpace
 initialBuildingSpace workers =
-  let forests = [Forest (x, y) | x <- [0..2], y <- [0..3]]
-      rocks = [Rock (x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)]
-      initialRoom = [InitialRoom (3, 3), Cave (3, 2)]
+  let forests = [Building Forest (x, y) | x <- [0..2], y <- [0..3]]
+      rocks = [Building Rock (x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)]
+      initialRoom = [Building InitialRoom (3, 3), Building Cave (3, 2)]
       buildings = (forests ++ rocks ++ initialRoom)
   in BuildingSpace buildings (initialOccupants workers buildings) M.empty
 
@@ -90,17 +85,8 @@ availableBuildingPositions = getBuildings (initialBuildingSpace []) >>= building
 getBuilding :: [Building] -> Position -> Maybe Building
 getBuilding buildings position = listToMaybe [b | b <- buildings, position `elem` buildingPositions b]
 
-isForest :: Building -> Bool
-isForest (Forest _) = True
-isForest _ = False
-
-isRock :: Building -> Bool
-isRock (Rock _) = True
-isRock _ = False
-
-isCave :: Building -> Bool
-isCave (Cave _) = True
-isCave _ = False
+getBuildingType :: Building -> BuildingType
+getBuildingType (Building tp _) = tp
 
 build :: [Building] -> Building -> [Building]
 build buildings building =
@@ -113,54 +99,48 @@ build buildings building =
   in assert (notOverlapping && originalPositionsOccupied) $ newBuildings
 
 isDevelopedOutside :: Building -> Bool
-isDevelopedOutside (Field _) = True
-isDevelopedOutside (Grass _) = True
-isDevelopedOutside (InitialRoom _) = True
-isDevelopedOutside _ = False
+isDevelopedOutside building = getBuildingType building `elem` [Field, Grass, InitialRoom]
 
 isDevelopedInside :: Building -> Bool
-isDevelopedInside (Cave _) = True
-isDevelopedInside (Passage _) = True
-isDevelopedInside (InitialRoom _) = True
-isDevelopedInside _ = False
+isDevelopedInside building = getBuildingType building `elem` [Cave, Passage, InitialRoom]
 
 cutForest :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
 cutForest position direction =
-  buildNewBuildingsInBuildingSpace isDevelopedOutside isForest [(position, Grass), (position ^+^ directionAddition direction, Field)]
+  buildNewBuildingsInBuildingSpace isDevelopedOutside Forest [(position, Grass), (position ^+^ directionAddition direction, Field)]
 
 digPassage :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
 digPassage position direction =
-  buildNewBuildingsInBuildingSpace isDevelopedInside isRock [(position, Cave), (position ^+^ directionAddition direction, Passage)]
+  buildNewBuildingsInBuildingSpace isDevelopedInside Rock [(position, Cave), (position ^+^ directionAddition direction, Passage)]
 
 digCave :: MonadError String m => Position -> Direction -> BuildingSpace -> m BuildingSpace
 digCave position direction =
-  buildNewBuildingsInBuildingSpace isDevelopedInside isRock [(position, Cave), (position ^+^ directionAddition direction, Cave)]
+  buildNewBuildingsInBuildingSpace isDevelopedInside Rock [(position, Cave), (position ^+^ directionAddition direction, Cave)]
 
 buildLivingRoom :: MonadError String m => Position -> BuildingSpace -> m BuildingSpace
-buildLivingRoom position = buildNewBuildingsInBuildingSpace (const True) isCave [(position, LivingRoom)]
+buildLivingRoom position = buildNewBuildingsInBuildingSpace (const True) Cave [(position, LivingRoom)]
 
 type DevelopmentCheck = Building -> Bool
-type SuitabilityCheck = Building -> Bool
+type UnderlyingBuilding = BuildingType
 
 buildNewBuildingsInBuildingSpace ::
   MonadError String f =>
   DevelopmentCheck
-  -> SuitabilityCheck
-  -> [(Position, Position -> Building)]
+  -> UnderlyingBuilding
+  -> [(Position, BuildingType)]
   -> BuildingSpace
   -> f BuildingSpace
-buildNewBuildingsInBuildingSpace developmentCheck suitabilityCheck newBuildings =
-  traverseOf buildingSpaceBuildings (buildNewBuildings developmentCheck suitabilityCheck newBuildings)
+buildNewBuildingsInBuildingSpace developmentCheck underlyingBuilding newBuildings =
+  traverseOf buildingSpaceBuildings (buildNewBuildings developmentCheck underlyingBuilding newBuildings)
 
-buildNewBuildings :: MonadError String m => DevelopmentCheck -> SuitabilityCheck -> [(Position, Position -> Building)] -> [Building] -> m [Building]
-buildNewBuildings developmentCheck suitabilityCheck newBuildings originalBuildings = do
+buildNewBuildings :: MonadError String m => DevelopmentCheck -> UnderlyingBuilding -> [(Position, BuildingType)] -> [Building] -> m [Building]
+buildNewBuildings developmentCheck underlyingBuilding newBuildings originalBuildings = do
   let neighbourBuildings pos = catMaybes $ getBuilding originalBuildings <$> [pos ^+^ directionAddition dir | dir <- allDirections]
       hasDevelopedNeighbours pos = any developmentCheck (neighbourBuildings pos)
   check (any (hasDevelopedNeighbours . fst) newBuildings) "Cannot reach yet"
-  buildings <- forM newBuildings $ \(newPosition, buildingConstructor) -> do
+  buildings <- forM newBuildings $ \(newPosition, buildingType) -> do
     building <- checkMaybe "Invalid position" (getBuilding originalBuildings newPosition)
-    check (suitabilityCheck building) "Position not suitable"
-    return $ buildingConstructor newPosition
+    check (getBuildingType building == underlyingBuilding) "Position not suitable"
+    return $ Building buildingType newPosition
   return $ foldl' build originalBuildings buildings
 
 
@@ -202,7 +182,7 @@ findSpaceForWorker (BuildingSpace buildings occupants _) newOccupant = fromMaybe
 
 plantCrop :: MonadError [Char] m => CropType -> Position -> BuildingSpace -> m BuildingSpace
 plantCrop cropType position buildingSpace = do
-  check (Field position `elem` buildingSpace ^. buildingSpaceBuildings) "Must plant on field"
+  check (Building Field position `elem` buildingSpace ^. buildingSpaceBuildings) "Must plant on field"
   check (M.notMember position $ buildingSpace ^. buildingSpaceCrops) "Cannot plant over other crops"
   let plantCropType Wheat = PlantedCrop Wheat 3
       plantCropType Potatoes = PlantedCrop Potatoes 2

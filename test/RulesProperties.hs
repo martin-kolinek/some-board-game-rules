@@ -86,7 +86,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       universe <- getUniverse
       pre $ not $ isMovingWorker universe currentPlayerId
       pre $ not $ isPlantingCrops universe currentPlayerId
-      pre $ not $ isSelectingPosition universe currentPlayerId
+      pre $ null $ currentlyBuiltBuildings universe currentPlayerId
       pre $ null $ getPossibleDecisions universe currentPlayerId
       assert $ not $ null $ getOccupantErrors universe currentPlayerId,
     testProperty "When current player cannot do anything fixing occupants starts next player" $ universeProperty $ do
@@ -94,7 +94,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       universe <- getUniverse
       pre $ not $ isMovingWorker universe currentPlayerId
       pre $ not $ isPlantingCrops universe currentPlayerId
-      pre $ not $ isSelectingPosition universe currentPlayerId
+      pre $ null $ currentlyBuiltBuildings universe currentPlayerId
       pre $ null $ getPossibleDecisions universe currentPlayerId
       applyToUniverse $ alterOccupants currentPlayerId (createValidOccupants universe currentPlayerId)
       validateNextPlayer currentPlayerId,
@@ -144,7 +144,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                   occupantsToMove playerId = filter isWorker $ join $ elems $ originalOccupants playerId
                   isWorker (WorkerOccupant _) = True
                   isWorker _ = False
-                  isPositionInvalid playerId pos = intersect [InitialRoom pos, LivingRoom pos] (getBuildingSpace universe playerId) == []
+                  isPositionInvalid playerId pos = intersect [Building InitialRoom pos, Building LivingRoom pos] (getBuildingSpace universe playerId) == []
                   destinationPositions playerId = filter (isPositionInvalid playerId) availableBuildingPositions
       in prop,
     testProperty "Having a worker without a room causes error" $
@@ -310,8 +310,8 @@ positionOccupants buildings allOccupants =
       dogs = filter isDog allOccupants
       isDog (DogOccupant _) = True
       isDog _ = False
-      accumulateWorkers (occupants, remainingWorkers) (LivingRoom pos)  = (insert pos (take 1 remainingWorkers) occupants, drop 1 remainingWorkers)
-      accumulateWorkers (occupants, remainingWorkers) (InitialRoom pos) = (insert pos (take 2 remainingWorkers) occupants, drop 2 remainingWorkers)
+      accumulateWorkers (occupants, remainingWorkers) (Building LivingRoom pos)  = (insert pos (take 1 remainingWorkers) occupants, drop 1 remainingWorkers)
+      accumulateWorkers (occupants, remainingWorkers) (Building InitialRoom pos) = (insert pos (take 2 remainingWorkers) occupants, drop 2 remainingWorkers)
       accumulateWorkers accumulator _ = accumulator
       (resultOccupants, nonPositionedWorkers) = foldl' accumulateWorkers (M.empty, workers) buildings
       additionalPosition = M.singleton (3, 3) nonPositionedWorkers
