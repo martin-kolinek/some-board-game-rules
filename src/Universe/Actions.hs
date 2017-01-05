@@ -24,12 +24,12 @@ import Resources
 
 selectPosition :: MonadError String m => Position -> Direction -> Universe -> m Universe
 selectPosition position direction universe = do
-  let currentPlayerStatus = universe ^? (currentPlayerData . playerStatus)
+  let currentPlayerStatus = universe ^? (currentPlayerData . playerStatus . to getCurrentActionStatus . traverse)
   check (has currentPlayerData universe) "Currently not needing position"
   playerUpdated <- mapMOf currentPlayerData (applyPosition currentPlayerStatus position direction) universe
   return $ startNextPlayer universe playerUpdated
 
-applyPosition :: MonadError String m => Maybe PlayerStatus -> Position -> Direction -> PlayerData -> m PlayerData
+applyPosition :: MonadError String m => Maybe PlayerStatusDuringAction -> Position -> Direction -> PlayerData -> m PlayerData
 applyPosition (Just CuttingForest) position direction plData = stopTurn <$> mapMOf buildingSpace (cutForest position direction) plData
 applyPosition (Just DiggingPassage) position direction plData = stopTurn <$> mapMOf buildingSpace (digPassage position direction) plData
 applyPosition (Just DiggingCave) position direction plData = stopTurn <$> mapMOf buildingSpace (digCave position direction) plData
@@ -39,7 +39,7 @@ applyPosition _ _ _ _ = throwError "Currently not needing position"
 cancelSelection :: MonadError String m => Universe -> m Universe
 cancelSelection universe =
   checkMaybe "Nothing to cancel" $ do
-    currentPlayerStatus <- universe ^? (currentPlayerData . playerStatus)
+    currentPlayerStatus <- universe ^? (currentPlayerData . playerStatus . to getCurrentActionStatus . traverse)
     guard (currentPlayerStatus `elem` [CuttingForest, DiggingPassage, DiggingCave])
     let universeWithPlayerWaiting = over currentPlayerData stopTurn universe
     return $ startNextPlayer universe universeWithPlayerWaiting
@@ -90,7 +90,7 @@ finishTurn universe = do
 
 chooseOption :: MonadError String m => Options -> Universe -> m Universe
 chooseOption option universe = do
-  currentPlayerStatus <- checkMaybe "Not currently making decision" $ universe ^? (currentPlayerData . playerStatus)
+  currentPlayerStatus <- checkMaybe "Not currently making decision" $ universe ^? (currentPlayerData . playerStatus . to getCurrentActionStatus . traverse)
   let findDecisionType (MakingDecision x) = Just x
       findDecisionType _ = Nothing
   decisionType <- checkMaybe "Not currently making decision" $ findDecisionType currentPlayerStatus
@@ -112,20 +112,20 @@ chooseWorkerNeedOption workplaceId HireWorker universe = do
   return $ over currentPlayerData (stopTurn . alterPlayerOccupants . over workers addWorker) universe
 chooseWorkerNeedOption _ BuildRoom universe = do
   check (currentPlayerCanBuildRoom universe) "Unable to build a room"
-  let setStatus = set (currentPlayerData . playerStatus) BuildingLivingRoom
+  let setStatus = set (currentPlayerData . playerStatus) (createSimpleStatus BuildingLivingRoom)
       resourceTraversal :: Traversal' Universe Resources
       resourceTraversal = currentPlayerData . playerResources
       removeResources = over (resourceTraversal . woodAmount) (subtract 4) . over (resourceTraversal . stoneAmount) (subtract 3)
   return $ (setStatus . removeResources) universe
 
 chooseCaveOrPassage :: MonadError String m => CaveOrPassageOptions -> Universe -> m Universe
-chooseCaveOrPassage ChooseCave = return . set (currentPlayerData . playerStatus) DiggingCave
-chooseCaveOrPassage ChoosePassage = return . set (currentPlayerData . playerStatus) DiggingPassage
+chooseCaveOrPassage ChooseCave = return . set (currentPlayerData . playerStatus) (createSimpleStatus DiggingCave)
+chooseCaveOrPassage ChoosePassage = return . set (currentPlayerData . playerStatus) (createSimpleStatus DiggingPassage)
 chooseCaveOrPassage NoDigging = return . over currentPlayerData stopTurn
 
 chooseAnyRoom :: MonadError String m => AnyRoomOptions -> Universe -> m Universe
 chooseAnyRoom ChooseNoRoom = return . over currentPlayerData stopTurn
-chooseAnyRoom ChooseLivingRoom = return . set (currentPlayerData . playerStatus) BuildingLivingRoom
+chooseAnyRoom ChooseLivingRoom = return . set (currentPlayerData . playerStatus) (createSimpleStatus BuildingLivingRoom)
 
 type CropToPlant = (CropType, Position)
 
@@ -133,7 +133,7 @@ plantCrops :: MonadError String m => [CropToPlant] -> Universe -> m Universe
 plantCrops crops universe = do
   let groupedCrops = groupBy ((==) `on` fst) $ sortOn fst crops
       plantingPlayerTraversal :: Traversal' Universe PlayerData
-      plantingPlayerTraversal = players . traverse . filtered (has $ playerStatus . filtered (== PlantingCrops))
+      plantingPlayerTraversal = players . traverse . filtered (has $ playerStatus . to getCurrentActionStatus . traverse . filtered (== PlantingCrops))
   playerData <- checkMaybe "Not currently planting crops" $ universe ^? plantingPlayerTraversal
   check (all ((<=2) . length) groupedCrops) "Too many crops"
   let cropAmountLens group = playerResources . cropResource (fst . head $ group)

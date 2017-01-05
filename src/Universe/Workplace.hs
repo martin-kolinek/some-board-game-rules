@@ -38,20 +38,20 @@ checkWorkplacePrecondition _ _ = return ()
 
 applyAction :: WorkplaceId -> WorkplaceData -> Universe -> Universe
 applyAction wpId workplaceData = applySpecificAction wpId workplaceData . over (currentPlayerData . playerResources) (assignResources workplaceData)
-  where applySpecificAction _ (CutForest _) = set (currentPlayerData . playerStatus) CuttingForest
-        applySpecificAction _ (DigPassage _) = set (currentPlayerData . playerStatus) DiggingPassage
-        applySpecificAction _ (DigCave _) = set (currentPlayerData . playerStatus) (MakingDecision CaveOrPassageDecision)
-        applySpecificAction workplaceId WorkerNeed = set (currentPlayerData . playerStatus) (MakingDecision $ WorkerNeedDecision workplaceId)
+  where applySpecificAction _ (CutForest _) = set (currentPlayerData . playerStatus) (createSimpleStatus CuttingForest)
+        applySpecificAction _ (DigPassage _) = set (currentPlayerData . playerStatus) (createSimpleStatus DiggingPassage)
+        applySpecificAction _ (DigCave _) = set (currentPlayerData . playerStatus) (createSimpleStatus $ MakingDecision CaveOrPassageDecision)
+        applySpecificAction workplaceId WorkerNeed = set (currentPlayerData . playerStatus) (createSimpleStatus $ MakingDecision $ WorkerNeedDecision workplaceId)
         applySpecificAction _ ResourceAddition = over currentPlayerData stopTurn
         applySpecificAction _ (GatherWood _) = over currentPlayerData stopTurn
-        applySpecificAction _ (GatherFood _) = set (currentPlayerData . playerStatus) CuttingForest
+        applySpecificAction _ (GatherFood _) = set (currentPlayerData . playerStatus) (createSimpleStatus CuttingForest)
         applySpecificAction _ (MakeStartPlayer _) = over currentPlayerData stopTurn . setStartingPlayer
           where setStartingPlayer universe = set startingPlayer nextStartingPlayer universe
                   where firstPlayer = head $ keys $ universe ^. players
                         nextStartingPlayer = fromMaybe firstPlayer $ getCurrentPlayer universe
-        applySpecificAction _ HouseWork = (set (currentPlayerData . playerStatus) (MakingDecision AnyRoomDecision)) . addDogToCurrentPlayer
+        applySpecificAction _ HouseWork = (set (currentPlayerData . playerStatus) (createSimpleStatus $ MakingDecision AnyRoomDecision)) . addDogToCurrentPlayer
           where addDogToCurrentPlayer universe = over currentPlayerData (addDog universe) universe
-        applySpecificAction _ Farming = set (currentPlayerData . playerStatus) PlantingCrops
+        applySpecificAction _ Farming = set (currentPlayerData . playerStatus) (createSimpleStatus $ PlantingCrops)
 
 applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
 applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)

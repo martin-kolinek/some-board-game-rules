@@ -9,6 +9,7 @@ import Resources
 import Data.Map hiding (foldl')
 import Control.Lens
 import Data.List (sort, group, foldl')
+import Data.List.NonEmpty (NonEmpty(..))
 
 newtype PlayerId = PlayerId Int deriving (Eq, Ord, Show)
 
@@ -24,6 +25,10 @@ data PlayerData = PlayerData {
 data PlayerStatus = MovingWorker |
                     Waiting |
                     OccupantsInvalid |
+                    PerformingAction (NonEmpty PlayerStatusDuringAction)
+  deriving (Show, Eq)
+
+data PlayerStatusDuringAction =
                     CuttingForest |
                     DiggingPassage |
                     DiggingCave |
@@ -75,3 +80,10 @@ initialPlayers = fromList
      initialResources
      initialAnimals)
   | i <- [1..2], let initialWorkers = createWorkers (i * 2 - 1) 2]
+
+getCurrentActionStatus :: PlayerStatus -> Maybe PlayerStatusDuringAction
+getCurrentActionStatus (PerformingAction (status :| _)) = Just status
+getCurrentActionStatus _ = Nothing
+
+createSimpleStatus :: PlayerStatusDuringAction -> PlayerStatus
+createSimpleStatus actionStatus = PerformingAction (actionStatus :| [])

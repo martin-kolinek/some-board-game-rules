@@ -8,6 +8,7 @@ import Data.Map (toList, keys, (!))
 import Data.Maybe (isJust, fromJust, fromMaybe, isNothing)
 import qualified Data.Set as S
 import Data.Either (isLeft)
+import Data.List.NonEmpty (NonEmpty(..))
 
 import Universe
 import Building
@@ -70,7 +71,7 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
                   isCutForest _ = False
                   workplaces = universe ^. availableWorkplaces
                   cuttingForestPlayerTraversal =
-                    players . traverse . filtered (notNullOf (playerStatus . filtered (==CuttingForest)))
+                    players . traverse . filtered (notNullOf (playerStatus . to getCurrentActionStatus . traverse . filtered (==CuttingForest)))
       in prop,
     testProperty "If a player is in MovingWorker state, then he has a free worker" $
       let prop (ArbitraryUniverse universe) = isCurrentPlayerMovingWorker ==> hasFreeWorker
@@ -124,13 +125,20 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
             isCurrentPlayerLast ==> True
             where isCurrentPlayerLast = length dropped > 1
                   dropped = dropWhile (/= currentPlayerId) (Just <$> (keys $ universe ^. (players)))
-                  currentPlayerId = universe ^? (players . to toList . traverse . filtered (has $ _2 . playerStatus . filtered (== CuttingForest)) . _1)
+                  currentPlayerId = universe ^? (players
+                                                 . to toList
+                                                 . traverse
+                                                 . filtered (has $ _2
+                                                             . playerStatus
+                                                             . to getCurrentActionStatus
+                                                             . traverse
+                                                             . filtered (== CuttingForest)) . _1)
       in prop,
     testProperty "ChoosingWorkerNeedOption workplace is correct" $
       let prop (ArbitraryUniverse universe) =
             has currentPlayer universe ==>
             isWorkplaceWorkerNeed && isWorkplaceOccupied
-            where (MakingDecision (WorkerNeedDecision workplaceId)) = fromJust $ universe ^? currentPlayer . playerStatus
+            where (PerformingAction (MakingDecision (WorkerNeedDecision workplaceId) :| _)) = fromJust $ universe ^? currentPlayer . playerStatus
                   isWorkplaceOccupied = has (currentPlayer .
                                              workers .
                                              traverse .
@@ -170,5 +178,5 @@ allPlayersWaiting :: Universe -> Bool
 allPlayersWaiting = allOf (players . traverse . playerStatus) (==Waiting)
 
 isChoosingWorkerNeed :: PlayerStatus -> Bool
-isChoosingWorkerNeed (MakingDecision (WorkerNeedDecision _)) = True
+isChoosingWorkerNeed (PerformingAction (MakingDecision (WorkerNeedDecision _) :| _)) = True
 isChoosingWorkerNeed _ = False

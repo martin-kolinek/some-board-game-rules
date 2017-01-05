@@ -52,11 +52,11 @@ addDog universe = over (buildingSpace . buildingSpaceOccupants) addDogToOccupant
         addDogToOccupants occupants = alter (Just . (DogOccupant dogId :) . fromMaybe []) (0, 0) occupants
 
 canCancelBuilding :: Universe -> PlayerId -> Bool
-canCancelBuilding universe plId = not $ null $ (universe ^.. (players . ix plId . playerStatus)) `intersect`
+canCancelBuilding universe plId = not $ null $ (universe ^.. (players . ix plId . playerStatus . to getCurrentActionStatus . traverse)) `intersect`
   [CuttingForest, DiggingCave, DiggingPassage, BuildingLivingRoom]
 
 currentlyBuiltBuildings :: Universe -> PlayerId -> [BuildingType]
-currentlyBuiltBuildings universe plId = case (universe ^? players . ix plId . playerStatus) of
+currentlyBuiltBuildings universe plId = case (universe ^? players . ix plId . playerStatus . to getCurrentActionStatus . traverse) of
   Just CuttingForest -> [Grass, Field]
   Just DiggingCave -> [Cave, Cave]
   Just DiggingPassage -> [Cave, Passage]
@@ -64,10 +64,7 @@ currentlyBuiltBuildings universe plId = case (universe ^? players . ix plId . pl
   _ -> []
 
 isPlantingCrops :: Universe -> PlayerId -> Bool
-isPlantingCrops = isPlayerStatus PlantingCrops
+isPlantingCrops universe plId = universe ^? (players . ix plId . playerStatus . to getCurrentActionStatus . traverse) == Just PlantingCrops
 
 isMovingWorker :: Universe -> PlayerId -> Bool
-isMovingWorker = isPlayerStatus MovingWorker
-
-isPlayerStatus :: PlayerStatus -> Universe -> PlayerId -> Bool
-isPlayerStatus status universe plId = universe ^? (players . ix plId . playerStatus) == Just status
+isMovingWorker universe plId = universe ^? (players . ix plId . playerStatus) == Just MovingWorker

@@ -8,6 +8,7 @@ import qualified Data.Set as S
 import Control.Monad (forM, foldM)
 import Text.Show.Pretty
 import Data.List.Split (splitPlaces, chunksOf)
+import Data.List.NonEmpty (NonEmpty(..))
 import Control.Lens ((^.))
 import Data.Monoid ((<>))
 import Data.Maybe (mapMaybe)
@@ -193,14 +194,14 @@ instance Arbitrary ArbitraryUniverse where
         currentPlayerAvailableStatuses = (if otherPlayersDone then [const AllWorkersBusyStatus] else []) ++
           ((NormalStatus .) <$> [const MovingWorker,
             const OccupantsInvalid,
-            const CuttingForest,
-            const DiggingPassage,
-            const DiggingCave,
-            MakingDecision . WorkerNeedDecision,
-            const $ MakingDecision CaveOrPassageDecision,
-            const $ MakingDecision AnyRoomDecision,
-            const BuildingLivingRoom,
-            const PlantingCrops])
+            createSimpleStatus . const CuttingForest,
+            createSimpleStatus . const DiggingPassage,
+            createSimpleStatus . const DiggingCave,
+            createSimpleStatus . MakingDecision . WorkerNeedDecision,
+            createSimpleStatus . (const $ MakingDecision CaveOrPassageDecision),
+            createSimpleStatus . (const $ MakingDecision AnyRoomDecision),
+            createSimpleStatus . const BuildingLivingRoom,
+            createSimpleStatus . const PlantingCrops])
         otherPlayerAvailableStatuses = if otherPlayersDone then [const AllWorkersBusyStatus] else [const $ NormalStatus Waiting]
     otherPlayersGenerated <- forM (zip otherPlayerIds (zip otherAvailableWorkerIds (zip otherAvailableWorkplaceIds otherAvailableDogIds))) $
       \(generatedPlayerId, (availableWorkerIds, (availableWorkplaceIds, availableDogIds))) ->
@@ -240,14 +241,14 @@ generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availa
     NormalStatus MovingWorker -> generateWorkplaceData
     NormalStatus Waiting -> generateWorkplaceData
     NormalStatus OccupantsInvalid -> generateWorkplaceData
-    NormalStatus CuttingForest -> generateCutForest
-    NormalStatus DiggingPassage -> oneof [generateDigCave, generateDigPassage]
-    NormalStatus DiggingCave -> generateDigCave
-    NormalStatus (MakingDecision (WorkerNeedDecision _)) -> elements [WorkerNeed]
-    NormalStatus (MakingDecision CaveOrPassageDecision) -> generateDigCave
-    NormalStatus BuildingLivingRoom -> elements [WorkerNeed]
-    NormalStatus (MakingDecision AnyRoomDecision) -> elements [HouseWork]
-    NormalStatus PlantingCrops -> elements [Farming]
+    NormalStatus (PerformingAction (CuttingForest :| _)) -> generateCutForest
+    NormalStatus (PerformingAction (DiggingPassage :| _)) -> oneof [generateDigCave, generateDigPassage]
+    NormalStatus (PerformingAction (DiggingCave :| _)) -> generateDigCave
+    NormalStatus (PerformingAction (MakingDecision (WorkerNeedDecision _) :| _)) -> elements [WorkerNeed]
+    NormalStatus (PerformingAction (MakingDecision CaveOrPassageDecision :| _)) -> generateDigCave
+    NormalStatus (PerformingAction (BuildingLivingRoom :| _)) -> elements [WorkerNeed]
+    NormalStatus (PerformingAction (MakingDecision AnyRoomDecision :| _)) -> elements [HouseWork]
+    NormalStatus (PerformingAction (PlantingCrops :| _)) -> elements [Farming]
     AllWorkersBusyStatus -> generateWorkplaceData
   let alreadyBusyWorkerStates = WorkerState . Just <$> alreadyBusyWorkplaceIds
       currentWorkerState = WorkerState $ case selectedStatus of

@@ -1,6 +1,7 @@
 module Universe.Decisions where
 
 import Control.Lens hiding (universe)
+import Data.List.NonEmpty (NonEmpty(..))
 
 import Universe
 import Player
@@ -10,5 +11,5 @@ getPossibleDecisions :: Universe -> PlayerId -> [Decisions.Options]
 getPossibleDecisions universe plId = do
   plData <- universe ^.. (players . ix plId)
   case plData ^. playerStatus of
-    MakingDecision decisionType -> decisionOptions decisionType
+    PerformingAction (MakingDecision decisionType :| _) -> decisionOptions decisionType
     _ -> []
