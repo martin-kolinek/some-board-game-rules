@@ -42,16 +42,16 @@ houseWorkTests = localOption (QuickCheckMaxRatio 500) $ testGroup "House work te
     testProperty "After working and selecting no room, next player moves" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInHouseWork
       checkPlayerHasValidOccupants playerId
-      applyToUniverse $ chooseOption (AnyRoomOption ChooseNoRoom)
+      applyToUniverse $ chooseOption playerId (AnyRoomOption ChooseNoRoom)
       validateNextPlayer playerId,
     testProperty "Selecting invalid position is not possible" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInHouseWork
-      applyToUniverse $ chooseOption (AnyRoomOption ChooseLivingRoom)
+      applyToUniverse $ chooseOption playerId (AnyRoomOption ChooseLivingRoom)
       _ <- selectWrongPosition availableSingleCavePositions playerId
       shouldHaveFailed,
     testProperty "Selecting valid position builds a living room" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInHouseWork
-      applyToUniverse $ chooseOption (AnyRoomOption ChooseLivingRoom)
+      applyToUniverse $ chooseOption playerId (AnyRoomOption ChooseLivingRoom)
       (pos, _) <- selectCorrectPosition availableSingleCavePositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
       assert $ Building LivingRoom pos `elem` buildings

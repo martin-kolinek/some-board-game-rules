@@ -22,25 +22,25 @@ digCaveTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest test
     testProperty "Starting working and choosing no digging ends turn" $ universeProperty $ do
         (playerId, _, _) <- startWorkingInDigCave
         checkPlayerHasValidOccupants playerId
-        applyToUniverse $ chooseOption (CaveOrPassageOption NoDigging)
+        applyToUniverse $ chooseOption playerId (CaveOrPassageOption NoDigging)
         validateNextPlayer playerId,
     testProperty "Starting working, choosing digging and canceling ends turn" $ universeProperty $ do
         (playerId, _, _) <- startWorkingInDigCave
         checkPlayerHasValidOccupants playerId
         decision <- pick $ elements [CaveOrPassageOption ChooseCave, CaveOrPassageOption ChoosePassage]
-        applyToUniverse $ chooseOption decision
-        applyToUniverse $ cancelSelection
+        applyToUniverse $ chooseOption playerId decision
+        applyToUniverse $ cancelSelection playerId
         validateNextPlayer playerId,
     testProperty "Starting working, and digging cave adds cave" $ universeProperty $ do
         (playerId, _, _) <- startWorkingInDigCave
-        applyToUniverse $ chooseOption (CaveOrPassageOption ChooseCave)
+        applyToUniverse $ chooseOption playerId (CaveOrPassageOption ChooseCave)
         (pos, dir) <- selectCorrectPosition availableRockPositions playerId
         buildings <- getsUniverse getBuildingSpace <*> pure playerId
         assert $ Building Cave pos `elem` buildings
         assert $ Building Cave (pos ^+^ directionAddition dir) `elem` buildings,
     testProperty "Starting working, and digging passage adds cave" $ universeProperty $ do
         (playerId, _, _) <- startWorkingInDigCave
-        applyToUniverse $ chooseOption (CaveOrPassageOption ChoosePassage)
+        applyToUniverse $ chooseOption playerId (CaveOrPassageOption ChoosePassage)
         (pos, dir) <- selectCorrectPosition availableRockPositions playerId
         buildings <- getsUniverse getBuildingSpace <*> pure playerId
         assert $ Building Cave pos `elem` buildings
@@ -55,14 +55,14 @@ digCaveTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest test
     testProperty "Starting working, choosing digging, and selecting invalid position fails" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInDigCave
       decision <- pick $ elements [CaveOrPassageOption ChooseCave, CaveOrPassageOption ChoosePassage]
-      applyToUniverse $ chooseOption decision
+      applyToUniverse $ chooseOption playerId decision
       _ <- selectWrongPosition availableRockPositions playerId
       shouldHaveFailed,
     testProperty "Starting working, choosing digging, and selecting correct position starts next player" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInDigCave
       checkPlayerHasValidOccupants playerId
       decision <- pick $ elements [CaveOrPassageOption ChooseCave, CaveOrPassageOption ChoosePassage]
-      applyToUniverse $ chooseOption decision
+      applyToUniverse $ chooseOption playerId decision
       _ <- selectCorrectPosition availableRockPositions playerId
       validateNextPlayer playerId
   ]

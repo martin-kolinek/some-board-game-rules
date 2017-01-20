@@ -23,7 +23,6 @@ module Rules (
   CropType(..),
   PlantedCrop(..),
   -- ** Decisions
-  DecisionType (..),
   Options (..),
   WorkerNeedOptions(..),
   CaveOrPassageOptions(..),

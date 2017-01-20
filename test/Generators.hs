@@ -8,7 +8,6 @@ import qualified Data.Set as S
 import Control.Monad (forM, foldM)
 import Text.Show.Pretty
 import Data.List.Split (splitPlaces, chunksOf)
-import Data.List.NonEmpty (NonEmpty(..))
 import Control.Lens ((^.))
 import Data.Monoid ((<>))
 import Data.Maybe (mapMaybe)
@@ -22,6 +21,8 @@ import qualified Player as P
 import Building
 import Resources
 import Universe.Player (getPlayers)
+import Universe.Workplace
+import Actions
 
 newtype ArbitraryUniverse = ArbitraryUniverse Universe
 
@@ -191,18 +192,8 @@ instance Arbitrary ArbitraryUniverse where
         currentAvailableWorkerIds : otherAvailableWorkerIds = chunksOf 7 workerIds
         currentAvailableWorkplaceIds : otherAvailableWorkplaceIds = chunksOf 7 playerWorkplaceIds
         currentAvailableDogIds : otherAvailableDogIds = chunksOf 10 dogIds
-        currentPlayerAvailableStatuses = (if otherPlayersDone then [const AllWorkersBusyStatus] else []) ++
-          ((NormalStatus .) <$> [const MovingWorker,
-            const OccupantsInvalid,
-            createSimpleStatus . const CuttingForest,
-            createSimpleStatus . const DiggingPassage,
-            createSimpleStatus . const DiggingCave,
-            createSimpleStatus . MakingDecision . WorkerNeedDecision,
-            createSimpleStatus . (const $ MakingDecision CaveOrPassageDecision),
-            createSimpleStatus . (const $ MakingDecision AnyRoomDecision),
-            createSimpleStatus . const BuildingLivingRoom,
-            createSimpleStatus . const PlantingCrops])
-        otherPlayerAvailableStatuses = if otherPlayersDone then [const AllWorkersBusyStatus] else [const $ NormalStatus Waiting]
+        currentPlayerAvailableStatuses = if otherPlayersDone then [AllWorkersBusyStatus, NotWaitingStatus] else [NotWaitingStatus]
+        otherPlayerAvailableStatuses = if otherPlayersDone then [AllWorkersBusyStatus] else [WaitingStatus]
     otherPlayersGenerated <- forM (zip otherPlayerIds (zip otherAvailableWorkerIds (zip otherAvailableWorkplaceIds otherAvailableDogIds))) $
       \(generatedPlayerId, (availableWorkerIds, (availableWorkplaceIds, availableDogIds))) ->
         generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availableDogIds otherPlayerAvailableStatuses
@@ -219,48 +210,45 @@ instance Arbitrary ArbitraryUniverse where
     selectedStartingPlayer <- elements $ keys allPlayers
     return $ ArbitraryUniverse $ Universe allWorkplaces allPlayers selectedStartingPlayer
 
-data GeneratedPlayerStatus = NormalStatus PlayerStatus | AllWorkersBusyStatus deriving (Show, Eq)
+data GeneratedPlayerStatus = WaitingStatus | AllWorkersBusyStatus | NotWaitingStatus deriving (Show, Eq)
 
-extractPlayerStatus :: GeneratedPlayerStatus -> PlayerStatus
-extractPlayerStatus (NormalStatus s) = s
-extractPlayerStatus _ = Waiting
+collectActions :: ActionDefinition -> [ActionDefinition]
+collectActions ActionEnd = [ActionEnd]
+collectActions action@(AwaitInteraction _ continuation) = action : collectActions continuation
+collectActions action@(PerformStep _ continuation) = action : collectActions continuation
+collectActions action@(Decision decisions) = action : ((snd <$> decisions) >>= collectActions)
 
-generatePlayer :: PlayerId -> [WorkerId] -> [WorkplaceId] -> [DogId] -> [WorkplaceId -> GeneratedPlayerStatus] -> Gen (PlayerData, Map WorkplaceId WorkplaceData)
-generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availableDogIds possibleStatusFunctions = do
+possibleStatuses :: WorkplaceId -> WorkplaceData -> GeneratedPlayerStatus -> [PlayerStatus]
+possibleStatuses workplaceId workplaceData NotWaitingStatus = [MovingWorker] ++ (PerformingAction workplaceId <$> collectActions (workplaceAction workplaceData))
+possibleStatuses _ _ WaitingStatus = [Waiting]
+possibleStatuses _ _ AllWorkersBusyStatus = [Waiting]
+
+generatePlayer :: PlayerId -> [WorkerId] -> [WorkplaceId] -> [DogId] -> [GeneratedPlayerStatus] -> Gen (PlayerData, Map WorkplaceId WorkplaceData)
+generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availableDogIds possibleGeneratedStatuses = do
   let currentWorkplaceId = head availableWorkplaceIds
-  selectedStatus <- elements $ possibleStatusFunctions <*> pure currentWorkplaceId
+  selectedGeneratedStatus <- elements possibleGeneratedStatuses
   totalWorkerCount <- choose (1, 5)
   generatedBuildings <- generateBuildingSpace totalWorkerCount
-  alreadyBusyWorkerCount <- choose (if selectedStatus == AllWorkersBusyStatus then totalWorkerCount else 0, totalWorkerCount)
+  alreadyBusyWorkerCount <- choose (if selectedGeneratedStatus == AllWorkersBusyStatus then totalWorkerCount else 0, totalWorkerCount)
   let allWorkerIds = take totalWorkerCount availableWorkerIds
       allWorkplaceIds = take totalWorkerCount availableWorkplaceIds
       alreadyBusyWorkplaceIds = take alreadyBusyWorkerCount (tail allWorkplaceIds)
   alreadyBusyWorkplaceData <- mapM (const generateWorkplaceData) [1..alreadyBusyWorkerCount]
   freeWorkplaceData <- mapM (const generateWorkplaceData) [1..totalWorkerCount - alreadyBusyWorkerCount - 1]
-  currentWorkplaceData <- case selectedStatus of
-    NormalStatus MovingWorker -> generateWorkplaceData
-    NormalStatus Waiting -> generateWorkplaceData
-    NormalStatus OccupantsInvalid -> generateWorkplaceData
-    NormalStatus (PerformingAction (CuttingForest :| _)) -> generateCutForest
-    NormalStatus (PerformingAction (DiggingPassage :| _)) -> oneof [generateDigCave, generateDigPassage]
-    NormalStatus (PerformingAction (DiggingCave :| _)) -> generateDigCave
-    NormalStatus (PerformingAction (MakingDecision (WorkerNeedDecision _) :| _)) -> elements [WorkerNeed]
-    NormalStatus (PerformingAction (MakingDecision CaveOrPassageDecision :| _)) -> generateDigCave
-    NormalStatus (PerformingAction (BuildingLivingRoom :| _)) -> elements [WorkerNeed]
-    NormalStatus (PerformingAction (MakingDecision AnyRoomDecision :| _)) -> elements [HouseWork]
-    NormalStatus (PerformingAction (PlantingCrops :| _)) -> elements [Farming]
-    AllWorkersBusyStatus -> generateWorkplaceData
+  currentWorkplaceData <- generateWorkplaceData
+  selectedStatus <- elements $ possibleStatuses currentWorkplaceId currentWorkplaceData selectedGeneratedStatus
   let alreadyBusyWorkerStates = WorkerState . Just <$> alreadyBusyWorkplaceIds
-      currentWorkerState = WorkerState $ case selectedStatus of
-        NormalStatus MovingWorker -> Nothing
-        NormalStatus Waiting -> Nothing
+      currentWorkerState = WorkerState $ case (selectedGeneratedStatus, selectedStatus) of
+        (AllWorkersBusyStatus, _) -> Just currentWorkplaceId
+        (_, MovingWorker) -> Nothing
+        (_, Waiting) -> Nothing
         _ -> Just currentWorkplaceId
       freeWorkerStates = repeat $ WorkerState Nothing
       allWorkerStates = alreadyBusyWorkerStates ++ (currentWorkerState : freeWorkerStates)
       allWorkplaceData = (currentWorkplaceData : alreadyBusyWorkplaceData) ++ freeWorkplaceData
       workplaceData = fromList $ zip allWorkplaceIds allWorkplaceData
   generatedAnimals <- generateAnimals availableDogIds
-  generatedOccupants <- if selectedStatus == NormalStatus OccupantsInvalid
+  generatedOccupants <- if selectedStatus == PerformingAction currentWorkplaceId ActionEnd
                         then generateInvalidOccupants allWorkerIds
                         else generateOccupants allWorkerIds (generatedAnimals ^. dogs) generatedBuildings
   generatedResources <- generateResources
@@ -269,7 +257,7 @@ generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availa
                      generatedPlayerId
                      (fromList $ zip allWorkerIds allWorkerStates)
                      (BuildingSpace generatedBuildings generatedOccupants generatedPlantedCrops)
-                     (extractPlayerStatus selectedStatus)
+                     selectedStatus
                      generatedResources
                      generatedAnimals
   return (playerData, workplaceData)

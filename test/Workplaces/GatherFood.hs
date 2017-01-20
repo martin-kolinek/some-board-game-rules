@@ -29,7 +29,7 @@ gatherFoodTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Gather food 
     testProperty "Starting working and canceling starts next player turn" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInGatherFood
       checkPlayerHasValidOccupants playerId
-      applyToUniverse cancelSelection
+      applyToUniverse $ cancelSelection playerId
       validateNextPlayer playerId,
     testProperty "Starting working and selecting position starts next player turn" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInGatherFood

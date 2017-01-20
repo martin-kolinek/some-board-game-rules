@@ -18,7 +18,7 @@ farmingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Farming tests" 
       playerId <- findFarmingPlayer
       cropsToPlant <- pickCropsToPlant playerId
       pre $ not $ null $ cropsToPlant
-      applyToUniverse $ plantCrops cropsToPlant
+      applyToUniverse $ plantCrops playerId cropsToPlant
       newCrops <- getsUniverse getPlantedCrops <*> pure playerId
       let verifyCrop (Potatoes, pos) = lookup pos newCrops == Just (PlantedCrop Potatoes 2)
           verifyCrop (Wheat, pos) = lookup pos newCrops == Just (PlantedCrop Wheat 3)
@@ -27,7 +27,7 @@ farmingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Farming tests" 
       playerId <- findFarmingPlayer
       checkPlayerHasValidOccupants playerId
       cropsToPlant <- pickCropsToPlant playerId
-      applyToUniverse $ plantCrops cropsToPlant
+      applyToUniverse $ plantCrops playerId cropsToPlant
       validateNextPlayer playerId,
     testProperty "Planting crops not on fields is not possible" $ universeProperty $ do
       playerId <- findFarmingPlayer
@@ -40,7 +40,7 @@ farmingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Farming tests" 
       invalidCount <- pick $ choose (1, length cropTypes)
       validCount <- pick $ choose (0, length cropTypes - invalidCount)
       positions <- pick $ shuffle $ take invalidCount invalidPositions ++ take validCount validPositions
-      applyToUniverse $ plantCrops (zip cropTypes positions)
+      applyToUniverse $ plantCrops playerId (zip cropTypes positions)
       shouldHaveFailed,
     testProperty "Planting too many crops is not possible" $ universeProperty $ do
       playerId <- findFarmingPlayer
@@ -50,7 +50,7 @@ farmingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Farming tests" 
       additionalCount <- pick $ choose (0, length positions - 3)
       additionalCrops <- pick $ vectorOf additionalCount $ elements [Potatoes, Wheat]
       crops <- pick $ shuffle $ additionalCrops ++ (replicate 3 tooManyType)
-      applyToUniverse $ plantCrops (zip crops positions)
+      applyToUniverse $ plantCrops playerId (zip crops positions)
       shouldHaveFailed,
     testProperty "Planting more than had is not possible" $ universeProperty $ do
       playerId <- findFarmingPlayer
@@ -59,14 +59,14 @@ farmingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Farming tests" 
       wheatCorrect <- pick $ elements [not potatoCorrect, False]
       crops <- pickCropTypes playerId wheatCorrect potatoCorrect
       pre $ length positions >= length crops
-      applyToUniverse $ plantCrops (zip crops positions)
+      applyToUniverse $ plantCrops playerId (zip crops positions)
       shouldHaveFailed,
     testProperty "Planting crops subtracts resources" $ universeProperty $ do
       playerId <- findFarmingPlayer
       originalResources <- getsUniverse getPlayerResources <*> pure playerId
       crops <- pickCropsToPlant playerId
       pre $ not $ null $ crops
-      applyToUniverse $ plantCrops crops
+      applyToUniverse $ plantCrops playerId crops
       newResources <- getsUniverse getPlayerResources <*> pure playerId
       let potatoCount = length $ filter (== Potatoes) $ fst <$> crops
           wheatCount = length $ filter (== Wheat) $ fst <$> crops

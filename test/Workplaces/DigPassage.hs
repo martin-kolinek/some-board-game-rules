@@ -30,7 +30,7 @@ digPassageTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Dig passage 
     testProperty "Starting working and canceling starts next player turn" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInDigPassage
       checkPlayerHasValidOccupants playerId
-      applyToUniverse cancelSelection
+      applyToUniverse $ cancelSelection playerId
       validateNextPlayer playerId,
     testProperty "Starting working and selecting position starts next player turn" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInDigPassage

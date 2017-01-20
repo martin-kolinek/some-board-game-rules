@@ -3,13 +3,13 @@ module Player where
 
 import Worker
 import Building
-import Workplace
 import Resources
+import Actions
+import Workplace
 
 import Data.Map hiding (foldl')
 import Control.Lens
 import Data.List (sort, group, foldl')
-import Data.List.NonEmpty (NonEmpty(..))
 
 newtype PlayerId = PlayerId Int deriving (Eq, Ord, Show)
 
@@ -22,24 +22,20 @@ data PlayerData = PlayerData {
   _playerAnimals :: Animals
 } deriving (Show, Eq)
 
-data PlayerStatus = MovingWorker |
-                    Waiting |
-                    OccupantsInvalid |
-                    PerformingAction (NonEmpty PlayerStatusDuringAction)
+data PlayerStatus =
+  Waiting |
+  MovingWorker |
+  PerformingAction WorkplaceId ActionDefinition
   deriving (Show, Eq)
-
-data PlayerStatusDuringAction =
-                    CuttingForest |
-                    DiggingPassage |
-                    DiggingCave |
-                    MakingDecision DecisionType |
-                    BuildingLivingRoom |
-                    PlantingCrops
-  deriving (Show, Eq)
-
-data DecisionType = WorkerNeedDecision WorkplaceId | CaveOrPassageDecision | AnyRoomDecision deriving (Show, Eq)
 
 makeLenses ''PlayerData
+
+statusActionAndWorkplace :: Traversal' PlayerStatus (WorkplaceId, ActionDefinition)
+statusActionAndWorkplace f (PerformingAction workplaceId definition) = uncurry PerformingAction <$> f (workplaceId, definition)
+statusActionAndWorkplace _ x = pure x
+
+statusAction :: Traversal' PlayerStatus ActionDefinition
+statusAction = statusActionAndWorkplace . _2
 
 allOccupants :: PlayerData -> [BuildingOccupant]
 allOccupants plData = (WorkerOccupant <$> keys (plData ^. workers)) ++ (DogOccupant <$> (plData ^. playerAnimals . dogs))
@@ -47,15 +43,6 @@ allOccupants plData = (WorkerOccupant <$> keys (plData ^. workers)) ++ (DogOccup
 verifyOccupants :: PlayerData -> [OccupantError]
 verifyOccupants plData = areOccupantsValid (allOccupants plData) buildings
   where buildings = plData ^. buildingSpace
-
-checkOccupantsAfterTurn :: PlayerData -> PlayerData
-checkOccupantsAfterTurn plData =
-  let status = plData ^. playerStatus
-      occupantsValid = Prelude.null $ verifyOccupants plData
-  in if occupantsValid && status == OccupantsInvalid then set playerStatus Waiting plData else plData
-
-stopTurn :: PlayerData -> PlayerData
-stopTurn = checkOccupantsAfterTurn . set playerStatus OccupantsInvalid
 
 collectCrops :: PlayerData -> PlayerData
 collectCrops playerData =
@@ -80,10 +67,3 @@ initialPlayers = fromList
      initialResources
      initialAnimals)
   | i <- [1..2], let initialWorkers = createWorkers (i * 2 - 1) 2]
-
-getCurrentActionStatus :: PlayerStatus -> Maybe PlayerStatusDuringAction
-getCurrentActionStatus (PerformingAction (status :| _)) = Just status
-getCurrentActionStatus _ = Nothing
-
-createSimpleStatus :: PlayerStatusDuringAction -> PlayerStatus
-createSimpleStatus actionStatus = PerformingAction (actionStatus :| [])

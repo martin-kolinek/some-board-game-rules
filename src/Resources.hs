@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, DeriveAnyClass #-}
 module Resources where
 
 import Control.Lens

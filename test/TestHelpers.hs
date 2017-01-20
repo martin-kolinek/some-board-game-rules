@@ -33,7 +33,7 @@ startWorkingInWorkplaceType typeFilter = do
   appropriateWorkplaces <- getsUniverse extractAppropriateWorkpalces
   pre $ not $ null $ appropriateWorkplaces
   selectedWorkplaceId <- pick $ elements $ keys appropriateWorkplaces
-  applyToUniverse $ startWorking selectedWorkerId selectedWorkplaceId
+  applyToUniverse $ startWorking currentPlayerId selectedWorkerId selectedWorkplaceId
   return (currentPlayerId, selectedWorkerId, selectedWorkplaceId)
 
 pickSpecificPosition :: (Universe -> PlayerId -> [(Position, Direction)]) -> PlayerId -> UniversePropertyMonad (Position, Direction)
@@ -51,13 +51,13 @@ pickWrongPosition func plId = do
 selectWrongPosition :: (Universe -> PlayerId -> [(Position, Direction)]) -> PlayerId -> UniversePropertyMonad (Position, Direction)
 selectWrongPosition func plId = do
   (pos, dir) <- pickWrongPosition func plId
-  applyToUniverse $ selectPosition pos dir
+  applyToUniverse $ selectPosition plId pos dir
   return (pos, dir)
 
 selectCorrectPosition :: (Universe -> PlayerId -> [(Position, Direction)]) -> PlayerId -> UniversePropertyMonad (Position, Direction)
 selectCorrectPosition func plId = do
   (pos, dir) <- pickSpecificPosition func plId
-  applyToUniverse $ selectPosition pos dir
+  applyToUniverse $ selectPosition plId pos dir
   return (pos, dir)
 
 nextPlayerToMoveWorker :: Universe -> PlayerId -> Maybe PlayerId

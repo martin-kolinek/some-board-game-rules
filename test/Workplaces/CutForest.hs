@@ -29,7 +29,7 @@ cutForestTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest te
     testProperty "Starting working and canceling starts next player turn" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInCutForest
       checkPlayerHasValidOccupants playerId
-      applyToUniverse cancelSelection
+      applyToUniverse $ cancelSelection playerId
       validateNextPlayer playerId,
     testProperty "Starting working and selecting position starts next player turn" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInCutForest

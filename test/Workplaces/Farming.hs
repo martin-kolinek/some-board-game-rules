@@ -18,7 +18,7 @@ farmingWorkplaceTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Farmin
     testProperty "Planting crops starts next player" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInFarming
       checkPlayerHasValidOccupants playerId
-      applyToUniverse $ plantCrops []
+      applyToUniverse $ plantCrops playerId []
       validateNextPlayer playerId
   ]
 

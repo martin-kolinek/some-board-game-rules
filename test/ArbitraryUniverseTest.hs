@@ -8,9 +8,9 @@ import Data.Map (toList, keys, (!))
 import Data.Maybe (isJust, fromJust, fromMaybe, isNothing)
 import qualified Data.Set as S
 import Data.Either (isLeft)
-import Data.List.NonEmpty (NonEmpty(..))
 
 import Universe
+import Actions
 import Building
 import Player
 import Generators
@@ -53,25 +53,9 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
       in prop,
     testProperty "If a player is in InvalidOccupants state then he has invalid occupants" $
       let findPlayerWithOccupantsInvalid universe = universe ^?
-            (players . to toList . traverse . filtered (notNullOf (_2 . playerStatus . filtered (==OccupantsInvalid))) . _1)
+            (players . to toList . traverse . filtered (notNullOf (_2 . playerStatus . filtered isAtEndOfAction)) . _1)
           prop (ArbitraryUniverse universe) = isJust currentPlayerId ==> not . null $ getOccupantErrors universe (fromJust currentPlayerId)
             where currentPlayerId = findPlayerWithOccupantsInvalid universe
-      in prop,
-    testProperty "If a player is in CuttingForest state then he has a worker which is in cut forest workspace" $
-      let prop (ArbitraryUniverse universe) = isCurrentPlayerCuttingForest ==> hasWorkerCuttingForest
-            where isCurrentPlayerCuttingForest = has cuttingForestPlayerTraversal universe
-                  hasWorkerCuttingForest = has (cuttingForestPlayerTraversal .
-                                                workers .
-                                                traverse .
-                                                currentWorkplace .
-                                                traverse .
-                                                to (workplaces !) .
-                                                filtered isCutForest) universe
-                  isCutForest (CutForest _) = True
-                  isCutForest _ = False
-                  workplaces = universe ^. availableWorkplaces
-                  cuttingForestPlayerTraversal =
-                    players . traverse . filtered (notNullOf (playerStatus . to getCurrentActionStatus . traverse . filtered (==CuttingForest)))
       in prop,
     testProperty "If a player is in MovingWorker state, then he has a free worker" $
       let prop (ArbitraryUniverse universe) = isCurrentPlayerMovingWorker ==> hasFreeWorker
@@ -97,14 +81,15 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
           prop (ArbitraryUniverse universe) = allOf (availableWorkplaces . to keys . traverse) isWorkplaceIdPositive universe
       in prop,
     testProperty "Start working with invalid worker causes error" $
-      let prop (ArbitraryUniverse universe) = emptyWorkplaceAvailable ==> isLeft $ startWorking (WorkerId (-5)) emptyWorkplace universe
+      let prop (ArbitraryUniverse universe) = emptyWorkplaceAvailable ==> isLeft $ startWorking plId (WorkerId (-5)) emptyWorkplace universe
             where emptyWorkplaceAvailable = not . null $ findEmptyWorkplaces universe
                   emptyWorkplace = head $ findEmptyWorkplaces universe
+                  plId = head $ getPlayers universe
       in prop,
     testProperty "Start working in invalid workplace causes error" $
-      let prop (ArbitraryUniverse universe) = movableWorkerAvailable ==> isLeft $ startWorking workerToMove (WorkplaceId (-5)) universe
+      let prop (ArbitraryUniverse universe) = movableWorkerAvailable ==> isLeft $ startWorking plId workerToMove (WorkplaceId (-5)) universe
             where movableWorkerAvailable = not . null $ findWorkersToMove universe
-                  workerToMove = head $ findWorkersToMove universe
+                  (plId, workerToMove) = head $ findWorkersToMove universe
       in prop,
     testProperty "Caves exist" $
       let prop (ArbitraryUniverse universe) =
@@ -130,15 +115,14 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
                                                  . traverse
                                                  . filtered (has $ _2
                                                              . playerStatus
-                                                             . to getCurrentActionStatus
-                                                             . traverse
-                                                             . filtered (== CuttingForest)) . _1)
+                                                             . filtered (/= Waiting))
+                                                  . _1)
       in prop,
-    testProperty "ChoosingWorkerNeedOption workplace is correct" $
+    testProperty "PerformingAction workplace is correct" $
       let prop (ArbitraryUniverse universe) =
             has currentPlayer universe ==>
             isWorkplaceWorkerNeed && isWorkplaceOccupied
-            where (PerformingAction (MakingDecision (WorkerNeedDecision workplaceId) :| _)) = fromJust $ universe ^? currentPlayer . playerStatus
+            where (PerformingAction workplaceId _) = fromJust $ universe ^? currentPlayer . playerStatus
                   isWorkplaceOccupied = has (currentPlayer .
                                              workers .
                                              traverse .
@@ -147,7 +131,7 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
                                              filtered (== workplaceId)) universe
                   isWorkplaceWorkerNeed = has (availableWorkplaces . ix workplaceId . filtered (==WorkerNeed)) universe
                   currentPlayer :: Traversal' Universe PlayerData
-                  currentPlayer = players . traverse . filtered (has $ playerStatus . filtered isChoosingWorkerNeed)
+                  currentPlayer = players . traverse . filtered (has $ playerStatus . filtered isPerformingAction)
       in prop,
     testProperty "Current player can have valid occupants" $
       let prop (ArbitraryUniverse universe) = cover currentPlayerHasValidWorkers 30 "Valid workers" $
@@ -163,20 +147,29 @@ findEmptyWorkplaces universe = availableWorkplaceIds \\ (findOccupiedWorkplaces 
 findOccupiedWorkplaces :: Universe -> [WorkplaceId]
 findOccupiedWorkplaces = toListOf (players . traverse . workers . traverse . currentWorkplace . traverse)
 
-findWorkersToMove :: Universe -> [WorkerId]
+findWorkersToMove :: Universe -> [(PlayerId, WorkerId)]
 findWorkersToMove universe =
-  toListOf (players
-            . traverse
-            . filtered (has $ playerStatus . filtered (==MovingWorker))
-            . workers
-            . to toList
-            . traverse
-            . filtered (has $ _2 . currentWorkplace . filtered isNothing)
-            . _1) universe
+  [(plId, wId) |
+      plId <- toListOf (players
+                        . to toList
+                        . traverse
+                        . filtered (has $ _2 . playerStatus . filtered (==MovingWorker))
+                        . _1) universe,
+      wId <- toListOf (players
+                       . ix plId
+                       . workers
+                       . to toList
+                       . traverse
+                       . filtered (has $ _2 . currentWorkplace . filtered isNothing)
+                       . _1) universe]
 
 allPlayersWaiting :: Universe -> Bool
 allPlayersWaiting = allOf (players . traverse . playerStatus) (==Waiting)
 
-isChoosingWorkerNeed :: PlayerStatus -> Bool
-isChoosingWorkerNeed (PerformingAction (MakingDecision (WorkerNeedDecision _) :| _)) = True
-isChoosingWorkerNeed _ = False
+isPerformingAction :: PlayerStatus -> Bool
+isPerformingAction (PerformingAction _ _) = True
+isPerformingAction _ = False
+
+isAtEndOfAction :: PlayerStatus -> Bool
+isAtEndOfAction (PerformingAction _ ActionEnd) = True
+isAtEndOfAction _ = False

@@ -3,13 +3,13 @@ module Universe.Player where
 import Control.Lens hiding (universe)
 import Data.Maybe
 import Data.Map hiding (filter, null)
-import Data.List (intersect, null)
 
 import Player
 import Universe
 import Worker
 import Resources
 import Building
+import Actions
 
 getCurrentPlayer :: Universe -> Maybe PlayerId
 getCurrentPlayer universe =
@@ -27,9 +27,8 @@ getPlayerResources universe player = fromMaybe initialResources $ universe ^? (p
 currentPlayerData :: Traversal' Universe PlayerData
 currentPlayerData fres universe = (players . fromMaybe ignored (ix <$> getCurrentPlayer universe)) fres universe
 
-nextPlayer :: Universe -> Maybe PlayerId
-nextPlayer universe = do
-  currentPlayer <- getCurrentPlayer universe
+nextPlayer :: Universe -> PlayerId -> Maybe PlayerId
+nextPlayer universe currentPlayer = do
   let playerIds = keys (universe ^. players)
       hasFreeWorkers player = has (players . ix player . workers . folding elems . currentWorkplace . filtered isNothing) universe
       candidatePlayers = (tail . dropWhile (/= currentPlayer)) $ playerIds ++ playerIds
@@ -52,19 +51,19 @@ addDog universe = over (buildingSpace . buildingSpaceOccupants) addDogToOccupant
         addDogToOccupants occupants = alter (Just . (DogOccupant dogId :) . fromMaybe []) (0, 0) occupants
 
 canCancelBuilding :: Universe -> PlayerId -> Bool
-canCancelBuilding universe plId = not $ null $ (universe ^.. (players . ix plId . playerStatus . to getCurrentActionStatus . traverse)) `intersect`
-  [CuttingForest, DiggingCave, DiggingPassage, BuildingLivingRoom]
+canCancelBuilding universe plId = case (universe ^? players . ix plId . playerStatus . statusAction . actionInteraction) of
+  Just (BuildBuildingsInteraction CanCancelBuilding _) -> True
+  _ -> False
 
 currentlyBuiltBuildings :: Universe -> PlayerId -> [BuildingType]
-currentlyBuiltBuildings universe plId = case (universe ^? players . ix plId . playerStatus . to getCurrentActionStatus . traverse) of
-  Just CuttingForest -> [Grass, Field]
-  Just DiggingCave -> [Cave, Cave]
-  Just DiggingPassage -> [Cave, Passage]
-  Just BuildingLivingRoom -> [LivingRoom]
+currentlyBuiltBuildings universe plId = case (universe ^? players . ix plId . playerStatus . statusAction . actionInteraction) of
+  Just (BuildBuildingsInteraction _ buildings) -> buildings
   _ -> []
 
 isPlantingCrops :: Universe -> PlayerId -> Bool
-isPlantingCrops universe plId = universe ^? (players . ix plId . playerStatus . to getCurrentActionStatus . traverse) == Just PlantingCrops
+isPlantingCrops universe plId = case universe ^? (players . ix plId . playerStatus . statusAction . actionInteraction) of
+  Just PlantCropsInteraction -> True
+  _ -> False
 
 isMovingWorker :: Universe -> PlayerId -> Bool
 isMovingWorker universe plId = universe ^? (players . ix plId . playerStatus) == Just MovingWorker

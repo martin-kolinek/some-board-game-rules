@@ -21,13 +21,13 @@ rulesPropertiesTests :: TestTree
 rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules properties" [
     testProperty "Starting working assigns worker" $ universeProperty $ do
         workplaceId <- pickEmptyWorkplace
-        (_, workerId) <- pickWorkerToMove
+        (plId, workerId) <- pickWorkerToMove
         do
           workplaces <- getsUniverse getWorkplaces
           canBuildRoom <- getsUniverse currentPlayerCanBuildRoom
           hasFreeRoom <- getsUniverse currentPlayerHasFreeRoom
           pre $ workplaces ! workplaceId /= WorkerNeed || canBuildRoom || hasFreeRoom
-        applyToUniverse $ startWorking workerId workplaceId
+        applyToUniverse $ startWorking plId workerId workplaceId
         workerWorkplace <- getsUniverse (flip getWorkerWorkplace workerId)
         assert $ workerWorkplace == Just workplaceId
     ,
@@ -58,8 +58,8 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       pre $ length playersAbleToMove >= 2
       pre $ length workersToMove >= 2
       pre $ length workplaces >= 2
-      applyToUniverse $ startWorking (snd $ workersToMove !! 0) (workplaces !! 0)
-      applyToUniverse $ startWorking (snd $ workersToMove !! 1) (workplaces !! 1)
+      applyToUniverse $ startWorking (fst $ workersToMove !! 0) (snd $ workersToMove !! 0) (workplaces !! 0)
+      applyToUniverse $ startWorking (fst $ workersToMove !! 1) (snd $ workersToMove !! 1) (workplaces !! 1)
       shouldHaveFailed,
     testProperty "Getting workplace workers works" $ \(ArbitraryUniverse universe) ->
         (not . null) (findOccupiedWorkplaces universe) ==>
@@ -105,7 +105,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       pre $ not $ isMovingWorker universe playerId
       forM_ (getWorkers universe playerId) $ \workerId ->
         forM_ (findEmptyWorkplaces universe) $ \workplaceId ->
-                case startWorking workerId workplaceId universe of
+                case startWorking playerId workerId workplaceId universe of
                   Left _ -> return ()
                   Right u -> do
                                monitor $ counterexample ("Could move worker " ++ show workerId ++ " to " ++ show workplaceId ++ ", result: \n" ++ ppShow u)
@@ -243,12 +243,15 @@ allPossibleOptions = (WorkerNeedOption <$> [HireWorker ..]) ++ (CaveOrPassageOpt
 
 allPossibleOutcomes :: Universe -> [(String, Universe)]
 allPossibleOutcomes universe = let
-  positionResults = [("Selected position " ++ show (x, y), selectPosition (x, y) dir universe) | x <- [0..5], y <- [0..3], dir <- allDirections]
-  decisionResults = [("Chose option " ++ show option, chooseOption option universe) | option <- allPossibleOptions]
-  cancelPositionResults = [("Canceled selection", cancelSelection universe)]
+  positionResults = [("Selected position " ++ show (x, y), selectPosition plId (x, y) dir universe) |
+                     x <- [0..5], y <- [0..3],
+                     dir <- allDirections,
+                     plId <- getPlayers universe]
+  decisionResults = [("Chose option " ++ show option, chooseOption plId option universe) | option <- allPossibleOptions, plId <- getPlayers universe]
+  cancelPositionResults = [("Canceled selection", cancelSelection plId universe) | plId <- getPlayers universe]
   finishTurnResults = [("Finished turn", finishTurn universe)]
-  startWorkingReults = [("Started working " ++ show workerId ++ " in " ++ show workplaceId, startWorking workerId workplaceId universe)
-                         | (_, workerId) <- findWorkersToMove universe, workplaceId <- findEmptyWorkplaces universe]
+  startWorkingReults = [("Started working " ++ show workerId ++ " in " ++ show workplaceId, startWorking plId workerId workplaceId universe)
+                         | (plId, workerId) <- findWorkersToMove universe, workplaceId <- findEmptyWorkplaces universe]
   extractRight (msg, Right res) = [(msg, res)]
   extractRight _ = []
   in join $ extractRight <$> positionResults ++ decisionResults ++ cancelPositionResults ++ finishTurnResults ++ startWorkingReults

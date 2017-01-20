@@ -8,9 +8,9 @@ import Control.Monad.Writer
 import Control.Lens.Traversal
 import Control.Lens.At
 
-check :: MonadError e m => Bool -> e -> m ()
-check True _ = return ()
-check False e = throwError e
+check :: MonadError e m => e -> Bool -> m ()
+check _ True = return ()
+check e False = throwError e
 
 checkMaybe :: MonadError e m => e -> Maybe a -> m a
 checkMaybe e Nothing = throwError e
