@@ -90,7 +90,8 @@ finishTurn universe = do
   return $ universe &
     players . traverse . workers . traverse .~ initialWorkerState &
     players . traverse %~ collectCrops &
-    players . ix startPlayer . playerStatus .~ MovingWorker
+    players . ix startPlayer . playerStatus .~ MovingWorker &
+    availableWorkplaces . traverse %~ addWorkplaceResources
 
 chooseOption :: MonadError String m => PlayerId -> Options -> Universe -> m Universe
 chooseOption plId option universe = case (universe ^? players . ix plId . playerStatus) of

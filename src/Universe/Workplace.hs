@@ -64,6 +64,17 @@ checkWorkplacePrecondition _ _ = return ()
 -- applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
 -- applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)
 
+addWorkplaceResources :: WorkplaceData -> WorkplaceData
+addWorkplaceResources workplaceData = workplaceData & workplaceStoredResources .~ newResources
+  where newResources = if oldResources == zeroV then bonusAddition else oldResources ^+^ normalAddition
+        oldResources = workplaceData ^. workplaceStoredResources
+        (normalAddition, bonusAddition) = workplaceStoredResourcesAddition $ workplaceAction $ workplaceData ^. workplaceType
+        workplaceStoredResourcesAddition (PerformStep (CollectResourcesStep normal bonus) continuation) = workplaceStoredResourcesAddition continuation ^+^ (normal, bonus)
+        workplaceStoredResourcesAddition (PerformStep _ continuation) = workplaceStoredResourcesAddition continuation
+        workplaceStoredResourcesAddition (AwaitInteraction _ continuation) = workplaceStoredResourcesAddition continuation
+        workplaceStoredResourcesAddition (Decision options) = sumV $ workplaceStoredResourcesAddition <$> snd <$> options
+        workplaceStoredResourcesAddition ActionEnd = zeroV
+
 workplaceAction :: WorkplaceType -> ActionDefinition
 workplaceAction CutForest =
   PerformStep (CollectResourcesStep (wood 1) zeroV) $
