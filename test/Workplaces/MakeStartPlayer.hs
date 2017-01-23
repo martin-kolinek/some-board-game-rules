@@ -20,9 +20,5 @@ startPlayerTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Make start 
       assert $ startingPlayer == playerId
   ]
 
-isStartPlayer :: WorkplaceData -> Bool
-isStartPlayer (MakeStartPlayer _) = True
-isStartPlayer _ = False
-
 startWorkingInStartPlayer :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
-startWorkingInStartPlayer = startWorkingInWorkplaceType isStartPlayer
+startWorkingInStartPlayer = startWorkingInWorkplaceType MakeStartPlayer

@@ -11,8 +11,8 @@ import Test.QuickCheck
 import Data.List (intersect)
 import Data.AdditiveGroup
 
-startWorkingInWorkplaceType :: (WorkplaceData -> Bool) -> UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
-startWorkingInWorkplaceType typeFilter = do
+startWorkingInWorkplaceType :: WorkplaceType -> UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
+startWorkingInWorkplaceType wType = do
   let extractFreeWorkers playerId universe = do
         workerId <- getWorkers universe playerId
         guard $ isNothing $ getWorkerWorkplace universe workerId
@@ -23,7 +23,7 @@ startWorkingInWorkplaceType typeFilter = do
         maybeToList $ getWorkerWorkplace universe workerId
       extractAppropriateWorkpalces universe = filterWithKey filterFunc (getWorkplaces universe)
         where filterFunc workplaceId workplaceData =
-                typeFilter workplaceData && not (S.member workplaceId filledWorkplaceIds)
+                getWorkplaceType workplaceData == wType && not (S.member workplaceId filledWorkplaceIds)
               filledWorkplaceIds = S.fromList (extractFilledWorkplaces universe)
   currentPlayerId <- preMaybe =<< getsUniverse getCurrentPlayer
   pre =<< getsUniverse isMovingWorker <*> pure currentPlayerId

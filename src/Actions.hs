@@ -3,6 +3,7 @@ module Actions where
 
 import Building
 import Decisions
+import Resources
 
 import Control.Lens.TH
 
@@ -12,7 +13,8 @@ data ActionInteraction =
   deriving (Show, Eq)
 
 data ActionStep =
-  AddResourcesStep |
+  AddResourcesStep Resources |
+  CollectResourcesStep Resources Resources |
   AddWorkerStep |
   SetStartPlayerStep
   deriving (Show, Eq)

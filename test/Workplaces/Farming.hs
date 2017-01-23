@@ -23,5 +23,5 @@ farmingWorkplaceTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Farmin
   ]
 
 startWorkingInFarming :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
-startWorkingInFarming = startWorkingInWorkplaceType (== Farming)
+startWorkingInFarming = startWorkingInWorkplaceType Farming
 

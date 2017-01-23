@@ -6,6 +6,7 @@ import Data.List ((\\))
 import Control.Lens hiding (universe)
 import Control.Monad.Except
 import Data.Maybe
+import Data.AdditiveGroup
 
 import Universe
 import Universe.Worker
@@ -14,13 +15,19 @@ import Worker
 import Player
 import Building
 import Universe.Building
-import Universe.Player
 import Util
 import Actions
 import Decisions
+import Resources
 
 getWorkplaces :: Universe -> Map WorkplaceId WorkplaceData
 getWorkplaces = view availableWorkplaces
+
+getWorkplaceType :: WorkplaceData -> WorkplaceType
+getWorkplaceType = view workplaceType
+
+getWorkplaceResources :: WorkplaceData -> Resources
+getWorkplaceResources = view workplaceStoredResources
 
 getWorkplaceOccupants :: Universe -> WorkplaceId -> [WorkerId]
 getWorkplaceOccupants universe workplace = [w | w <- toListOf (players . folding elems . workers . folding keys) universe, getWorkerWorkplace universe w == Just workplace]
@@ -31,17 +38,14 @@ freeWorkplaces universe = universeAvailableWorkplaces \\ universeOccupiedWorkpla
         universeAvailableWorkplaces = keys $ view availableWorkplaces universe
         workerStates = toListOf (players . folding elems . workers . folding elems) universe
 
-updateWorkplacesAfterTurn :: Universe -> Universe
-updateWorkplacesAfterTurn = over (availableWorkplaces . traverse) updateWorkplaceAfterTurn
-
-checkWorkplacePrecondition :: MonadError String m => Universe -> WorkplaceData -> m ()
+checkWorkplacePrecondition :: MonadError String m => Universe -> WorkplaceType -> m ()
 checkWorkplacePrecondition universe WorkerNeed =
   check "No space for a child and no space for a building" (currentPlayerCanBuildRoom universe || currentPlayerCanMakeChild universe)
 checkWorkplacePrecondition _ _ = return ()
 
-applyAction :: WorkplaceId -> WorkplaceData -> Universe -> Universe
-applyAction wpId workplaceData = applySpecificAction wpId workplaceData . over (currentPlayerData . playerResources) (assignResources workplaceData)
-  where applySpecificAction = undefined
+-- applyAction :: WorkplaceId -> WorkplaceData -> Universe -> Universe
+-- applyAction wpId workplaceData = applySpecificAction wpId workplaceData . over (currentPlayerData . playerResources) (assignResources workplaceData)
+--   where applySpecificAction = undefined
   -- where applySpecificAction _ (CutForest _) = set (currentPlayerData . playerStatus) (createSimpleStatus CuttingForest)
   --       applySpecificAction _ (DigPassage _) = set (currentPlayerData . playerStatus) (createSimpleStatus DiggingPassage)
   --       applySpecificAction _ (DigCave _) = set (currentPlayerData . playerStatus) (createSimpleStatus $ MakingDecision CaveOrPassageDecision)
@@ -57,17 +61,21 @@ applyAction wpId workplaceData = applySpecificAction wpId workplaceData . over (
   --         where addDogToCurrentPlayer universe = over currentPlayerData (addDog universe) universe
   --       applySpecificAction _ Farming = set (currentPlayerData . playerStatus) (createSimpleStatus $ PlantingCrops)
 
-applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
-applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)
+-- applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
+-- applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)
 
-workplaceAction :: WorkplaceData -> ActionDefinition
-workplaceAction (CutForest _) =
+workplaceAction :: WorkplaceType -> ActionDefinition
+workplaceAction CutForest =
+  PerformStep (CollectResourcesStep (wood 1) zeroV) $
   AwaitInteraction (BuildBuildingsInteraction CanCancelBuilding [Field, Grass]) $
   ActionEnd
-workplaceAction (DigPassage _) =
+workplaceAction DigPassage =
+  PerformStep (CollectResourcesStep (stone 1) zeroV) $
   AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [Cave, Passage]) $
   ActionEnd
-workplaceAction (DigCave _) = Decision [
+workplaceAction DigCave =
+  PerformStep (CollectResourcesStep (stone 1) zeroV) $
+  Decision [
     (CaveOrPassageOption ChooseCave,
       AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [Cave, Cave]) $
       ActionEnd),
@@ -80,9 +88,15 @@ workplaceAction WorkerNeed = Decision [
     (WorkerNeedOption HireWorker, PerformStep AddWorkerStep  ActionEnd),
     (WorkerNeedOption BuildRoom, AwaitInteraction (BuildBuildingsInteraction  CannotCancelBuilding [LivingRoom]) ActionEnd)
   ]
-workplaceAction ResourceAddition = PerformStep AddResourcesStep  ActionEnd
-workplaceAction (GatherWood _) = PerformStep AddResourcesStep  ActionEnd
-workplaceAction (GatherFood _) = AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [Field, Grass]) ActionEnd
-workplaceAction (MakeStartPlayer _) = PerformStep SetStartPlayerStep  ActionEnd
+workplaceAction ResourceAddition = PerformStep (AddResourcesStep (wood 1 ^+^ stone 1 ^+^ iron 1 ^+^ food 1 ^+^ money 2)) ActionEnd
+workplaceAction GatherWood = PerformStep (CollectResourcesStep (wood 1) zeroV) ActionEnd
+workplaceAction GatherFood =
+  PerformStep (CollectResourcesStep (food 1) zeroV) $
+  PerformStep (AddResourcesStep (wheat 1)) $
+  AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [Field, Grass]) ActionEnd
+workplaceAction MakeStartPlayer =
+  PerformStep (CollectResourcesStep (food 1) zeroV) $
+  PerformStep (AddResourcesStep (iron 2)) $
+  PerformStep SetStartPlayerStep  ActionEnd
 workplaceAction HouseWork = AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [LivingRoom]) ActionEnd
 workplaceAction Farming = AwaitInteraction PlantCropsInteraction  ActionEnd

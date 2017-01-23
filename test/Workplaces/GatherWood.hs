@@ -17,7 +17,7 @@ gatherWoodTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Resource add
       newUniverse <- getUniverse
       let originalResources = getPlayerResources originalUniverse playerId
           newResources = getPlayerResources newUniverse playerId
-          (GatherWood woodAmount) = (getWorkplaces originalUniverse ! workplaceId)
+          woodAmount = getWoodAmount $ getWorkplaceResources $ (getWorkplaces originalUniverse ! workplaceId)
       assert $ getWoodAmount originalResources + woodAmount == getWoodAmount newResources,
     testProperty "Starting working stops turn" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInGatherWood
@@ -25,9 +25,5 @@ gatherWoodTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Resource add
       validateNextPlayer playerId
   ]
 
-isGatherWood :: WorkplaceData -> Bool
-isGatherWood (GatherWood _) = True
-isGatherWood _ = False
-
 startWorkingInGatherWood :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
-startWorkingInGatherWood = startWorkingInWorkplaceType isGatherWood
+startWorkingInGatherWood = startWorkingInWorkplaceType GatherWood

@@ -39,7 +39,8 @@ advanceStatus plId workplaceId continuation =
       set (players . ix plId . playerStatus) (PerformingAction workplaceId continuation)
 
 performStep :: ActionStep -> PlayerId -> WorkplaceId -> Universe -> Universe
-performStep AddResourcesStep _ _ = id
+performStep (AddResourcesStep _) _ _ = id
+performStep (CollectResourcesStep _ _) _ _ = id
 performStep AddWorkerStep _ _ = id
 performStep SetStartPlayerStep _ _ = id
 
@@ -71,14 +72,14 @@ alterOccupants plId occupants universe = universe &
 
 startWorking :: MonadError String m => PlayerId -> WorkerId -> WorkplaceId -> Universe -> m Universe
 startWorking plId workerId workplaceId universe = do
-  workplaceData <- checkMaybe "Invalid workplace" (universe ^? availableWorkplaces . ix workplaceId)
+  currentWorkplaceType <- checkMaybe "Invalid workplace" (universe ^? availableWorkplaces . ix workplaceId . workplaceType)
   check "Workplace already occupied" (workplaceId `elem` freeWorkplaces universe)
   playerData <- checkMaybe "Invalid player" (universe ^? players . ix plId)
   workerData <- checkMaybe "Invalid worker" (playerData ^? workers . ix workerId)
   check "Worker already working" $ hasn't (currentWorkplace . traverse) workerData
   return $ universe &
     players . ix plId .~ (playerData &
-      playerStatus .~ PerformingAction workplaceId (workplaceAction workplaceData) &
+      playerStatus .~ PerformingAction workplaceId (workplaceAction currentWorkplaceType) &
       workers . ix workerId . currentWorkplace .~ Just workplaceId) &
     performSteps plId
 

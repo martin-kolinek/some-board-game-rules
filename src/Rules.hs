@@ -8,7 +8,8 @@ module Rules (
   PlayerId,
   DogId,
   -- ** Workplaces
-  WorkplaceData(..),
+  WorkplaceData,
+  WorkplaceType(..),
   -- ** Resources
   Resources,
   -- ** Buildings
@@ -35,9 +36,12 @@ module Rules (
   getStartingPlayer,
   -- ** Workers
   getWorkers,
-  getWorkplaces,
   getWorkerWorkplace,
   getWorkplaceOccupants,
+  -- ** Workplaces
+  getWorkplaces,
+  getWorkplaceType,
+  getWorkplaceResources,
   -- ** Buildings
   getBuildingSpace,
   getBuildingOccupants,

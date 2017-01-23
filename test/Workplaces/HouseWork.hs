@@ -58,4 +58,4 @@ houseWorkTests = localOption (QuickCheckMaxRatio 500) $ testGroup "House work te
   ]
 
 startWorkingInHouseWork :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
-startWorkingInHouseWork = startWorkingInWorkplaceType (== HouseWork)
+startWorkingInHouseWork = startWorkingInWorkplaceType HouseWork

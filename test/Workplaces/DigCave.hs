@@ -49,7 +49,7 @@ digCaveTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest test
         originalUniverse <- getUniverse
         (playerId, _, workplaceId) <- startWorkingInDigCave
         let originalStone = getStoneAmount $ (getPlayerResources originalUniverse playerId)
-            DigCave workplaceAmount = getWorkplaces originalUniverse ! workplaceId
+            workplaceAmount = getStoneAmount $ getWorkplaceResources $ getWorkplaces originalUniverse ! workplaceId
         newStone <- getStoneAmount <$> (getsUniverse getPlayerResources <*> pure playerId)
         assert $ newStone == originalStone + workplaceAmount,
     testProperty "Starting working, choosing digging, and selecting invalid position fails" $ universeProperty $ do
@@ -67,9 +67,5 @@ digCaveTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest test
       validateNextPlayer playerId
   ]
 
-isDigCave :: WorkplaceData -> Bool
-isDigCave (DigCave _) = True
-isDigCave _ = False
-
 startWorkingInDigCave :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
-startWorkingInDigCave = startWorkingInWorkplaceType isDigCave
+startWorkingInDigCave = startWorkingInWorkplaceType DigCave

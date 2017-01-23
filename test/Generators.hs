@@ -11,6 +11,7 @@ import Data.List.Split (splitPlaces, chunksOf)
 import Control.Lens ((^.))
 import Data.Monoid ((<>))
 import Data.Maybe (mapMaybe)
+import Data.AdditiveGroup
 
 import Universe hiding (players)
 import qualified Universe as U
@@ -30,35 +31,35 @@ instance Show ArbitraryUniverse where
   show (ArbitraryUniverse u) = ppShow u
 
 generateCutForest :: Gen WorkplaceData
-generateCutForest = CutForest <$> choose(0, 1000)
+generateCutForest = WorkplaceData CutForest . wood <$> choose(0, 1000)
 
 generateDigPassage :: Gen WorkplaceData
-generateDigPassage = DigPassage <$> choose (0, 1000)
+generateDigPassage = WorkplaceData DigPassage . stone <$> choose (0, 1000)
 
 generateDigCave :: Gen WorkplaceData
-generateDigCave = DigCave <$> choose (0, 1000)
+generateDigCave = WorkplaceData DigCave . stone <$> choose (0, 1000)
 
 generateGatherWood :: Gen WorkplaceData
-generateGatherWood = GatherWood <$> choose (0, 1000)
+generateGatherWood = WorkplaceData GatherWood . wood <$> choose (0, 1000)
 
 generateGatherFood :: Gen WorkplaceData
-generateGatherFood = GatherFood <$> choose (0, 1000)
+generateGatherFood = WorkplaceData GatherFood . food <$> choose (0, 1000)
 
 generateMakeStartPlayer :: Gen WorkplaceData
-generateMakeStartPlayer = MakeStartPlayer <$> choose (0, 1000)
+generateMakeStartPlayer = WorkplaceData MakeStartPlayer . food <$> choose (0, 1000)
 
 generateWorkplaceData :: Gen WorkplaceData
 generateWorkplaceData = oneof [
   generateDigPassage,
   generateCutForest,
   generateDigCave,
-  elements [WorkerNeed],
-  elements [ResourceAddition],
+  elements [WorkplaceData WorkerNeed zeroV],
+  elements [WorkplaceData ResourceAddition zeroV],
   generateGatherWood,
   generateGatherFood,
   generateMakeStartPlayer,
-  elements [HouseWork],
-  elements [Farming]]
+  elements [WorkplaceData HouseWork zeroV],
+  elements [WorkplaceData Farming zeroV]]
 
 generateWorkplaces :: Int -> Gen WorkplaceData -> Gen [(WorkplaceId, WorkplaceData)]
 generateWorkplaces minNumber firstWorkplaceGen = do
@@ -218,8 +219,8 @@ collectActions action@(AwaitInteraction _ continuation) = action : collectAction
 collectActions action@(PerformStep _ continuation) = action : collectActions continuation
 collectActions action@(Decision decisions) = action : ((snd <$> decisions) >>= collectActions)
 
-possibleStatuses :: WorkplaceId -> WorkplaceData -> GeneratedPlayerStatus -> [PlayerStatus]
-possibleStatuses workplaceId workplaceData NotWaitingStatus = [MovingWorker] ++ (PerformingAction workplaceId <$> collectActions (workplaceAction workplaceData))
+possibleStatuses :: WorkplaceId -> WorkplaceType -> GeneratedPlayerStatus -> [PlayerStatus]
+possibleStatuses workplaceId currentWorkplaceType NotWaitingStatus = [MovingWorker] ++ (PerformingAction workplaceId <$> collectActions (workplaceAction currentWorkplaceType))
 possibleStatuses _ _ WaitingStatus = [Waiting]
 possibleStatuses _ _ AllWorkersBusyStatus = [Waiting]
 
@@ -236,7 +237,7 @@ generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availa
   alreadyBusyWorkplaceData <- mapM (const generateWorkplaceData) [1..alreadyBusyWorkerCount]
   freeWorkplaceData <- mapM (const generateWorkplaceData) [1..totalWorkerCount - alreadyBusyWorkerCount - 1]
   currentWorkplaceData <- generateWorkplaceData
-  selectedStatus <- elements $ possibleStatuses currentWorkplaceId currentWorkplaceData selectedGeneratedStatus
+  selectedStatus <- elements $ possibleStatuses currentWorkplaceId (currentWorkplaceData ^. workplaceType) selectedGeneratedStatus
   let alreadyBusyWorkerStates = WorkerState . Just <$> alreadyBusyWorkplaceIds
       currentWorkerState = WorkerState $ case (selectedGeneratedStatus, selectedStatus) of
         (AllWorkersBusyStatus, _) -> Just currentWorkplaceId

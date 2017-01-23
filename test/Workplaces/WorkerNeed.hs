@@ -89,7 +89,7 @@ workerNeedTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Worker need 
   ]
 
 startWorkingInWorkerNeed :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
-startWorkingInWorkerNeed = startWorkingInWorkplaceType (== WorkerNeed)
+startWorkingInWorkerNeed = startWorkingInWorkplaceType WorkerNeed
 
 checkedStartWorkingInWorkerNeed :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
 checkedStartWorkingInWorkerNeed = do

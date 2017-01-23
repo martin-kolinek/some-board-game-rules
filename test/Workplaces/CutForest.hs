@@ -40,14 +40,10 @@ cutForestTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest te
       originalUniverse <- getUniverse
       (playerId, _, workplaceId) <- startWorkingInCutForest
       let originalWood = getWoodAmount $ (getPlayerResources originalUniverse playerId)
-          CutForest workplaceAmount = (getWorkplaces originalUniverse ! workplaceId)
+          workplaceAmount = getWoodAmount $ getWorkplaceResources (getWorkplaces originalUniverse ! workplaceId)
       newWood <- getWoodAmount <$> (getsUniverse getPlayerResources <*> pure playerId)
       assert $ newWood == originalWood + workplaceAmount
   ]
 
-isCutForest :: WorkplaceData -> Bool
-isCutForest (CutForest _) = True
-isCutForest _ = False
-
 startWorkingInCutForest :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
-startWorkingInCutForest = startWorkingInWorkplaceType isCutForest
+startWorkingInCutForest = startWorkingInWorkplaceType CutForest

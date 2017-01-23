@@ -41,14 +41,10 @@ digPassageTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Dig passage 
       originalUniverse <- getUniverse
       (playerId, _, workplaceId) <- startWorkingInDigPassage
       let originalStone = getStoneAmount $ (getPlayerResources originalUniverse playerId)
-          DigPassage workplaceAmount = getWorkplaces originalUniverse ! workplaceId
+          workplaceAmount = getStoneAmount $ getWorkplaceResources $ getWorkplaces originalUniverse ! workplaceId
       newStone <- getStoneAmount <$> (getsUniverse getPlayerResources <*> pure playerId)
       assert $ newStone == originalStone + workplaceAmount
   ]
 
-isDigPassage :: WorkplaceData -> Bool
-isDigPassage (DigPassage _) = True
-isDigPassage _ = False
-
 startWorkingInDigPassage :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
-startWorkingInDigPassage = startWorkingInWorkplaceType isDigPassage
+startWorkingInDigPassage = startWorkingInWorkplaceType DigPassage

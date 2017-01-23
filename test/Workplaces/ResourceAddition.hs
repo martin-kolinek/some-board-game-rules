@@ -28,4 +28,4 @@ resourceAdditionTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Resour
   ]
 
 startWorkingInResourceAddition :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
-startWorkingInResourceAddition = startWorkingInWorkplaceType (== ResourceAddition)
+startWorkingInResourceAddition = startWorkingInWorkplaceType ResourceAddition

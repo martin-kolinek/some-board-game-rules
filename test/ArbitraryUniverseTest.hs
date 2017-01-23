@@ -38,7 +38,7 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
       let prop (ArbitraryUniverse universe) = all verifyGroup sortedGroups
             where workplaces = toListOf (players . traverse . workers . traverse . currentWorkplace . traverse) universe
                   sortedGroups = group $ sort workplaces
-                  verifyGroup grp = length grp <= (maxWorkers $ (universe ^. availableWorkplaces) ! head grp)
+                  verifyGroup grp = length grp <= (maxWorkers $ (universe ^. availableWorkplaces) ! head grp ^. workplaceType)
                   maxWorkers WorkerNeed = 2
                   maxWorkers _ = 1
       in prop,
@@ -129,7 +129,7 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
                                              currentWorkplace .
                                              traverse .
                                              filtered (== workplaceId)) universe
-                  isWorkplaceWorkerNeed = has (availableWorkplaces . ix workplaceId . filtered (==WorkerNeed)) universe
+                  isWorkplaceWorkerNeed = has (availableWorkplaces . ix workplaceId . workplaceType . filtered (==WorkerNeed)) universe
                   currentPlayer :: Traversal' Universe PlayerData
                   currentPlayer = players . traverse . filtered (has $ playerStatus . filtered isPerformingAction)
       in prop,
