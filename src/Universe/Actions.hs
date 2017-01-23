@@ -49,8 +49,8 @@ selectPosition plId pos dir universe =
   case universe ^? players . ix plId . playerStatus of
     Just (PerformingAction workplaceId (AwaitInteraction (BuildBuildingsInteraction _ buildings) continuation)) ->
       universe &
-      advanceStatus plId workplaceId continuation &
       mapMOf (players . ix plId . buildingSpace) (buildNewBuildings pos dir buildings) <&>
+      advanceStatus plId workplaceId continuation <&>
       performSteps plId
     _ -> throwError "Currently not needing position"
 
@@ -58,10 +58,9 @@ cancelSelection :: MonadError String m => PlayerId -> Universe -> m Universe
 cancelSelection plId universe =
   case universe ^? players . ix plId . playerStatus of
     Just (PerformingAction workplaceId (AwaitInteraction (BuildBuildingsInteraction CanCancelBuilding _) continuation)) ->
-      universe &
+      return $ universe &
       advanceStatus plId workplaceId continuation &
-      performSteps plId &
-      return
+      performSteps plId
     _ -> throwError "Cannot cancel selection"
 
 alterOccupants :: MonadError String m => PlayerId -> BuildingOccupants -> Universe -> m Universe
