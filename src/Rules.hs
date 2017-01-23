@@ -52,7 +52,7 @@ module Rules (
   getIronAmount,
   getWheatAmount,
   getPotatoAmount,
-  getMoney,
+  getMoneyAmount,
   getFoodAmount,
   getDogs,
   -- ** Player status functions

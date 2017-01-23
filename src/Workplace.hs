@@ -40,18 +40,18 @@ clearWorkspace (MakeStartPlayer _) = MakeStartPlayer 0
 clearWorkspace x = x
 
 assignResources :: WorkplaceData -> Resources -> Resources
-assignResources (CutForest wood) = over woodAmount (+wood)
-assignResources (DigPassage stone) = over stoneAmount (+stone)
-assignResources (DigCave stone) = over stoneAmount (+stone)
+assignResources (CutForest wd) = over woodAmount (+wd)
+assignResources (DigPassage st) = over stoneAmount (+st)
+assignResources (DigCave st) = over stoneAmount (+st)
 assignResources ResourceAddition =
   over stoneAmount (+1) .
   over woodAmount (+1) .
   over ironAmount (+1) .
   over foodAmount (+1) .
-  over money (+2)
-assignResources (GatherWood wood) = over woodAmount (+wood)
-assignResources (GatherFood food)= over foodAmount (+food) . over wheatAmount (+1)
-assignResources (MakeStartPlayer food) = over foodAmount (+food) . over ironAmount (+2)
+  over moneyAmount (+2)
+assignResources (GatherWood wd) = over woodAmount (+wd)
+assignResources (GatherFood fd)= over foodAmount (+fd) . over wheatAmount (+1)
+assignResources (MakeStartPlayer fd) = over foodAmount (+fd) . over ironAmount (+2)
 assignResources WorkerNeed = id
 assignResources HouseWork = id
 assignResources Farming = id

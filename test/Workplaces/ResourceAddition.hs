@@ -20,7 +20,7 @@ resourceAdditionTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Resour
       assert $ getIronAmount originalResources + 1 == getIronAmount newResources
       assert $ getStoneAmount originalResources + 1 == getStoneAmount newResources
       assert $ getFoodAmount originalResources + 1 == getFoodAmount newResources
-      assert $ getMoney originalResources + 2 == getMoney newResources,
+      assert $ getMoneyAmount originalResources + 2 == getMoneyAmount newResources,
     testProperty "Starting working stops turn" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInResourceAddition
       checkPlayerHasValidOccupants playerId
