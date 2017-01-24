@@ -185,13 +185,13 @@ canSupportAdditionalWorker :: [BuildingOccupant] -> BuildingSpace -> Bool
 canSupportAdditionalWorker allOccupants (BuildingSpace buildings _ _) = length workerOccupants < (sum $ buildingSupportedWorkers <$> buildings)
   where workerOccupants = filter isWorkerOccupant allOccupants
 
-findSpaceForWorker :: BuildingSpace -> BuildingOccupant -> BuildingOccupants
-findSpaceForWorker (BuildingSpace buildings occupants _) newOccupant = fromMaybe occupants $ do
+findSpaceForWorker :: BuildingOccupant -> BuildingSpace -> BuildingSpace
+findSpaceForWorker newOccupant buildSpace@(BuildingSpace buildings occupants _) = fromMaybe buildSpace $ do
   let buildingHasFreeSpace building = buildingSupportedWorkers building >
         (length $ filter isWorkerOccupant $ join $ catMaybes $ (`M.lookup` occupants) <$> buildingPositions building)
   buildingToUse <- listToMaybe $ filter buildingHasFreeSpace buildings
   positionToUse <- listToMaybe $ buildingPositions buildingToUse
-  return $ M.alter (Just . (newOccupant :) . fromMaybe []) positionToUse occupants
+  return $ buildSpace & buildingSpaceOccupants .~ M.alter (Just . (newOccupant :) . fromMaybe []) positionToUse occupants
 
 plantCropsInBuildingSpace :: MonadError String m => [(CropType, Position)] -> BuildingSpace -> m BuildingSpace
 plantCropsInBuildingSpace crops buildingSpace = foldM (flip $ uncurry plantCropInBuildingSpace) buildingSpace crops

@@ -96,7 +96,7 @@ workplaceAction GatherWood = PerformStep (CollectResourcesStep (wood 1) zeroV) A
 workplaceAction GatherFood =
   PerformStep (CollectResourcesStep (food 1) zeroV) $
   PerformStep (AddResourcesStep (wheat 1)) $
-  AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [Field, Grass]) ActionEnd
+  AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [Grass, Field]) ActionEnd
 workplaceAction MakeStartPlayer =
   PerformStep (CollectResourcesStep (food 1) zeroV) $
   PerformStep (AddResourcesStep (iron 2)) $

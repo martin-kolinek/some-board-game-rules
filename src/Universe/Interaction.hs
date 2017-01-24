@@ -54,7 +54,8 @@ performStep (CollectResourcesStep _ _) plId workplaceId universe =
 performStep AddWorkerStep plId workplaceId universe =
   let addedWorkerId = newWorkerId universe
   in universe &
-       players . ix plId . workers . at addedWorkerId .~ Just (WorkerState (Just workplaceId))
+       players . ix plId . workers . at addedWorkerId .~ Just (WorkerState (Just workplaceId)) &
+       players . ix plId . buildingSpace %~ findSpaceForWorker (WorkerOccupant addedWorkerId)
 
 performStep SetStartPlayerStep plId _ universe = universe & startingPlayer .~ plId
 
@@ -113,6 +114,7 @@ chooseOption :: MonadError String m => PlayerId -> Options -> Universe -> m Univ
 chooseOption plId option universe = case (universe ^? players . ix plId . playerStatus) of
   Just (PerformingAction workplaceId (Decision options)) -> do
     (_, continuation) <- checkMaybe "Invalid option" $ find ((== option) . fst) options
+    check "Cannot make that decision" $ actionPrecondition plId universe continuation
     return $ universe &
       advanceStatus plId workplaceId continuation &
       performSteps plId
