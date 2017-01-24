@@ -13,10 +13,12 @@ import Control.Monad (join)
 
 houseWorkTests :: TestTree
 houseWorkTests = localOption (QuickCheckMaxRatio 500) $ testGroup "House work tests" $ [
-    testProperty "After working decisions are available" $ universeProperty $ do
+    testProperty "After working player is building living room and can cancel" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInHouseWork
-      decisions <- getsUniverse getPossibleDecisions <*> pure playerId
-      assert $ (S.fromList decisions) == S.fromList [AnyRoomOption ChooseNoRoom, AnyRoomOption ChooseLivingRoom],
+      buildings <- getsUniverse currentlyBuiltBuildings <*> pure playerId
+      assert $ buildings == [LivingRoom]
+      canCancel <- getsUniverse canCancelBuilding <*> pure playerId
+      assert $ canCancel,
     testProperty "After working a dog is added" $ universeProperty $ do
       originalUniverse <- getUniverse
       (playerId, _, _) <- startWorkingInHouseWork
@@ -39,19 +41,17 @@ houseWorkTests = localOption (QuickCheckMaxRatio 500) $ testGroup "House work te
       (playerId, _, _) <- startWorkingInHouseWork
       pre $ getOccupantErrors originalUniverse playerId == []
       validatePlayerHasValidOccupants playerId,
-    testProperty "After working and selecting no room, next player moves" $ universeProperty $ do
+    testProperty "After working and canceling selection, next player moves" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInHouseWork
       checkPlayerHasValidOccupants playerId
-      applyToUniverse $ chooseOption playerId (AnyRoomOption ChooseNoRoom)
+      applyToUniverse $ cancelSelection playerId
       validateNextPlayer playerId,
     testProperty "Selecting invalid position is not possible" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInHouseWork
-      applyToUniverse $ chooseOption playerId (AnyRoomOption ChooseLivingRoom)
       _ <- selectWrongPosition availableSingleCavePositions playerId
       shouldHaveFailed,
     testProperty "Selecting valid position builds a living room" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInHouseWork
-      applyToUniverse $ chooseOption playerId (AnyRoomOption ChooseLivingRoom)
       (pos, _) <- selectCorrectPosition availableSingleCavePositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
       assert $ Building LivingRoom pos `elem` buildings

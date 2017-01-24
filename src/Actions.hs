@@ -16,7 +16,8 @@ data ActionStep =
   AddResourcesStep Resources |
   CollectResourcesStep Resources Resources |
   AddWorkerStep |
-  SetStartPlayerStep
+  SetStartPlayerStep |
+  AddDog
   deriving (Show, Eq)
 
 data ActionDefinition =

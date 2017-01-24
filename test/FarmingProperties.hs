@@ -13,7 +13,7 @@ import Data.Map (keys, lookup)
 import Data.Maybe (listToMaybe)
 
 farmingTests :: TestTree
-farmingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Farming tests" $ [
+farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming tests" $ [
     testProperty "Planting crops adds crops" $ universeProperty $ do
       playerId <- findFarmingPlayer
       cropsToPlant <- pickCropsToPlant playerId

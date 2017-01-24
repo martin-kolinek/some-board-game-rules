@@ -118,7 +118,7 @@ generateInvalidOccupants workerIds = do
 
 generateOccupants :: [WorkerId] -> [DogId] -> [Building] -> Gen BuildingOccupants
 generateOccupants workers dogIds playerBuildings =
-  oneof [generateValidOccupants workers dogIds playerBuildings, generateInvalidOccupants workers]
+  frequency [(3, generateValidOccupants workers dogIds playerBuildings), (1, generateInvalidOccupants workers)]
 
 generateOccupantsForPlayer :: Universe -> PlayerId -> Gen BuildingOccupants
 generateOccupantsForPlayer universe playerId =

@@ -4,9 +4,10 @@ module Universe.Interaction where
 import Prelude hiding (lookup)
 import Control.Monad.Except
 import Control.Lens hiding (universe)
-import Data.List (sortOn, groupBy, find)
+import Data.List (sortOn, groupBy, find, foldl')
 import Data.Function (on)
 import Data.AdditiveGroup
+import Data.Maybe (fromMaybe)
 
 import Universe.Player
 import Universe.Workplace
@@ -21,6 +22,7 @@ import Universe
 import Util
 import Worker
 import Workplace
+import Resources
 
 performSteps :: PlayerId -> Universe -> Universe
 performSteps plId universe =
@@ -58,6 +60,8 @@ performStep AddWorkerStep plId workplaceId universe =
        players . ix plId . buildingSpace %~ findSpaceForWorker (WorkerOccupant addedWorkerId)
 
 performStep SetStartPlayerStep plId _ universe = universe & startingPlayer .~ plId
+
+performStep AddDog plId _ universe = universe & players . ix plId %~ addDog universe
 
 selectPosition :: MonadError String m => PlayerId -> Position -> Direction -> Universe -> m Universe
 selectPosition plId pos dir universe =
@@ -127,9 +131,14 @@ plantCrops plId crops universe = do
   case universe ^? players . ix plId . playerStatus of
     Just (PerformingAction workplaceId (AwaitInteraction PlantCropsInteraction continuation)) -> do
       let groupedCrops = groupBy ((==) `on` fst) $ sortOn fst crops
+          oldPlayerResources = fromMaybe zeroV $ universe ^? players . ix plId . playerResources
+          subtractGroupResources resources grp = resources & cropResource (fst (head grp)) -~ length grp
+          newPlayerResources = foldl' subtractGroupResources oldPlayerResources groupedCrops
       check "Too many crops" (all ((<=2) . length) groupedCrops)
+      check "Not enough crops" $ isNonNegative newPlayerResources
       universe &
         mapMOf (players . ix plId . buildingSpace) (plantCropsInBuildingSpace crops) <&>
+        players . ix plId . playerResources .~ newPlayerResources <&>
         advanceStatus plId workplaceId continuation <&>
         performSteps plId
     _ -> throwError "Not planting crops"

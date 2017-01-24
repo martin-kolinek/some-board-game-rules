@@ -101,5 +101,7 @@ workplaceAction MakeStartPlayer =
   PerformStep (CollectResourcesStep (food 1) zeroV) $
   PerformStep (AddResourcesStep (iron 2)) $
   PerformStep SetStartPlayerStep  ActionEnd
-workplaceAction HouseWork = AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [LivingRoom]) ActionEnd
+workplaceAction HouseWork =
+  PerformStep AddDog $
+  AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [LivingRoom]) ActionEnd
 workplaceAction Farming = AwaitInteraction PlantCropsInteraction  ActionEnd
