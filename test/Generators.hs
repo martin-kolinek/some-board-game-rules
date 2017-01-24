@@ -216,7 +216,7 @@ data GeneratedPlayerStatus = WaitingStatus | AllWorkersBusyStatus | NotWaitingSt
 collectActions :: ActionDefinition -> [ActionDefinition]
 collectActions ActionEnd = [ActionEnd]
 collectActions action@(AwaitInteraction _ continuation) = action : collectActions continuation
-collectActions action@(PerformStep _ continuation) = action : collectActions continuation
+collectActions (PerformStep _ continuation) = collectActions continuation
 collectActions action@(Decision decisions) = action : ((snd <$> decisions) >>= collectActions)
 
 possibleStatuses :: WorkplaceId -> WorkplaceType -> GeneratedPlayerStatus -> [PlayerStatus]

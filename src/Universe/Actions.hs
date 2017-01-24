@@ -6,9 +6,11 @@ import Control.Monad.Except
 import Control.Lens hiding (universe)
 import Data.List (sortOn, groupBy, find)
 import Data.Function (on)
+import Data.AdditiveGroup
 
 import Universe.Player
 import Universe.Workplace
+import Universe.Worker
 import Universe.Building
 import Player
 import Decisions
@@ -39,10 +41,21 @@ advanceStatus plId workplaceId continuation =
       set (players . ix plId . playerStatus) (PerformingAction workplaceId continuation)
 
 performStep :: ActionStep -> PlayerId -> WorkplaceId -> Universe -> Universe
-performStep (AddResourcesStep _) _ _ = id
-performStep (CollectResourcesStep _ _) _ _ = id
-performStep AddWorkerStep _ _ = id
-performStep SetStartPlayerStep _ _ = id
+
+performStep (AddResourcesStep resources) plId _ universe = universe & (players . ix plId . playerResources %~ (^+^ resources))
+
+performStep (CollectResourcesStep _ _) plId workplaceId universe =
+  let resources = sumV $ universe ^.. (availableWorkplaces . ix workplaceId . workplaceStoredResources)
+  in universe &
+       players . ix plId . playerResources %~ (^+^ resources) &
+       availableWorkplaces . ix workplaceId . workplaceStoredResources .~ zeroV
+
+performStep AddWorkerStep plId workplaceId universe =
+  let addedWorkerId = newWorkerId universe
+  in universe &
+       players . ix plId . workers . at addedWorkerId .~ Just (WorkerState (Just workplaceId))
+
+performStep SetStartPlayerStep plId _ universe = universe & startingPlayer .~ plId
 
 selectPosition :: MonadError String m => PlayerId -> Position -> Direction -> Universe -> m Universe
 selectPosition plId pos dir universe =
@@ -76,6 +89,7 @@ startWorking plId workerId workplaceId universe = do
   playerData <- checkMaybe "Invalid player" (universe ^? players . ix plId)
   workerData <- checkMaybe "Invalid worker" (playerData ^? workers . ix workerId)
   check "Worker already working" $ hasn't (currentWorkplace . traverse) workerData
+  check "Not moving worker" (has (players . ix plId . playerStatus . filtered (== MovingWorker)) universe)
   return $ universe &
     players . ix plId .~ (playerData &
       playerStatus .~ PerformingAction workplaceId (workplaceAction currentWorkplaceType) &

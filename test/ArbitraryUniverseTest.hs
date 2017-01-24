@@ -121,7 +121,7 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
     testProperty "PerformingAction workplace is correct" $
       let prop (ArbitraryUniverse universe) =
             has currentPlayer universe ==>
-            isWorkplaceWorkerNeed && isWorkplaceOccupied
+            isWorkplaceOccupied
             where (PerformingAction workplaceId _) = fromJust $ universe ^? currentPlayer . playerStatus
                   isWorkplaceOccupied = has (currentPlayer .
                                              workers .
@@ -129,7 +129,6 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
                                              currentWorkplace .
                                              traverse .
                                              filtered (== workplaceId)) universe
-                  isWorkplaceWorkerNeed = has (availableWorkplaces . ix workplaceId . workplaceType . filtered (==WorkerNeed)) universe
                   currentPlayer :: Traversal' Universe PlayerData
                   currentPlayer = players . traverse . filtered (has $ playerStatus . filtered isPerformingAction)
       in prop,

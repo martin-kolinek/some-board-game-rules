@@ -78,7 +78,7 @@ addWorkplaceResources workplaceData = workplaceData & workplaceStoredResources .
 workplaceAction :: WorkplaceType -> ActionDefinition
 workplaceAction CutForest =
   PerformStep (CollectResourcesStep (wood 1) zeroV) $
-  AwaitInteraction (BuildBuildingsInteraction CanCancelBuilding [Field, Grass]) $
+  AwaitInteraction (BuildBuildingsInteraction CanCancelBuilding [Grass, Field]) $
   ActionEnd
 workplaceAction DigPassage =
   PerformStep (CollectResourcesStep (stone 1) zeroV) $
