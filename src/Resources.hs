@@ -78,6 +78,17 @@ money x = Resources 0 0 0 0 0 0 x 0
 food :: Int -> Resources
 food x = Resources 0 0 0 0 0 0 0 x
 
+isNonNegative :: Resources -> Bool
+isNonNegative (Resources wd st gld ir wh pot mon fd) =
+  wd >= 0 &&
+  st >= 0 &&
+  gld >= 0 &&
+  ir >= 0 &&
+  wh >= 0 &&
+  pot >= 0 &&
+  mon >= 0 &&
+  fd >= 0
+
 data Animals = Animals {
   _dogs :: [DogId]
 } deriving (Show, Eq)

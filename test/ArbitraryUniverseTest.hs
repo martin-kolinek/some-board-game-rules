@@ -17,7 +17,7 @@ import Generators
 import Worker
 import Workplace
 import Universe.Building
-import Universe.Actions
+import Universe.Interaction
 import Universe.Player hiding (currentPlayerData)
 
 arbitraryUniverseTests :: TestTree

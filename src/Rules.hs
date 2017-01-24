@@ -91,7 +91,7 @@ import Player
 import Universe
 import Resources
 import Decisions
-import Universe.Actions
+import Universe.Interaction
 import Universe.Player
 import Universe.Workplace
 import Universe.Worker

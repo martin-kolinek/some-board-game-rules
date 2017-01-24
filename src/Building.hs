@@ -207,3 +207,7 @@ plantCropInBuildingSpace cropType position buildingSpace = do
 cropResource :: CropType -> Lens' Resources Int
 cropResource Potatoes = potatoAmount
 cropResource Wheat = wheatAmount
+
+buildingCost :: BuildingType -> Resources
+buildingCost LivingRoom = wood 4 ^+^ stone 3
+buildingCost _ = zeroV

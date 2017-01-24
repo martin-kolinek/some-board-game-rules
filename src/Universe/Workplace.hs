@@ -4,7 +4,6 @@ module Universe.Workplace where
 import Data.Map hiding ((\\))
 import Data.List ((\\))
 import Control.Lens hiding (universe)
-import Control.Monad.Except
 import Data.Maybe
 import Data.AdditiveGroup
 
@@ -14,8 +13,6 @@ import Workplace
 import Worker
 import Player
 import Building
-import Universe.Building
-import Util
 import Actions
 import Decisions
 import Resources
@@ -37,11 +34,6 @@ freeWorkplaces universe = universeAvailableWorkplaces \\ universeOccupiedWorkpla
   where universeOccupiedWorkplaces = catMaybes $ view currentWorkplace <$> workerStates
         universeAvailableWorkplaces = keys $ view availableWorkplaces universe
         workerStates = toListOf (players . folding elems . workers . folding elems) universe
-
-checkWorkplacePrecondition :: MonadError String m => Universe -> WorkplaceType -> m ()
-checkWorkplacePrecondition universe WorkerNeed =
-  check "No space for a child and no space for a building" (currentPlayerCanBuildRoom universe || currentPlayerCanMakeChild universe)
-checkWorkplacePrecondition _ _ = return ()
 
 -- applyAction :: WorkplaceId -> WorkplaceData -> Universe -> Universe
 -- applyAction wpId workplaceData = applySpecificAction wpId workplaceData . over (currentPlayerData . playerResources) (assignResources workplaceData)
