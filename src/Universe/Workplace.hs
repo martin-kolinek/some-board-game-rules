@@ -104,4 +104,6 @@ workplaceAction MakeStartPlayer =
 workplaceAction HouseWork =
   PerformStep AddDog $
   AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [LivingRoom]) ActionEnd
-workplaceAction Farming = AwaitInteraction PlantCropsInteraction  ActionEnd
+workplaceAction Farming =
+  AwaitInteraction (BuildBuildingsInteraction CanCancelBuilding [Grass, Field]) $
+  AwaitInteraction PlantCropsInteraction  ActionEnd
