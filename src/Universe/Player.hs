@@ -24,9 +24,6 @@ getPlayerStatus universe player = fromMaybe Waiting $ universe ^? (players . ix 
 getPlayerResources :: Universe -> PlayerId -> Resources
 getPlayerResources universe player = fromMaybe initialResources $ universe ^? (players . ix player . playerResources)
 
-currentPlayerData :: Traversal' Universe PlayerData
-currentPlayerData fres universe = (players . fromMaybe ignored (ix <$> getCurrentPlayer universe)) fres universe
-
 nextPlayer :: Universe -> PlayerId -> Maybe PlayerId
 nextPlayer universe currentPlayer = do
   let playerIds = keys (universe ^. players)

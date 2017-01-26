@@ -9,10 +9,7 @@ import Data.Function (on)
 import Data.AdditiveGroup
 import Data.Maybe (fromMaybe)
 
-import Universe.Player
 import Universe.Workplace
-import Universe.Worker
-import Universe.Building
 import Universe.Actions
 import Player
 import Decisions
@@ -23,45 +20,6 @@ import Util
 import Worker
 import Workplace
 import Resources
-
-performSteps :: PlayerId -> Universe -> Universe
-performSteps plId universe =
-  case universe ^? players . ix plId . playerStatus of
-    Just (PerformingAction workplaceId (PerformStep step continuation)) ->
-      universe &
-      advanceStatus plId workplaceId continuation &
-      performStep step plId workplaceId &
-      performSteps plId
-    Just (PerformingAction _ ActionEnd) -> if null $ getOccupantErrors universe plId
-      then universe &
-           set (players . ix plId . playerStatus) Waiting &
-           set (players . ixMaybe (nextPlayer universe plId) . playerStatus) MovingWorker
-      else universe
-    _ -> universe
-
-advanceStatus :: PlayerId -> WorkplaceId -> ActionDefinition -> Universe -> Universe
-advanceStatus plId workplaceId continuation =
-      set (players . ix plId . playerStatus) (PerformingAction workplaceId continuation)
-
-performStep :: ActionStep -> PlayerId -> WorkplaceId -> Universe -> Universe
-
-performStep (AddResourcesStep resources) plId _ universe = universe & (players . ix plId . playerResources %~ (^+^ resources))
-
-performStep (CollectResourcesStep _ _) plId workplaceId universe =
-  let resources = sumV $ universe ^.. (availableWorkplaces . ix workplaceId . workplaceStoredResources)
-  in universe &
-       players . ix plId . playerResources %~ (^+^ resources) &
-       availableWorkplaces . ix workplaceId . workplaceStoredResources .~ zeroV
-
-performStep AddWorkerStep plId workplaceId universe =
-  let addedWorkerId = newWorkerId universe
-  in universe &
-       players . ix plId . workers . at addedWorkerId .~ Just (WorkerState (Just workplaceId)) &
-       players . ix plId . buildingSpace %~ findSpaceForWorker (WorkerOccupant addedWorkerId)
-
-performStep SetStartPlayerStep plId _ universe = universe & startingPlayer .~ plId
-
-performStep AddDog plId _ universe = universe & players . ix plId %~ addDog universe
 
 selectPosition :: MonadError String m => PlayerId -> Position -> Direction -> Universe -> m Universe
 selectPosition plId pos dir universe =

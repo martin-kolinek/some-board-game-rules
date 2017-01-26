@@ -18,7 +18,7 @@ import Worker
 import Workplace
 import Universe.Building
 import Universe.Interaction
-import Universe.Player hiding (currentPlayerData)
+import Universe.Player
 
 arbitraryUniverseTests :: TestTree
 arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbitrary universe tests" [

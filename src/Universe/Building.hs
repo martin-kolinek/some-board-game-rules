@@ -5,7 +5,6 @@ import Data.Map
 import Data.Maybe
 import Data.AdditiveGroup
 
-import Universe.Player
 import Universe
 import Player
 import Building
@@ -29,11 +28,6 @@ getPlantedCrops universe player = fromMaybe empty $ universe ^? (players . ix pl
 getPlayerPossibleOccupants :: PlayerData -> [BuildingOccupant]
 getPlayerPossibleOccupants playerData =
   (DogOccupant <$> toListOf (playerAnimals . dogs . traverse) playerData) ++ (WorkerOccupant <$> toListOf (workers . folding keys) playerData)
-
-currentPlayerCanBuildRoom :: Universe -> Bool
-currentPlayerCanBuildRoom universe = has (currentPlayerData . buildingSpace . to getBuildings . traverse . filtered ((==Cave) . getBuildingType)) universe &&
-  has (currentPlayerData . playerResources . woodAmount . filtered (>=4)) universe &&
-  has (currentPlayerData . playerResources . stoneAmount . filtered (>=3)) universe
 
 playerCanHireWorker :: PlayerData -> Bool
 playerCanHireWorker playerData = canSupportAdditionalWorker (getPlayerPossibleOccupants playerData) (playerData ^. buildingSpace)

@@ -35,27 +35,6 @@ freeWorkplaces universe = universeAvailableWorkplaces \\ universeOccupiedWorkpla
         universeAvailableWorkplaces = keys $ view availableWorkplaces universe
         workerStates = toListOf (players . folding elems . workers . folding elems) universe
 
--- applyAction :: WorkplaceId -> WorkplaceData -> Universe -> Universe
--- applyAction wpId workplaceData = applySpecificAction wpId workplaceData . over (currentPlayerData . playerResources) (assignResources workplaceData)
---   where applySpecificAction = undefined
-  -- where applySpecificAction _ (CutForest _) = set (currentPlayerData . playerStatus) (createSimpleStatus CuttingForest)
-  --       applySpecificAction _ (DigPassage _) = set (currentPlayerData . playerStatus) (createSimpleStatus DiggingPassage)
-  --       applySpecificAction _ (DigCave _) = set (currentPlayerData . playerStatus) (createSimpleStatus $ MakingDecision CaveOrPassageDecision)
-  --       applySpecificAction workplaceId WorkerNeed = set (currentPlayerData . playerStatus) (createSimpleStatus $ MakingDecision $ WorkerNeedDecision workplaceId)
-  --       applySpecificAction _ ResourceAddition = over currentPlayerData stopTurn
-  --       applySpecificAction _ (GatherWood _) = over currentPlayerData stopTurn
-  --       applySpecificAction _ (GatherFood _) = set (currentPlayerData . playerStatus) (createSimpleStatus CuttingForest)
-  --       applySpecificAction _ (MakeStartPlayer _) = over currentPlayerData stopTurn . setStartingPlayer
-  --         where setStartingPlayer universe = set startingPlayer nextStartingPlayer universe
-  --                 where firstPlayer = head $ keys $ universe ^. players
-  --                       nextStartingPlayer = fromMaybe firstPlayer $ getCurrentPlayer universe
-  --       applySpecificAction _ HouseWork = (set (currentPlayerData . playerStatus) (createSimpleStatus $ MakingDecision AnyRoomDecision)) . addDogToCurrentPlayer
-  --         where addDogToCurrentPlayer universe = over currentPlayerData (addDog universe) universe
-  --       applySpecificAction _ Farming = set (currentPlayerData . playerStatus) (createSimpleStatus $ PlantingCrops)
-
--- applyWorkplaceData :: WorkplaceData -> PlayerData -> PlayerData
--- applyWorkplaceData workplaceData = over playerResources (assignResources workplaceData)
-
 addWorkplaceResources :: WorkplaceData -> WorkplaceData
 addWorkplaceResources workplaceData = workplaceData & workplaceStoredResources .~ newResources
   where newResources = if oldResources == zeroV then bonusAddition else oldResources ^+^ normalAddition
