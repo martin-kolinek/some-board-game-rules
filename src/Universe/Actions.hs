@@ -67,6 +67,8 @@ performStep AddWorkerStep plId workplaceId universe =
        players . ix plId . workers . at addedWorkerId .~ Just (WorkerState (Just workplaceId)) &
        players . ix plId . buildingSpace %~ findSpaceForWorker (WorkerOccupant addedWorkerId)
 
+performStep (ArmWorkerStep _) _ _ universe = universe
+
 performStep SetStartPlayerStep plId _ universe = universe & startingPlayer .~ plId
 
-performStep AddDog plId _ universe = universe & players . ix plId %~ addDog universe
+performStep AddDogStep plId _ universe = universe & players . ix plId %~ addDog universe

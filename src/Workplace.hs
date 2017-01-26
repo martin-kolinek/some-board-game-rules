@@ -20,7 +20,8 @@ data WorkplaceType =
   GatherFood |
   MakeStartPlayer |
   HouseWork |
-  Farming deriving (Eq, Show)
+  Farming |
+  WeaponMaking deriving (Eq, Show)
 
 makeLenses ''WorkplaceData
 

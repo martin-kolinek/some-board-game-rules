@@ -4,6 +4,7 @@ module Actions where
 import Building
 import Decisions
 import Resources
+import Worker
 
 import Control.Lens.TH
 
@@ -17,7 +18,8 @@ data ActionStep =
   CollectResourcesStep Resources Resources |
   AddWorkerStep |
   SetStartPlayerStep |
-  AddDog
+  AddDogStep |
+  ArmWorkerStep WorkerStrength
   deriving (Show, Eq)
 
 data ActionDefinition =
@@ -28,3 +30,6 @@ data ActionDefinition =
   deriving (Show, Eq)
 
 makeLenses ''ActionDefinition
+
+armDecision :: ActionDefinition -> ActionDefinition
+armDecision continuation = Decision [(ArmOption strength, PerformStep (ArmWorkerStep strength) continuation) | strength <- [0..8]]

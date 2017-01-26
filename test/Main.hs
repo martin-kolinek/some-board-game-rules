@@ -13,6 +13,7 @@ import Workplaces.GatherFood
 import Workplaces.MakeStartPlayer
 import Workplaces.HouseWork
 import Workplaces.Farming
+import Workplaces.WeaponMaking
 import BuildingProperties
 import FarmingProperties
 
@@ -32,4 +33,5 @@ main = defaultMain $ do
     houseWorkTests,
     farmingTests,
     farmingWorkplaceTests,
-    buildingTests]
+    buildingTests,
+    weaponMakingTests]

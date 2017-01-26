@@ -239,7 +239,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
   ]
 
 allPossibleOptions :: [Options]
-allPossibleOptions = (WorkerNeedOption <$> [HireWorker ..]) ++ (CaveOrPassageOption <$> [ChooseCave ..]) ++ (AnyRoomOption <$> [ChooseNoRoom ..])
+allPossibleOptions = (WorkerNeedOption <$> [HireWorker ..]) ++ (CaveOrPassageOption <$> [ChooseCave ..]) ++ (AnyRoomOption <$> [ChooseNoRoom ..]) ++ (ArmOption <$> [-2..10])
 
 allPossibleOutcomes :: Universe -> [(String, Universe)]
 allPossibleOutcomes universe = let

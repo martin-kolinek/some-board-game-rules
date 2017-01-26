@@ -9,6 +9,8 @@ import Data.Map.Strict
 
 newtype WorkerId = WorkerId Int deriving (Eq, Ord, Show)
 
+type WorkerStrength = Int
+
 data WorkerState = WorkerState {
   _currentWorkplace :: Maybe WorkplaceId
 } deriving (Show, Eq)

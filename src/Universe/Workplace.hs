@@ -59,10 +59,10 @@ workplaceAction DigCave =
   PerformStep (CollectResourcesStep (stone 1) zeroV) $
   Decision [
     (CaveOrPassageOption ChooseCave,
-      AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [Cave, Cave]) $
+      AwaitInteraction (BuildBuildingsInteraction CanCancelBuilding [Cave, Cave]) $
       ActionEnd),
     (CaveOrPassageOption ChoosePassage,
-      AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [Cave, Passage]) $
+      AwaitInteraction (BuildBuildingsInteraction CanCancelBuilding [Cave, Passage]) $
       ActionEnd),
     (CaveOrPassageOption NoDigging, ActionEnd)
   ]
@@ -81,8 +81,10 @@ workplaceAction MakeStartPlayer =
   PerformStep (AddResourcesStep (iron 2)) $
   PerformStep SetStartPlayerStep  ActionEnd
 workplaceAction HouseWork =
-  PerformStep AddDog $
+  PerformStep AddDogStep $
   AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [LivingRoom]) ActionEnd
 workplaceAction Farming =
   AwaitInteraction (BuildBuildingsInteraction CanCancelBuilding [Grass, Field]) $
   AwaitInteraction PlantCropsInteraction  ActionEnd
+workplaceAction WeaponMaking =
+  armDecision ActionEnd

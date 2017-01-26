@@ -59,7 +59,8 @@ generateWorkplaceData = oneof [
   generateGatherFood,
   generateMakeStartPlayer,
   elements [WorkplaceData HouseWork zeroV],
-  elements [WorkplaceData Farming zeroV]]
+  elements [WorkplaceData Farming zeroV],
+  elements [WorkplaceData WeaponMaking zeroV]]
 
 generateWorkplaces :: Int -> Gen WorkplaceData -> Gen [(WorkplaceId, WorkplaceData)]
 generateWorkplaces minNumber firstWorkplaceGen = do
@@ -215,6 +216,7 @@ data GeneratedPlayerStatus = WaitingStatus | AllWorkersBusyStatus | NotWaitingSt
 
 collectActions :: ActionDefinition -> [ActionDefinition]
 collectActions ActionEnd = [ActionEnd]
+collectActions action@(AwaitInteraction PlantCropsInteraction continuation) = [action, action, action] ++ collectActions continuation
 collectActions action@(AwaitInteraction _ continuation) = action : collectActions continuation
 collectActions (PerformStep _ continuation) = collectActions continuation
 collectActions action@(Decision decisions) = action : ((snd <$> decisions) >>= collectActions)
