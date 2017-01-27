@@ -12,11 +12,12 @@ newtype WorkerId = WorkerId Int deriving (Eq, Ord, Show)
 type WorkerStrength = Int
 
 data WorkerState = WorkerState {
-  _currentWorkplace :: Maybe WorkplaceId
+  _currentWorkplace :: Maybe WorkplaceId,
+  _workerStrength :: WorkerStrength
 } deriving (Show, Eq)
 
 initialWorkerState :: WorkerState
-initialWorkerState = WorkerState Nothing
+initialWorkerState = WorkerState Nothing 0
 
 makeLenses ''WorkerState
 

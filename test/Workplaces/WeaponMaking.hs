@@ -19,8 +19,14 @@ weaponMakingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest
       checkPlayerHasValidOccupants plId
       chosenOption <- pick . elements =<< getsUniverse getPossibleDecisions <*> pure plId
       applyToUniverse $ chooseOption plId chosenOption
-      validateNextPlayer plId
-      return ()
+      validateNextPlayer plId,
+    testProperty "Choosing strength adds strength" $ universeProperty $ do
+      (plId, workerId, _) <- startWorkingInWeaponMaking
+      strength <- pick $ elements [0..8]
+      originalStrength <- getsUniverse getWorkerStrength <*> pure workerId
+      applyToUniverse $ chooseOption plId $ ArmOption strength
+      newStrength <- getsUniverse getWorkerStrength <*> pure workerId
+      assert $ newStrength == originalStrength + strength
   ]
 
 startWorkingInWeaponMaking :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)

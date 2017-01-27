@@ -240,16 +240,19 @@ generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availa
   freeWorkplaceData <- mapM (const generateWorkplaceData) [1..totalWorkerCount - alreadyBusyWorkerCount - 1]
   currentWorkplaceData <- generateWorkplaceData
   selectedStatus <- elements $ possibleStatuses currentWorkplaceId (currentWorkplaceData ^. workplaceType) selectedGeneratedStatus
-  let alreadyBusyWorkerStates = WorkerState . Just <$> alreadyBusyWorkplaceIds
-      currentWorkerState = WorkerState $ case (selectedGeneratedStatus, selectedStatus) of
+  let alreadyBusyWorkerStates = Just <$> alreadyBusyWorkplaceIds
+      currentWorkerState = case (selectedGeneratedStatus, selectedStatus) of
         (AllWorkersBusyStatus, _) -> Just currentWorkplaceId
         (_, MovingWorker) -> Nothing
         (_, Waiting) -> Nothing
         _ -> Just currentWorkplaceId
-      freeWorkerStates = repeat $ WorkerState Nothing
-      allWorkerStates = alreadyBusyWorkerStates ++ (currentWorkerState : freeWorkerStates)
+      freeWorkerStates = repeat Nothing
+      allWorkerWorkplaces = alreadyBusyWorkerStates ++ (currentWorkerState : freeWorkerStates)
       allWorkplaceData = (currentWorkplaceData : alreadyBusyWorkplaceData) ++ freeWorkplaceData
       workplaceData = fromList $ zip allWorkplaceIds allWorkplaceData
+  allWorkerStates <- forM allWorkerWorkplaces $ \workplace -> do
+    strength <- choose (0, 15)
+    return $ WorkerState workplace strength
   generatedAnimals <- generateAnimals availableDogIds
   generatedOccupants <- if selectedStatus == PerformingAction currentWorkplaceId ActionEnd
                         then generateInvalidOccupants allWorkerIds

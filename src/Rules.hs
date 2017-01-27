@@ -7,6 +7,8 @@ module Rules (
   WorkplaceId,
   PlayerId,
   DogId,
+  -- ** Workers
+  WorkerStrength,
   -- ** Workplaces
   WorkplaceData,
   WorkplaceType(..),
@@ -38,6 +40,7 @@ module Rules (
   getWorkers,
   getWorkerWorkplace,
   getWorkplaceOccupants,
+  getWorkerStrength,
   -- ** Workplaces
   getWorkplaces,
   getWorkplaceType,

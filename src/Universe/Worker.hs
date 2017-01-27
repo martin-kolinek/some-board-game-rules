@@ -16,6 +16,9 @@ getWorkers universe player = toListOf (players . ix player . workers . folding k
 getWorkerWorkplace :: Universe -> WorkerId -> Maybe WorkplaceId
 getWorkerWorkplace universe workerId = universe ^? (players . traverse . workers . ix workerId . currentWorkplace . traverse)
 
+getWorkerStrength :: Universe -> WorkerId -> WorkerStrength
+getWorkerStrength universe workerId = fromMaybe 0 $ universe ^? (players . traverse . workers . ix workerId . workerStrength)
+
 workerWorking :: WorkerState -> Bool
 workerWorking = isJust . view currentWorkplace
 

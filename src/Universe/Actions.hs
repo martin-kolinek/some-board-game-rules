@@ -64,10 +64,11 @@ performStep (CollectResourcesStep _ _) plId workplaceId universe =
 performStep AddWorkerStep plId workplaceId universe =
   let addedWorkerId = newWorkerId universe
   in universe &
-       players . ix plId . workers . at addedWorkerId .~ Just (WorkerState (Just workplaceId)) &
+       players . ix plId . workers . at addedWorkerId . non initialWorkerState . currentWorkplace .~ Just workplaceId &
        players . ix plId . buildingSpace %~ findSpaceForWorker (WorkerOccupant addedWorkerId)
 
-performStep (ArmWorkerStep _) _ _ universe = universe
+performStep (ArmWorkerStep strengthIncrease) plId workplaceId universe = universe &
+  players . ix plId . workers . traverse . filtered (has $ currentWorkplace . filtered (== Just workplaceId)) . workerStrength +~ strengthIncrease
 
 performStep SetStartPlayerStep plId _ universe = universe & startingPlayer .~ plId
 
