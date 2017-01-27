@@ -17,16 +17,23 @@ weaponMakingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest
     testProperty "Next player's turn after deciding" $ universeProperty $ do
       (plId, _, _) <- startWorkingInWeaponMaking
       checkPlayerHasValidOccupants plId
-      chosenOption <- pick . elements =<< getsUniverse getPossibleDecisions <*> pure plId
-      applyToUniverse $ chooseOption plId chosenOption
+      applyToUniverse $ chooseOption plId (ArmOption 0)
       validateNextPlayer plId,
     testProperty "Choosing strength adds strength" $ universeProperty $ do
       (plId, workerId, _) <- startWorkingInWeaponMaking
-      strength <- pick $ elements [0..8]
+      resources <- getsUniverse getPlayerResources <*> pure plId
+      strength <- pick $ elements [0 .. min 8 (getIronAmount resources)]
       originalStrength <- getsUniverse getWorkerStrength <*> pure workerId
       applyToUniverse $ chooseOption plId $ ArmOption strength
       newStrength <- getsUniverse getWorkerStrength <*> pure workerId
-      assert $ newStrength == originalStrength + strength
+      assert $ newStrength == originalStrength + strength,
+    testProperty "Choosing more strength than iron fails" $ universeProperty $ do
+      (plId, _, _) <- startWorkingInWeaponMaking
+      resources <- getsUniverse getPlayerResources <*> pure plId
+      pre $ getIronAmount resources < 8
+      strength <- pick $ elements [getIronAmount resources + 1 .. 8]
+      applyToUniverse $ chooseOption plId $ ArmOption strength
+      shouldHaveFailed
   ]
 
 startWorkingInWeaponMaking :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)

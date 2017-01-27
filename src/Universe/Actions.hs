@@ -10,12 +10,14 @@ import Universe.Building
 import Building
 import Workplace
 import Util
+import Resources
 import Universe.Player
 import Universe.Worker
 import Worker
 
 stepPrecondition :: ActionStep -> PlayerId -> Universe -> Bool
 stepPrecondition AddWorkerStep plId = has (players . ix plId . filtered playerCanHireWorker)
+stepPrecondition (ArmWorkerStep strength) plId = has (players . ix plId . playerResources . ironAmount . filtered (>= strength))
 stepPrecondition _ _ = const True
 
 interactionPrecondition :: ActionInteraction -> PlayerId -> Universe -> Bool
