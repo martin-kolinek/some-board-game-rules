@@ -55,7 +55,7 @@ startWorking plId workerId workplaceId universe = do
   check "Worker already working" $ hasn't (currentWorkplace . traverse) workerData
   check "Not moving worker" (has (players . ix plId . playerStatus . filtered (== MovingWorker)) universe)
   let currentWorkplaceAction = workplaceAction currentWorkplaceType
-  check "Precondition not met" $ actionPrecondition plId universe currentWorkplaceAction
+  check "Precondition not met" $ actionPrecondition plId workplaceId universe currentWorkplaceAction
   return $ universe &
     players . ix plId .~ (playerData &
       playerStatus .~ PerformingAction workplaceId currentWorkplaceAction &
@@ -76,7 +76,7 @@ chooseOption :: MonadError String m => PlayerId -> Options -> Universe -> m Univ
 chooseOption plId option universe = case (universe ^? players . ix plId . playerStatus) of
   Just (PerformingAction workplaceId (Decision options)) -> do
     (_, continuation) <- checkMaybe "Invalid option" $ find ((== option) . fst) options
-    check "Cannot make that decision" $ actionPrecondition plId universe continuation
+    check "Cannot make that decision" $ actionPrecondition plId workplaceId universe continuation
     return $ universe &
       advanceStatus plId workplaceId continuation &
       performSteps plId

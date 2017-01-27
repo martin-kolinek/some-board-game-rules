@@ -2,6 +2,7 @@ module Universe.Actions where
 
 import Control.Lens hiding (universe)
 import Data.AdditiveGroup
+import Control.Monad (liftM2)
 
 import Player
 import Universe
@@ -15,10 +16,12 @@ import Universe.Player
 import Universe.Worker
 import Worker
 
-stepPrecondition :: ActionStep -> PlayerId -> Universe -> Bool
-stepPrecondition AddWorkerStep plId = has (players . ix plId . filtered playerCanHireWorker)
-stepPrecondition (ArmWorkerStep strength) plId = has (players . ix plId . playerResources . ironAmount . filtered (>= strength))
-stepPrecondition _ _ = const True
+stepPrecondition :: ActionStep -> PlayerId -> WorkplaceId -> Universe -> Bool
+stepPrecondition AddWorkerStep plId _ = has (players . ix plId . filtered playerCanHireWorker)
+stepPrecondition (ArmWorkerStep strength) plId workplaceId = liftM2 (&&)
+  (has (players . ix plId . playerResources . ironAmount . filtered (>= strength)))
+  (has (players . ix plId . workers . traverse . inWorkplace workplaceId . workerStrength . filtered (== 0)))
+stepPrecondition _ _ _ = const True
 
 interactionPrecondition :: ActionInteraction -> PlayerId -> Universe -> Bool
 interactionPrecondition (BuildBuildingsInteraction CannotCancelBuilding buildings) plId universe =
@@ -26,13 +29,13 @@ interactionPrecondition (BuildBuildingsInteraction CannotCancelBuilding building
   where playerCanBuildBuildings playerData = all (playerCanBuildBuilding playerData) buildings
 interactionPrecondition _ _ _ = True
 
-actionPrecondition :: PlayerId -> Universe -> ActionDefinition -> Bool
-actionPrecondition _ _ ActionEnd = True
-actionPrecondition plId universe (Decision options) = any (actionPrecondition plId universe) (snd <$> options)
-actionPrecondition plId universe (AwaitInteraction interaction continuation) =
-  interactionPrecondition interaction plId universe && actionPrecondition plId universe continuation
-actionPrecondition plId universe (PerformStep step continuation) =
-  stepPrecondition step plId universe && actionPrecondition plId universe continuation
+actionPrecondition :: PlayerId -> WorkplaceId -> Universe -> ActionDefinition -> Bool
+actionPrecondition _ _ _ ActionEnd = True
+actionPrecondition plId workplaceId universe (Decision options) = any (actionPrecondition plId workplaceId universe) (snd <$> options)
+actionPrecondition plId workplaceId universe (AwaitInteraction interaction continuation) =
+  interactionPrecondition interaction plId universe && actionPrecondition plId workplaceId universe continuation
+actionPrecondition plId workplaceId universe (PerformStep step continuation) =
+  stepPrecondition step plId workplaceId universe && actionPrecondition plId workplaceId universe continuation
 
 performSteps :: PlayerId -> Universe -> Universe
 performSteps plId universe =
@@ -70,7 +73,7 @@ performStep AddWorkerStep plId workplaceId universe =
        players . ix plId . buildingSpace %~ findSpaceForWorker (WorkerOccupant addedWorkerId)
 
 performStep (ArmWorkerStep strengthIncrease) plId workplaceId universe = universe &
-  players . ix plId . workers . traverse . filtered (has $ currentWorkplace . filtered (== Just workplaceId)) . workerStrength +~ strengthIncrease
+  players . ix plId . workers . traverse . inWorkplace workplaceId . workerStrength +~ strengthIncrease
 
 performStep SetStartPlayerStep plId _ universe = universe & startingPlayer .~ plId
 

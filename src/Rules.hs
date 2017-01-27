@@ -29,7 +29,7 @@ module Rules (
   Options (..),
   WorkerNeedOptions(..),
   CaveOrPassageOptions(..),
-  AnyRoomOptions(..),
+  ArmOptions(..),
 
   -- * Access functions
   -- ** Players

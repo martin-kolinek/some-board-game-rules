@@ -32,4 +32,4 @@ data ActionDefinition =
 makeLenses ''ActionDefinition
 
 armDecision :: ActionDefinition -> ActionDefinition
-armDecision continuation = Decision [(ArmOption strength, PerformStep (ArmWorkerStep strength) continuation) | strength <- [0..8]]
+armDecision continuation = Decision $ [(ArmOption $ ArmWorker strength, PerformStep (ArmWorkerStep strength) continuation) | strength <- [1..8]] ++ [(ArmOption NoArming, continuation)]

@@ -22,6 +22,9 @@ getWorkerStrength universe workerId = fromMaybe 0 $ universe ^? (players . trave
 workerWorking :: WorkerState -> Bool
 workerWorking = isJust . view currentWorkplace
 
+inWorkplace :: (Choice p, Applicative f) => WorkplaceId -> Optic' p f WorkerState WorkerState
+inWorkplace workplaceId = filtered (has $ currentWorkplace . filtered (== Just workplaceId))
+
 newWorkerId :: Universe -> WorkerId
 newWorkerId universe = WorkerId (maximum workerNumbers + 1)
   where getNumberFromId (WorkerId number) = number

@@ -6,11 +6,10 @@ data WorkerNeedOptions = HireWorker | BuildRoom deriving (Eq, Show, Enum, Ord)
 
 data CaveOrPassageOptions = ChooseCave | ChoosePassage | NoDigging deriving (Eq, Show, Enum, Ord)
 
-data AnyRoomOptions = ChooseNoRoom | ChooseLivingRoom deriving (Eq, Show, Enum, Ord)
+data ArmOptions = ArmWorker WorkerStrength | NoArming deriving (Eq, Show, Ord)
 
 data Options =
   WorkerNeedOption WorkerNeedOptions |
   CaveOrPassageOption CaveOrPassageOptions |
-  AnyRoomOption AnyRoomOptions |
-  ArmOption WorkerStrength
+  ArmOption ArmOptions
   deriving (Eq, Show, Ord)
