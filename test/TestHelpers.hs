@@ -48,16 +48,23 @@ pickWrongPosition func plId = do
   positions <- getsUniverse func <*> pure plId
   pick $ elements $ S.toList $ S.fromList allPositions S.\\ S.fromList positions
 
+pickBuildingsToBuild :: PlayerId -> UniversePropertyMonad [BuildingType]
+pickBuildingsToBuild plId = do
+  buildingOptions <- getsUniverse currentlyBuiltBuildings <*> pure plId
+  pick $ elements $ if null buildingOptions then [[]] else buildingOptions
+
 selectWrongPosition :: (Universe -> PlayerId -> [(Position, Direction)]) -> PlayerId -> UniversePropertyMonad (Position, Direction)
 selectWrongPosition func plId = do
   (pos, dir) <- pickWrongPosition func plId
-  applyToUniverse $ selectPosition plId pos dir
+  buildings <- pickBuildingsToBuild plId
+  applyToUniverse $ buildBuildings plId pos dir buildings
   return (pos, dir)
 
 selectCorrectPosition :: (Universe -> PlayerId -> [(Position, Direction)]) -> PlayerId -> UniversePropertyMonad (Position, Direction)
 selectCorrectPosition func plId = do
   (pos, dir) <- pickSpecificPosition func plId
-  applyToUniverse $ selectPosition plId pos dir
+  buildings <- pickBuildingsToBuild plId
+  applyToUniverse $ buildBuildings plId pos dir buildings
   return (pos, dir)
 
 nextPlayerToMoveWorker :: Universe -> PlayerId -> Maybe PlayerId

@@ -25,16 +25,16 @@ data PlayerData = PlayerData {
 data PlayerStatus =
   Waiting |
   MovingWorker |
-  PerformingAction WorkplaceId ActionDefinition
+  PerformingAction WorkplaceId CompositeActionDefinition
   deriving (Show, Eq)
 
 makeLenses ''PlayerData
 
-statusActionAndWorkplace :: Traversal' PlayerStatus (WorkplaceId, ActionDefinition)
+statusActionAndWorkplace :: Traversal' PlayerStatus (WorkplaceId, CompositeActionDefinition)
 statusActionAndWorkplace f (PerformingAction workplaceId definition) = uncurry PerformingAction <$> f (workplaceId, definition)
 statusActionAndWorkplace _ x = pure x
 
-statusAction :: Traversal' PlayerStatus ActionDefinition
+statusAction :: Traversal' PlayerStatus CompositeActionDefinition
 statusAction = statusActionAndWorkplace . _2
 
 allOccupants :: PlayerData -> [BuildingOccupant]

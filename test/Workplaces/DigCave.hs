@@ -15,33 +15,27 @@ import qualified Data.Set as S
 
 digCaveTests :: TestTree
 digCaveTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest tests" $ [
-    testProperty "Starting working makes correct decisions available" $ universeProperty $ do
+    testProperty "Starting working makes correct buildings available" $ universeProperty $ do
         (playerId, _, _) <- startWorkingInDigCave
-        decisions <- getsUniverse getPossibleDecisions <*> pure playerId
-        assert $ (S.fromList decisions) == (S.fromList [CaveOrPassageOption ChooseCave, CaveOrPassageOption ChoosePassage, CaveOrPassageOption NoDigging]),
-    testProperty "Starting working and choosing no digging ends turn" $ universeProperty $ do
-        (playerId, _, _) <- startWorkingInDigCave
-        checkPlayerHasValidOccupants playerId
-        applyToUniverse $ chooseOption playerId (CaveOrPassageOption NoDigging)
-        validateNextPlayer playerId,
-    testProperty "Starting working, choosing digging and canceling ends turn" $ universeProperty $ do
+        buildings <- getsUniverse currentlyBuiltBuildings <*> pure playerId
+        assert $ (S.fromList buildings) == (S.fromList [[Cave, Passage], [Cave, Cave]]),
+    testProperty "Starting working collecting resources and finishing" $ universeProperty $ do
         (playerId, _, _) <- startWorkingInDigCave
         checkPlayerHasValidOccupants playerId
-        decision <- pick $ elements [CaveOrPassageOption ChooseCave, CaveOrPassageOption ChoosePassage]
-        applyToUniverse $ chooseOption playerId decision
-        applyToUniverse $ cancelSelection playerId
+        applyToUniverse $ collectResources playerId
+        applyToUniverse $ finishAction playerId
         validateNextPlayer playerId,
     testProperty "Starting working, and digging cave adds cave" $ universeProperty $ do
         (playerId, _, _) <- startWorkingInDigCave
-        applyToUniverse $ chooseOption playerId (CaveOrPassageOption ChooseCave)
-        (pos, dir) <- selectCorrectPosition availableRockPositions playerId
+        (pos, dir) <- pickSpecificPosition availableRockPositions playerId
+        applyToUniverse $ buildBuildings playerId pos dir [Cave, Cave]
         buildings <- getsUniverse getBuildingSpace <*> pure playerId
         assert $ Building Cave pos `elem` buildings
         assert $ Building Cave (pos ^+^ directionAddition dir) `elem` buildings,
     testProperty "Starting working, and digging passage adds cave" $ universeProperty $ do
         (playerId, _, _) <- startWorkingInDigCave
-        applyToUniverse $ chooseOption playerId (CaveOrPassageOption ChoosePassage)
-        (pos, dir) <- selectCorrectPosition availableRockPositions playerId
+        (pos, dir) <- pickSpecificPosition availableRockPositions playerId
+        applyToUniverse $ buildBuildings playerId pos dir [Cave, Cave]
         buildings <- getsUniverse getBuildingSpace <*> pure playerId
         assert $ Building Cave pos `elem` buildings
         assert $ Building Passage (pos ^+^ directionAddition dir) `elem` buildings,
@@ -54,16 +48,13 @@ digCaveTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest test
         assert $ newStone == originalStone + workplaceAmount,
     testProperty "Starting working, choosing digging, and selecting invalid position fails" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInDigCave
-      decision <- pick $ elements [CaveOrPassageOption ChooseCave, CaveOrPassageOption ChoosePassage]
-      applyToUniverse $ chooseOption playerId decision
       _ <- selectWrongPosition availableRockPositions playerId
       shouldHaveFailed,
     testProperty "Starting working, choosing digging, and selecting correct position starts next player" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInDigCave
       checkPlayerHasValidOccupants playerId
-      decision <- pick $ elements [CaveOrPassageOption ChooseCave, CaveOrPassageOption ChoosePassage]
-      applyToUniverse $ chooseOption playerId decision
       _ <- selectCorrectPosition availableRockPositions playerId
+      applyToUniverse $ finishAction playerId
       validateNextPlayer playerId
   ]
 

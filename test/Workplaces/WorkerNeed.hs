@@ -18,15 +18,11 @@ workerNeedTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Worker need 
       pre $ not $ currentPlayerCanBuildRoom universe || currentPlayerHasFreeRoom universe
       _ <- startWorkingInWorkerNeed
       shouldHaveFailed,
-    testProperty "Can make decisions after starting working" $ universeProperty $ do
-      (playerId, _, _) <- checkedStartWorkingInWorkerNeed
-      decisions <- getsUniverse getPossibleDecisions <*> pure playerId
-      assert $ sort decisions == sort [WorkerNeedOption BuildRoom, WorkerNeedOption HireWorker],
     testProperty "Cannot choose hire worker unless there is space" $ universeProperty $ do
       (plId, _, _) <- checkedStartWorkingInWorkerNeed
       universe <- getUniverse
       pre $ not $ currentPlayerHasFreeRoom universe
-      applyToUniverse $ chooseOption plId $ WorkerNeedOption HireWorker
+      applyToUniverse $ hireWorker plId
       shouldHaveFailed,
     testProperty "Choosing hire worker starts next player" $ universeProperty $ do
       (playerId, _, _) <- checkedStartWorkingInWorkerNeed
@@ -58,17 +54,6 @@ workerNeedTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Worker need 
       universe <- getUniverse
       let workerIds = sort [workerId | plId <- getPlayers universe, workerId <- getWorkers universe plId]
       assert $ workerIds == nub workerIds,
-    testProperty "Cannot build living room without space" $ universeProperty $ do
-      (plId, _, _) <- checkedStartWorkingInWorkerNeed
-      universe <- getUniverse
-      pre $ not $ currentPlayerCanBuildRoom universe
-      applyToUniverse $ chooseOption plId $ WorkerNeedOption BuildRoom
-      shouldHaveFailed,
-    testProperty "Canceling selection is not possible while building room" $ universeProperty $ do
-      (plId, _, _) <- checkedStartWorkingInWorkerNeed
-      checkedBuildRoom
-      applyToUniverse $ cancelSelection plId
-      shouldHaveFailed,
     testProperty "Selecting invalid position is not possible while building room" $ universeProperty $ do
       (playerId, _, _) <- checkedStartWorkingInWorkerNeed
       checkedBuildRoom
@@ -106,11 +91,11 @@ checkedHireWorker :: UniversePropertyMonad ()
 checkedHireWorker = do
   checkCurrentPlayerHasFreeRoom
   Just plId <- getsUniverse getCurrentPlayer
-  applyToUniverse $ chooseOption plId $ WorkerNeedOption HireWorker
+  applyToUniverse $ hireWorker plId
 
 checkedBuildRoom :: UniversePropertyMonad ()
 checkedBuildRoom = do
   universe <- getUniverse
   pre $ currentPlayerCanBuildRoom universe
   Just plId <- getsUniverse getCurrentPlayer
-  applyToUniverse $ chooseOption plId $ WorkerNeedOption BuildRoom
+  applyToUniverse $ hireWorker plId

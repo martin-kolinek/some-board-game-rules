@@ -69,35 +69,6 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             workerWorksInWorkplace workerId = getWorkerWorkplace universe workerId == Just workplaceId
             allWorkersWorkInWorkplace = all workerWorksInWorkplace occupants
         in workplaceIsNotEmpty && allWorkersWorkInWorkplace,
-    testProperty "Cannot end turn while occupants are invalid" $ universeProperty $ do
-      maybeCurrentPlayerId <- getsUniverse getCurrentPlayer
-      currentPlayerId <- preMaybe maybeCurrentPlayerId
-      universe <- getUniverse
-      let occupantErrors = getOccupantErrors universe currentPlayerId
-      pre $ not $ null $ occupantErrors
-      forM_ (allPossibleOutcomes universe) $ \(msg, outcome) ->
-        if getCurrentPlayer outcome /= Just currentPlayerId
-        then do
-          monitor $ counterexample ("Universe with different current player: \n " ++ msg ++ "\n" ++ ppShow outcome)
-          assert False
-        else return (),
-    testProperty "When current player cannot do anything he has invalid occupants" $ universeProperty $ do
-      currentPlayerId <- preMaybe =<< getsUniverse getCurrentPlayer
-      universe <- getUniverse
-      pre $ not $ isMovingWorker universe currentPlayerId
-      pre $ not $ isPlantingCrops universe currentPlayerId
-      pre $ null $ currentlyBuiltBuildings universe currentPlayerId
-      pre $ null $ getPossibleDecisions universe currentPlayerId
-      assert $ not $ null $ getOccupantErrors universe currentPlayerId,
-    testProperty "When current player cannot do anything fixing occupants starts next player" $ universeProperty $ do
-      currentPlayerId <- preMaybe =<< getsUniverse getCurrentPlayer
-      universe <- getUniverse
-      pre $ not $ isMovingWorker universe currentPlayerId
-      pre $ not $ isPlantingCrops universe currentPlayerId
-      pre $ null $ currentlyBuiltBuildings universe currentPlayerId
-      pre $ null $ getPossibleDecisions universe currentPlayerId
-      applyToUniverse $ alterOccupants currentPlayerId (createValidOccupants universe currentPlayerId)
-      validateNextPlayer currentPlayerId,
     testProperty "Player not moving worker cannot move worker" $ universeProperty $ do
       players <- getsUniverse getPlayers
       playerId <- pick $ elements players
@@ -240,21 +211,6 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
 
 allPossibleOptions :: [Options]
 allPossibleOptions = (WorkerNeedOption <$> [HireWorker ..]) ++ (CaveOrPassageOption <$> [ChooseCave ..]) ++ (ArmOption <$> (ArmWorker <$> [-2..10]) ++ [NoArming])
-
-allPossibleOutcomes :: Universe -> [(String, Universe)]
-allPossibleOutcomes universe = let
-  positionResults = [("Selected position " ++ show (x, y), selectPosition plId (x, y) dir universe) |
-                     x <- [0..5], y <- [0..3],
-                     dir <- allDirections,
-                     plId <- getPlayers universe]
-  decisionResults = [("Chose option " ++ show option, chooseOption plId option universe) | option <- allPossibleOptions, plId <- getPlayers universe]
-  cancelPositionResults = [("Canceled selection", cancelSelection plId universe) | plId <- getPlayers universe]
-  finishTurnResults = [("Finished turn", finishTurn universe)]
-  startWorkingReults = [("Started working " ++ show workerId ++ " in " ++ show workplaceId, startWorking plId workerId workplaceId universe)
-                         | (plId, workerId) <- findWorkersToMove universe, workplaceId <- findEmptyWorkplaces universe]
-  extractRight (msg, Right res) = [(msg, res)]
-  extractRight _ = []
-  in join $ extractRight <$> positionResults ++ decisionResults ++ cancelPositionResults ++ finishTurnResults ++ startWorkingReults
 
 pickAnyEmptyWorkplace :: (Universe -> [WorkplaceId]) -> UniversePropertyMonad WorkplaceId
 pickAnyEmptyWorkplace workplaceSelector = do

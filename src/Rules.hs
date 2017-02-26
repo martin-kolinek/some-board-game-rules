@@ -63,7 +63,6 @@ module Rules (
   getFoodAmount,
   getDogs,
   -- ** Player status functions
-  getPossibleDecisions,
   isMovingWorker,
   isPlantingCrops,
   canCancelBuilding,
@@ -71,12 +70,14 @@ module Rules (
 
   -- * Action functions
   startWorking,
-  finishTurn,
-  selectPosition,
+  buildBuildings,
   alterOccupants,
-  cancelSelection,
-  chooseOption,
   plantCrops,
+  collectResources,
+  finishAction,
+  hireWorker,
+
+  finishTurn,
 
   -- * Starting state
   initialUniverse,
@@ -99,4 +100,3 @@ import Universe.Player
 import Universe.Workplace
 import Universe.Worker
 import Universe.Building
-import Universe.Decisions

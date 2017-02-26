@@ -10,6 +10,7 @@ import Worker
 import Resources
 import Building
 import Actions
+import Util
 
 getCurrentPlayer :: Universe -> Maybe PlayerId
 getCurrentPlayer universe =
@@ -48,19 +49,22 @@ addDog universe = over (buildingSpace . buildingSpaceOccupants) addDogToOccupant
         addDogToOccupants occupants = alter (Just . (DogOccupant dogId :) . fromMaybe []) (0, 0) occupants
 
 canCancelBuilding :: Universe -> PlayerId -> Bool
-canCancelBuilding universe plId = case (universe ^? players . ix plId . playerStatus . statusAction . actionInteraction) of
-  Just (BuildBuildingsInteraction CanCancelBuilding _) -> True
-  _ -> False
+canCancelBuilding universe plId = has (players . ix plId . playerStatus . statusAction . possibleInteractionsTraversal . filtered isCancelableBuilding) universe
+  where isCancelableBuilding (BuildBuildingsInteraction CanCancelBuilding _) = True
+        isCancelableBuilding _ = False
 
-currentlyBuiltBuildings :: Universe -> PlayerId -> [BuildingType]
-currentlyBuiltBuildings universe plId = case (universe ^? players . ix plId . playerStatus . statusAction . actionInteraction) of
-  Just (BuildBuildingsInteraction _ buildings) -> buildings
-  _ -> []
+currentlyBuiltBuildings :: Universe -> PlayerId -> [[BuildingType]]
+currentlyBuiltBuildings universe plId = universe ^.. players . ix plId . playerStatus . statusAction . possibleInteractionsTraversal . to builtBuildings
+  where builtBuildings (BuildBuildingsInteraction _ buildings) = buildings
+        builtBuildings _ = []
 
 isPlantingCrops :: Universe -> PlayerId -> Bool
-isPlantingCrops universe plId = case universe ^? (players . ix plId . playerStatus . statusAction . actionInteraction) of
-  Just PlantCropsInteraction -> True
-  _ -> False
+isPlantingCrops universe plId = has (players . ix plId . playerStatus . statusAction . possibleInteractionsTraversal . filtered (== PlantCropsInteraction)) universe
 
 isMovingWorker :: Universe -> PlayerId -> Bool
 isMovingWorker universe plId = universe ^? (players . ix plId . playerStatus) == Just MovingWorker
+
+startNextPlayer :: PlayerId -> Universe -> Universe
+startNextPlayer plId universe = universe &
+  players . ix plId . playerStatus .~ Waiting &
+  players . ixMaybe (nextPlayer universe plId) . playerStatus .~ MovingWorker

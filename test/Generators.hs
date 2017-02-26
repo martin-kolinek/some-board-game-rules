@@ -214,12 +214,18 @@ instance Arbitrary ArbitraryUniverse where
 
 data GeneratedPlayerStatus = WaitingStatus | AllWorkersBusyStatus | NotWaitingStatus deriving (Show, Eq)
 
-collectActions :: ActionDefinition -> [ActionDefinition]
-collectActions ActionEnd = [ActionEnd]
-collectActions action@(AwaitInteraction PlantCropsInteraction continuation) = [action, action, action] ++ collectActions continuation
-collectActions action@(AwaitInteraction _ continuation) = action : collectActions continuation
-collectActions (PerformStep _ continuation) = collectActions continuation
-collectActions action@(Decision decisions) = action : ((snd <$> decisions) >>= collectActions)
+collectActions :: ActionDefinition -> [CompositeActionDefinition]
+collectActions (CompositeAction act) = collectCompositeActions act
+collectActions (StepsAction _) = []
+
+collectCompositeActions :: CompositeActionDefinition -> [CompositeActionDefinition]
+collectCompositeActions (ActionCombination combinationType act1 act2) = combine combinationType (collectCompositeActions act1) (collectCompositeActions act2)
+  where combine AndOr acts1 acts2 = [ActionCombination AndOr a1 a2 | a1 <- acts1, a2 <- acts2] ++ (OptionalAction <$> acts1) ++ (OptionalAction <$> acts2)
+        combine AndThen acts1 acts2 = [ActionCombination AndThen a1 act2 | a1 <- acts1] ++ acts2
+        combine AndThenOr acts1 acts2 = [ActionCombination AndThen a1 (OptionalAction act2) | a1 <- acts1, a1 /= act1] ++ [a2 | a2 <- acts2, a2 /= act2] ++ (OptionalAction <$> acts2)
+        combine Or acts1 acts2 = [ActionCombination Or act1 act2] ++ filter (/= act1) acts1 ++ filter (/= act2) acts2
+collectCompositeActions action@(OptionalAction inner) = action : filter (/= inner) (collectCompositeActions inner)
+collectCompositeActions action = [action]
 
 possibleStatuses :: WorkplaceId -> WorkplaceType -> GeneratedPlayerStatus -> [PlayerStatus]
 possibleStatuses workplaceId currentWorkplaceType NotWaitingStatus = [MovingWorker] ++ (PerformingAction workplaceId <$> collectActions (workplaceAction currentWorkplaceType))
@@ -254,9 +260,7 @@ generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availa
     strength <- choose (0, 15)
     return $ WorkerState workplace strength
   generatedAnimals <- generateAnimals availableDogIds
-  generatedOccupants <- if selectedStatus == PerformingAction currentWorkplaceId ActionEnd
-                        then generateInvalidOccupants allWorkerIds
-                        else generateOccupants allWorkerIds (generatedAnimals ^. dogs) generatedBuildings
+  generatedOccupants <- generateOccupants allWorkerIds (generatedAnimals ^. dogs) generatedBuildings
   generatedResources <- generateResources
   generatedPlantedCrops <- generatePlantedCrops generatedBuildings
   let playerData = PlayerData

@@ -14,7 +14,6 @@ import Worker
 import Player
 import Building
 import Actions
-import Decisions
 import Resources
 
 getWorkplaces :: Universe -> Map WorkplaceId WorkplaceData
@@ -37,54 +36,49 @@ freeWorkplaces universe = universeAvailableWorkplaces \\ universeOccupiedWorkpla
 
 addWorkplaceResources :: WorkplaceData -> WorkplaceData
 addWorkplaceResources workplaceData = workplaceData & workplaceStoredResources .~ newResources
-  where newResources = if oldResources == zeroV then bonusAddition else oldResources ^+^ normalAddition
+  where newResources = if oldResources == zeroV then firstAddition else oldResources ^+^ normalAddition
         oldResources = workplaceData ^. workplaceStoredResources
-        (normalAddition, bonusAddition) = workplaceStoredResourcesAddition $ workplaceAction $ workplaceData ^. workplaceType
-        workplaceStoredResourcesAddition (PerformStep (CollectResourcesStep normal bonus) continuation) = workplaceStoredResourcesAddition continuation ^+^ (normal, bonus)
-        workplaceStoredResourcesAddition (PerformStep _ continuation) = workplaceStoredResourcesAddition continuation
-        workplaceStoredResourcesAddition (AwaitInteraction _ continuation) = workplaceStoredResourcesAddition continuation
-        workplaceStoredResourcesAddition (Decision options) = sumV $ workplaceStoredResourcesAddition <$> snd <$> options
-        workplaceStoredResourcesAddition ActionEnd = zeroV
+        (normalAddition, firstAddition) = workplaceResourceAddition $ workplaceData ^. workplaceType
 
 workplaceAction :: WorkplaceType -> ActionDefinition
-workplaceAction CutForest =
-  PerformStep (CollectResourcesStep (wood 1) zeroV) $
-  AwaitInteraction (BuildBuildingsInteraction CanCancelBuilding [Grass, Field]) $
-  ActionEnd
-workplaceAction DigPassage =
-  PerformStep (CollectResourcesStep (stone 1) zeroV) $
-  AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [Cave, Passage]) $
-  ActionEnd
-workplaceAction DigCave =
-  PerformStep (CollectResourcesStep (stone 1) zeroV) $
-  Decision [
-    (CaveOrPassageOption ChooseCave,
-      AwaitInteraction (BuildBuildingsInteraction CanCancelBuilding [Cave, Cave]) $
-      ActionEnd),
-    (CaveOrPassageOption ChoosePassage,
-      AwaitInteraction (BuildBuildingsInteraction CanCancelBuilding [Cave, Passage]) $
-      ActionEnd),
-    (CaveOrPassageOption NoDigging, ActionEnd)
-  ]
-workplaceAction WorkerNeed = Decision [
-    (WorkerNeedOption HireWorker, PerformStep AddWorkerStep  ActionEnd),
-    (WorkerNeedOption BuildRoom, AwaitInteraction (BuildBuildingsInteraction  CannotCancelBuilding [LivingRoom]) ActionEnd)
-  ]
-workplaceAction ResourceAddition = PerformStep (AddResourcesStep (wood 1 ^+^ stone 1 ^+^ iron 1 ^+^ food 1 ^+^ money 2)) ActionEnd
-workplaceAction GatherWood = PerformStep (CollectResourcesStep (wood 1) zeroV) ActionEnd
-workplaceAction GatherFood =
-  PerformStep (CollectResourcesStep (food 1) zeroV) $
-  PerformStep (AddResourcesStep (wheat 1)) $
-  AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [Grass, Field]) ActionEnd
+workplaceAction CutForest = CompositeAction $
+  ActionCombination AndOr
+    (InteractionAction (BuildBuildingsInteraction CanCancelBuilding [Grass, Field]) [])
+    (InteractionAction CollectResourcesInteraction [])
+workplaceAction DigPassage = CompositeAction $
+  ActionCombination AndOr
+    (InteractionAction (BuildBuildingsInteraction CanCancelBuilding [Cave, Passage]) [])
+    (InteractionAction CollectResourcesInteraction [])
+workplaceAction DigCave = CompositeAction $
+  ActionCombination AndOr
+    (InteractionAction CollectResourcesInteraction [])
+    (ActionCombination Or
+      (InteractionAction (BuildBuildingsInteraction CanCancelBuilding [Cave, Cave]) [])
+      (InteractionAction (BuildBuildingsInteraction CanCancelBuilding [Cave, Passage]) []))
+workplaceAction WorkerNeed =
+  CompositeAction $
+    ActionCombination Or
+      (InteractionAction HireWorkerInteraction [])
+      (InteractionAction (BuildBuildingsInteraction  CannotCancelBuilding [LivingRoom]) [])
+workplaceAction ResourceAddition = StepsAction [AddResourcesStep (wood 1 ^+^ stone 1 ^+^ iron 1 ^+^ food 1 ^+^ money 2)]
+workplaceAction GatherWood = StepsAction [CollectResourcesStep]
+workplaceAction GatherFood = CompositeAction $
+  ActionCombination AndOr
+    (InteractionAction CollectResourcesInteraction [AddResourcesStep (wheat 1)])
+    (InteractionAction (BuildBuildingsInteraction CanCancelBuilding [Grass, Field]) [])
 workplaceAction MakeStartPlayer =
-  PerformStep (CollectResourcesStep (food 1) zeroV) $
-  PerformStep (AddResourcesStep (iron 2)) $
-  PerformStep SetStartPlayerStep  ActionEnd
-workplaceAction HouseWork =
-  PerformStep AddDogStep $
-  AwaitInteraction (BuildBuildingsInteraction  CanCancelBuilding [LivingRoom]) ActionEnd
+  StepsAction [
+    CollectResourcesStep,
+    AddResourcesStep (iron 2),
+    SetStartPlayerStep]
+workplaceAction HouseWork = CompositeAction $
+  ActionCombination AndOr
+    (InteractionAction (BuildBuildingsInteraction  CanCancelBuilding [LivingRoom]) [])
+    (InteractionAction CollectResourcesInteraction [AddDogStep])
 workplaceAction Farming =
-  AwaitInteraction (BuildBuildingsInteraction CanCancelBuilding [Grass, Field]) $
-  AwaitInteraction PlantCropsInteraction  ActionEnd
+  CompositeAction $
+    ActionCombination AndThenOr
+      (InteractionAction (BuildBuildingsInteraction CanCancelBuilding [Grass, Field]) [])
+      (InteractionAction PlantCropsInteraction [])
 workplaceAction WeaponMaking =
-  armDecision ActionEnd
+  CompositeAction $ InteractionAction ArmWorkerInteraction []

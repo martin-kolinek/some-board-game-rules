@@ -17,7 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Rules, Universe, Building, Worker, Workplace, Util, Player, Resources, Decisions, Actions
-                       Universe.Actions, Universe.Building, Universe.Player, Universe.Worker, Universe.Workplace, Universe.Decisions, Universe.Interaction
+                       Universe.Actions, Universe.Building, Universe.Player, Universe.Worker, Universe.Workplace, Universe.Interaction
   -- other-modules:
   -- other-extensions:
   build-depends:       base,
@@ -35,7 +35,7 @@ test-suite tests
   main-is:            Main.hs
   other-modules:      Rules, Universe, Building, Util, Worker, Workplace, Player, Resources, Decisions, Actions
                       Generators, ArbitraryUniverseTest, TestFramework, RulesProperties, TestHelpers,
-                      Universe.Actions, Universe.Building, Universe.Player, Universe.Worker, Universe.Workplace, Universe.Decisions, Universe.Interaction
+                      Universe.Actions, Universe.Building, Universe.Player, Universe.Worker, Universe.Workplace, Universe.Interaction
                       Workplaces.CutForest, Workplaces.DigPassage, Workplaces.DigCave, Workplaces.WorkerNeed, Workplaces.ResourceAddition, Workplaces.GatherWood,
                       Workplaces.GatherFood, Workplaces.HouseWork, Workplaces.MakeStartPlayer, Workplaces.Farming, Workplaces.WeaponMaking
                       BuildingProperties, FarmingProperties

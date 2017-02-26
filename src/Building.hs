@@ -28,7 +28,7 @@ data BuildingType =
   Cave |
   Passage |
   LivingRoom |
-  InitialRoom deriving (Show, Eq)
+  InitialRoom deriving (Show, Eq, Ord)
 
 data Building = Building BuildingType Position deriving (Show, Eq)
 

@@ -10,7 +10,6 @@ import qualified Data.Set as S
 import Data.Either (isLeft)
 
 import Universe
-import Actions
 import Building
 import Player
 import Generators
@@ -50,12 +49,6 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
     testProperty "When all players are waiting then all workers are busy" $
       let allWorkersBusy = allOf (players . traverse . workers . traverse . currentWorkplace) isJust
           prop (ArbitraryUniverse universe) = allPlayersWaiting universe ==> allWorkersBusy universe
-      in prop,
-    testProperty "If a player is in InvalidOccupants state then he has invalid occupants" $
-      let findPlayerWithOccupantsInvalid universe = universe ^?
-            (players . to toList . traverse . filtered (notNullOf (_2 . playerStatus . filtered isAtEndOfAction)) . _1)
-          prop (ArbitraryUniverse universe) = isJust currentPlayerId ==> not . null $ getOccupantErrors universe (fromJust currentPlayerId)
-            where currentPlayerId = findPlayerWithOccupantsInvalid universe
       in prop,
     testProperty "If a player is in MovingWorker state, then he has a free worker" $
       let prop (ArbitraryUniverse universe) = isCurrentPlayerMovingWorker ==> hasFreeWorker
@@ -168,7 +161,3 @@ allPlayersWaiting = allOf (players . traverse . playerStatus) (==Waiting)
 isPerformingAction :: PlayerStatus -> Bool
 isPerformingAction (PerformingAction _ _) = True
 isPerformingAction _ = False
-
-isAtEndOfAction :: PlayerStatus -> Bool
-isAtEndOfAction (PerformingAction _ ActionEnd) = True
-isAtEndOfAction _ = False
