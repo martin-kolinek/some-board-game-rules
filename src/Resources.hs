@@ -3,6 +3,7 @@ module Resources where
 
 import Control.Lens
 import Data.AdditiveGroup
+import Data.List
 
 data Resources = Resources {
   _woodAmount :: Int,
@@ -13,7 +14,7 @@ data Resources = Resources {
   _potatoAmount :: Int,
   _moneyAmount :: Int,
   _foodAmount :: Int
-} deriving (Show, Eq)
+} deriving (Eq)
 
 makeLenses ''Resources
 
@@ -43,6 +44,19 @@ getMoneyAmount = _moneyAmount
 
 getFoodAmount :: Resources -> Int
 getFoodAmount = _foodAmount
+
+instance Show Resources where
+  show res = if null nonZero then "NoResources" else "Resources {" ++ (intercalate ", " nonZero) ++ "}"
+    where nonZero = display <$> filter ((> 0) . snd) (getPair <$> [("wood", getWoodAmount),
+                                                                   ("stone", getStoneAmount),
+                                                                   ("gold", getGoldAmount),
+                                                                   ("iron", getIronAmount),
+                                                                   ("wheat", getWheatAmount),
+                                                                   ("potato", getPotatoAmount),
+                                                                   ("money", getMoneyAmount),
+                                                                   ("food", getFoodAmount)])
+          display (name, value) = name ++ " = " ++ show value
+          getPair (name, getter)= (name, getter res)
 
 resourcesToTuple :: Resources -> ((Int, Int, Int, Int), (Int, Int, Int, Int))
 resourcesToTuple (Resources wd st gld ir wh pot mon fd) = ((wd, st, gld, ir), (wh, pot, mon, fd))
