@@ -3,9 +3,9 @@ module Generators where
 
 import Prelude hiding (lookup)
 import Test.QuickCheck
-import Data.Map.Strict (fromList, fromListWith, keys, (!), Map, empty, singleton)
+import Data.Map.Strict (fromList, fromListWith, keys, (!), Map, empty, singleton, delete)
 import qualified Data.Set as S
-import Control.Monad (forM, foldM)
+import Control.Monad (forM, foldM, guard)
 import Text.Show.Pretty
 import Data.List.Split (splitPlaces, chunksOf)
 import Control.Lens ((^.))
@@ -23,7 +23,9 @@ import Building
 import Resources
 import Universe.Player (getPlayers)
 import Universe.Workplace
+import Universe.Worker
 import Actions
+import Control.Lens hiding (elements, universe, chosen)
 
 newtype ArbitraryUniverse = ArbitraryUniverse Universe
 
@@ -211,6 +213,7 @@ instance Arbitrary ArbitraryUniverse where
         allWorkplaces = additionalWorkplaces <> currentPlayerWorkplaces <> mconcat otherPlayerWorkplaces
     selectedStartingPlayer <- elements $ keys allPlayers
     return $ ArbitraryUniverse $ Universe allWorkplaces allPlayers selectedStartingPlayer
+  shrink (ArbitraryUniverse u) = ArbitraryUniverse <$> shrinkUniverse u
 
 data GeneratedPlayerStatus = WaitingStatus | AllWorkersBusyStatus | NotWaitingStatus deriving (Show, Eq)
 
@@ -276,3 +279,36 @@ generateAnimals :: [DogId] -> Gen Animals
 generateAnimals availableDogIds = do
   dogCount <- choose (0, 10)
   return $ Animals $ take dogCount availableDogIds
+
+shrinkUniverse :: Universe -> [Universe]
+shrinkUniverse universe =
+  let shrunkByPlayers = [shrunk | plId <- getPlayers universe, shrunk <- tryRemovePlayer plId universe]
+      shrunkByWorkers = [shrunk | workerId <- universe ^.. U.players . traverse . P.workers . to keys . traverse, shrunk <- tryRemoveWorker workerId universe]
+      shrunkByWorkplaces = [shrunk | workplaceId <- keys $ getWorkplaces universe, shrunk <- tryRemoveWorkplace workplaceId universe]
+  in shrunkByPlayers ++ shrunkByWorkplaces ++ shrunkByWorkers
+
+tryRemovePlayer :: PlayerId -> Universe -> [Universe]
+tryRemovePlayer plId universe =
+  if has (U.players . ix plId . playerStatus . filtered (== Waiting)) universe &&
+     lengthOf (U.players . traverse) universe > 2
+  then [universe & U.players %~ (delete plId)]
+  else []
+
+tryRemoveWorkplace :: WorkplaceId -> Universe -> [Universe]
+tryRemoveWorkplace workplaceId universe =
+  if hasn't (U.players . traverse . P.workers . traverse . currentWorkplace . filtered (== Just workplaceId)) universe &&
+     has (availableWorkplaces . to keys . traverse . filtered (/= workplaceId) . filtered (null . getWorkplaceOccupants universe)) universe
+  then [universe & availableWorkplaces %~ (delete workplaceId)]
+  else []
+
+tryRemoveWorker :: WorkerId -> Universe -> [Universe]
+tryRemoveWorker workerId universe = do
+  plId <- universe ^.. U.players . to keys . traverse . filtered ((workerId `elem`) . getWorkers universe)
+  guard $ lengthOf (U.players . ix plId . P.workers . traverse) universe > 2
+  case getWorkerWorkplace universe workerId of
+    Nothing -> return $ universe & U.players . ix plId . P.workers %~ delete workerId
+    Just workplaceId -> do
+      guard $ lengthOf (availableWorkplaces . traverse) universe > 2
+      return $ universe &
+        U.players . ix plId . P.workers %~ delete workerId &
+        availableWorkplaces %~ delete workplaceId
