@@ -10,11 +10,10 @@ import qualified Data.Set as S
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic
-import Text.Show.Pretty
 
 workerNeedTests :: TestTree
 workerNeedTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Worker need tests" $ [
-    testProperty "Cannot start working unless there is enough space for worker or living room" $ universeProperty $ do
+  testProperty "Cannot start working unless there is enough space for worker or living room" $ universeProperty $ do
       universe <- getUniverse
       pre $ not $ currentPlayerCanBuildRoom universe || currentPlayerHasFreeRoom universe
       _ <- startWorkingInWorkerNeed
@@ -61,19 +60,20 @@ workerNeedTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Worker need 
     testProperty "Selecting invalid position is not possible while building room" $ universeProperty $ do
       (playerId, _, _) <- checkedStartWorkingInWorkerNeed
       checkPlayerHasValidOccupants playerId
+      checkRoomPrecondition
       _ <- selectWrongPosition availableSingleCavePositions playerId
       shouldHaveFailed,
     testProperty "Selecting valid position builds room while building room" $ universeProperty $ do
       (playerId, _, _) <- checkedStartWorkingInWorkerNeed
       checkPlayerHasValidOccupants playerId
-      un <- getUniverse
-      monitor $ counterexample $ ppShow $ un
+      checkRoomPrecondition
       (pos, _) <- selectCorrectPosition availableSingleCavePositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
       assert $ Building LivingRoom pos `elem` buildings,
     testProperty "Selecting valid position ends turn while building room" $ universeProperty $ do
       (playerId, _, _) <- checkedStartWorkingInWorkerNeed
       checkPlayerHasValidOccupants playerId
+      checkRoomPrecondition
       _ <- selectCorrectPosition availableSingleCavePositions playerId
       validateNextPlayer playerId
   ]
@@ -98,3 +98,7 @@ checkedHireWorker = do
   Just plId <- getsUniverse getCurrentPlayer
   applyToUniverse $ hireWorker plId
 
+checkRoomPrecondition :: UniversePropertyMonad ()
+checkRoomPrecondition = do
+  u <- getUniverse
+  pre $ currentPlayerCanBuildRoom u

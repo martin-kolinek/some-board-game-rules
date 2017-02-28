@@ -22,6 +22,7 @@ gatherFoodTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Gather food 
       shouldHaveFailed,
     testProperty "Starting working and selecting valid position builds field and grass" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInGatherFood
+      checkPlayerHasValidOccupants playerId
       (pos, dir) <- selectCorrectPosition availableForestPositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
       assert $ Building Grass pos `elem` buildings
@@ -35,11 +36,14 @@ gatherFoodTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Gather food 
     testProperty "Starting working and selecting position starts next player turn" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInGatherFood
       checkPlayerHasValidOccupants playerId
+      applyToUniverse $ collectResources playerId
       _ <- selectCorrectPosition availableForestPositions playerId
       validateNextPlayer playerId,
-    testProperty "Starting working adds wood" $ universeProperty $ do
+    testProperty "Starting working adds wheat and food" $ universeProperty $ do
       originalUniverse <- getUniverse
       (playerId, _, workplaceId) <- startWorkingInGatherFood
+      checkPlayerHasValidOccupants playerId
+      applyToUniverse $ collectResources playerId
       let originalFood = getFoodAmount $ (getPlayerResources originalUniverse playerId)
           workplaceAmount = getFoodAmount $ getWorkplaceResources $ (getWorkplaces originalUniverse ! workplaceId)
           originalWheat = getWheatAmount $ (getPlayerResources originalUniverse playerId)

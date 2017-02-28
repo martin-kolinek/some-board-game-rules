@@ -13,7 +13,7 @@ import Data.Map (keys, lookup)
 import Data.Maybe (listToMaybe)
 
 farmingTests :: TestTree
-farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming tests" $ [
+farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming properties" $ [
     testProperty "Planting crops adds crops" $ universeProperty $ do
       playerId <- findFarmingPlayer
       cropsToPlant <- pickCropsToPlant playerId
@@ -23,12 +23,6 @@ farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming tests" 
       let verifyCrop (Potatoes, pos) = lookup pos newCrops == Just (PlantedCrop Potatoes 2)
           verifyCrop (Wheat, pos) = lookup pos newCrops == Just (PlantedCrop Wheat 3)
       assert $ all verifyCrop cropsToPlant,
-    testProperty "Planting crops starts next player" $ universeProperty $ do
-      playerId <- findFarmingPlayer
-      checkPlayerHasValidOccupants playerId
-      cropsToPlant <- pickCropsToPlant playerId
-      applyToUniverse $ plantCrops playerId cropsToPlant
-      validateNextPlayer playerId,
     testProperty "Planting crops not on fields is not possible" $ universeProperty $ do
       playerId <- findFarmingPlayer
       let nonFieldPositions (Building buildingType pos) = if buildingType == Field then [] else [pos]
@@ -77,7 +71,9 @@ farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming tests" 
 findFarmingPlayer :: UniversePropertyMonad PlayerId
 findFarmingPlayer = do
   universe <- getUniverse
-  preMaybe $ listToMaybe [plId | plId <- getPlayers universe, isPlantingCrops universe plId]
+  plId <- preMaybe $ listToMaybe [plId | plId <- getPlayers universe, isPlantingCrops universe plId]
+  checkPlayerHasValidOccupants plId
+  return plId
 
 pickPlantingPositions :: PlayerId -> UniversePropertyMonad [Position]
 pickPlantingPositions plId = do

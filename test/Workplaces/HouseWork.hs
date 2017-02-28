@@ -17,16 +17,20 @@ houseWorkTests = localOption (QuickCheckMaxRatio 500) $ testGroup "House work te
       (playerId, _, _) <- startWorkingInHouseWork
       buildings <- getsUniverse currentlyBuiltBuildings <*> pure playerId
       assert $ buildings == [[LivingRoom]],
-    testProperty "After working a dog is added" $ universeProperty $ do
+    testProperty "After working and collecting resources, a dog is added" $ universeProperty $ do
       originalUniverse <- getUniverse
       (playerId, _, _) <- startWorkingInHouseWork
+      checkPlayerHasValidOccupants playerId
+      applyToUniverse $ collectResources playerId
       newUniverse <- getUniverse
       let originalDog = S.fromList $ getDogs originalUniverse playerId
           newDog = S.fromList $ getDogs newUniverse playerId
       assert $ S.size (newDog S.\\ originalDog) == 1,
-    testProperty "After working a dog is added" $ universeProperty $ do
+    testProperty "After working and collecting resources a dog is added to occupants" $ universeProperty $ do
       originalUniverse <- getUniverse
       (playerId, _, _) <- startWorkingInHouseWork
+      checkPlayerHasValidOccupants playerId
+      applyToUniverse $ collectResources playerId
       newUniverse <- getUniverse
       let isDogOccupant (DogOccupant _) = True
           isDogOccupant _ = False
@@ -47,10 +51,13 @@ houseWorkTests = localOption (QuickCheckMaxRatio 500) $ testGroup "House work te
       validateNextPlayer playerId,
     testProperty "Selecting invalid position is not possible" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInHouseWork
+      checkPlayerHasValidOccupants playerId
       _ <- selectWrongPosition availableSingleCavePositions playerId
       shouldHaveFailed,
     testProperty "Selecting valid position builds a living room" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInHouseWork
+      checkPlayerHasValidOccupants playerId
+      pre =<< getsUniverse currentPlayerCanBuildRoom
       (pos, _) <- selectCorrectPosition availableSingleCavePositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
       assert $ Building LivingRoom pos `elem` buildings

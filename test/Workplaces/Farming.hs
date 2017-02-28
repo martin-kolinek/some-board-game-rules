@@ -23,7 +23,6 @@ farmingWorkplaceTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Farmin
       (playerId, _, _) <- startWorkingInFarming
       checkPlayerHasValidOccupants playerId
       applyToUniverse $ plantCrops playerId []
-      applyToUniverse $ finishAction playerId
       validateNextPlayer playerId
   ]
 
