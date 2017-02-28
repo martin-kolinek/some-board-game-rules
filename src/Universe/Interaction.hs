@@ -94,8 +94,9 @@ performInteraction :: MonadError String m => PlayerId -> ActionInteraction -> (W
 performInteraction plId interaction effect universe = do
   (workplaceId, playerStatusAction) <- checkMaybe "Not current player" $ universe ^? players . ix plId . playerStatus . statusActionAndWorkplace
   check "Fix occupants first" $ null $ getOccupantErrors universe plId
+  check "Precondition not met" $ interactionPrecondition interaction plId universe
   case actionAfterInteraction playerStatusAction interaction of
-    InvalidInteraction -> throwError "Not possible right now"
+    InvalidInteraction -> throwError ("Not possible right now " ++ show interaction)
     ActionFinished steps ->
       universe &
         effect workplaceId <&>

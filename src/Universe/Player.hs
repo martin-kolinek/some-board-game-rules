@@ -54,8 +54,8 @@ canCancelBuilding universe plId = has (players . ix plId . playerStatus . status
         isCancelableBuilding _ = False
 
 currentlyBuiltBuildings :: Universe -> PlayerId -> [[BuildingType]]
-currentlyBuiltBuildings universe plId = universe ^.. players . ix plId . playerStatus . statusAction . possibleInteractionsTraversal . to builtBuildings
-  where builtBuildings (BuildBuildingsInteraction _ buildings) = buildings
+currentlyBuiltBuildings universe plId = universe ^.. players . ix plId . playerStatus . statusAction . possibleInteractionsTraversal . to builtBuildings . traverse
+  where builtBuildings (BuildBuildingsInteraction _ buildings) = [buildings]
         builtBuildings _ = []
 
 isPlantingCrops :: Universe -> PlayerId -> Bool

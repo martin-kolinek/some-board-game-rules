@@ -10,6 +10,7 @@ import qualified Data.Set as S
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic
+import Text.Show.Pretty
 
 workerNeedTests :: TestTree
 workerNeedTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Worker need tests" $ [
@@ -37,6 +38,7 @@ workerNeedTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Worker need 
     testProperty "Choosing hire worker places worker" $ universeProperty $ do
       originalUniverse <- getUniverse
       (playerId, _, _) <- checkedStartWorkingInWorkerNeed
+      checkPlayerHasValidOccupants playerId
       checkedHireWorker
       resultUniverse <- getUniverse
       let newWorkerOccupants = S.fromList $ WorkerOccupant <$> getWorkers resultUniverse playerId \\ getWorkers originalUniverse playerId
@@ -45,30 +47,33 @@ workerNeedTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Worker need 
     testProperty "Choosing hire worker adds worker" $ universeProperty $ do
       originalUniverse <- getUniverse
       (playerId, _, _) <- checkedStartWorkingInWorkerNeed
+      checkPlayerHasValidOccupants playerId
       checkedHireWorker
       resultUniverse <- getUniverse
       assert $ length (getWorkers resultUniverse playerId \\ getWorkers originalUniverse playerId) == 1,
     testProperty "New worker is unique" $ universeProperty $ do
-      _ <- checkedStartWorkingInWorkerNeed
+      (playerId, _, _) <- checkedStartWorkingInWorkerNeed
+      checkPlayerHasValidOccupants playerId
       checkedHireWorker
       universe <- getUniverse
       let workerIds = sort [workerId | plId <- getPlayers universe, workerId <- getWorkers universe plId]
       assert $ workerIds == nub workerIds,
     testProperty "Selecting invalid position is not possible while building room" $ universeProperty $ do
       (playerId, _, _) <- checkedStartWorkingInWorkerNeed
-      checkedBuildRoom
+      checkPlayerHasValidOccupants playerId
       _ <- selectWrongPosition availableSingleCavePositions playerId
       shouldHaveFailed,
     testProperty "Selecting valid position builds room while building room" $ universeProperty $ do
       (playerId, _, _) <- checkedStartWorkingInWorkerNeed
-      checkedBuildRoom
+      checkPlayerHasValidOccupants playerId
+      un <- getUniverse
+      monitor $ counterexample $ ppShow $ un
       (pos, _) <- selectCorrectPosition availableSingleCavePositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
       assert $ Building LivingRoom pos `elem` buildings,
     testProperty "Selecting valid position ends turn while building room" $ universeProperty $ do
       (playerId, _, _) <- checkedStartWorkingInWorkerNeed
       checkPlayerHasValidOccupants playerId
-      checkedBuildRoom
       _ <- selectCorrectPosition availableSingleCavePositions playerId
       validateNextPlayer playerId
   ]
@@ -93,9 +98,3 @@ checkedHireWorker = do
   Just plId <- getsUniverse getCurrentPlayer
   applyToUniverse $ hireWorker plId
 
-checkedBuildRoom :: UniversePropertyMonad ()
-checkedBuildRoom = do
-  universe <- getUniverse
-  pre $ currentPlayerCanBuildRoom universe
-  Just plId <- getsUniverse getCurrentPlayer
-  applyToUniverse $ hireWorker plId

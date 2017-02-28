@@ -22,6 +22,7 @@ cutForestTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest te
       shouldHaveFailed,
     testProperty "Starting working and selecting valid position builds field and grass" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInCutForest
+      checkPlayerHasValidOccupants playerId
       (pos, dir) <- selectCorrectPosition availableForestPositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
       assert $ Building Grass pos `elem` buildings
@@ -38,9 +39,11 @@ cutForestTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest te
       _ <- selectCorrectPosition availableForestPositions playerId
       applyToUniverse $ collectResources playerId
       validateNextPlayer playerId,
-    testProperty "Starting working adds wood" $ universeProperty $ do
+    testProperty "Starting working and collecting resources adds wood" $ universeProperty $ do
       originalUniverse <- getUniverse
       (playerId, _, workplaceId) <- startWorkingInCutForest
+      checkPlayerHasValidOccupants playerId
+      applyToUniverse $ collectResources playerId
       let originalWood = getWoodAmount $ (getPlayerResources originalUniverse playerId)
           workplaceAmount = getWoodAmount $ getWorkplaceResources (getWorkplaces originalUniverse ! workplaceId)
       newWood <- getWoodAmount <$> (getsUniverse getPlayerResources <*> pure playerId)

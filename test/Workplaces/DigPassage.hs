@@ -23,6 +23,7 @@ digPassageTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Dig passage 
       shouldHaveFailed,
     testProperty "Starting working and selecting valid position builds cave and passage" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInDigPassage
+      checkPlayerHasValidOccupants playerId
       (pos, dir) <- selectCorrectPosition availableRockPositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
       assert $ Building Cave pos `elem` buildings
@@ -33,14 +34,17 @@ digPassageTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Dig passage 
       applyToUniverse $ collectResources playerId
       applyToUniverse $ finishAction playerId
       validateNextPlayer playerId,
-    testProperty "Starting working and selecting position starts next player turn" $ universeProperty $ do
+    testProperty "Starting working collecting resources and selecting position starts next player turn" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInDigPassage
       checkPlayerHasValidOccupants playerId
+      applyToUniverse $ collectResources playerId
       _ <- selectCorrectPosition availableRockPositions playerId
       validateNextPlayer playerId,
-    testProperty "Starting working adds wood" $ universeProperty $ do
+    testProperty "Starting working adds stone" $ universeProperty $ do
       originalUniverse <- getUniverse
       (playerId, _, workplaceId) <- startWorkingInDigPassage
+      checkPlayerHasValidOccupants playerId
+      applyToUniverse $ collectResources playerId
       let originalStone = getStoneAmount $ (getPlayerResources originalUniverse playerId)
           workplaceAmount = getStoneAmount $ getWorkplaceResources $ getWorkplaces originalUniverse ! workplaceId
       newStone <- getStoneAmount <$> (getsUniverse getPlayerResources <*> pure playerId)
