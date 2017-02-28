@@ -65,7 +65,6 @@ module Rules (
   -- ** Player status functions
   isMovingWorker,
   isPlantingCrops,
-  canCancelBuilding,
   currentlyBuiltBuildings,
 
   -- * Action functions

@@ -24,7 +24,7 @@ import Workplace
 import Resources
 
 buildBuildings :: MonadError String m => PlayerId -> Position -> Direction -> [BuildingType] -> Universe -> m Universe
-buildBuildings plId pos dir buildings = performInteraction plId (BuildBuildingsInteraction CanCancelBuilding buildings) $
+buildBuildings plId pos dir buildings = performInteraction plId (BuildBuildingsInteraction buildings) $
   const $ mapMOf (players . ix plId . buildingSpace) (buildNewBuildings pos dir buildings)
 
 alterOccupants :: MonadError String m => PlayerId -> BuildingOccupants -> Universe -> m Universe

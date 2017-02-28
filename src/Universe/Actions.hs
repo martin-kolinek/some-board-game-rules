@@ -8,12 +8,11 @@ import Player
 import Universe
 import Actions
 import Universe.Building
-import Building
 import Workplace
 import Universe.Player
 
 interactionPrecondition :: ActionInteraction -> PlayerId -> Universe -> Bool
-interactionPrecondition (BuildBuildingsInteraction CannotCancelBuilding buildings) plId universe =
+interactionPrecondition (BuildBuildingsInteraction buildings) plId universe =
   has (players . ix plId . filtered (playerCanBuildBuildings)) universe
   where playerCanBuildBuildings playerData = all (playerCanBuildBuilding playerData) buildings
 interactionPrecondition HireWorkerInteraction plId universe = has (players . ix plId . filtered playerCanHireWorker) universe

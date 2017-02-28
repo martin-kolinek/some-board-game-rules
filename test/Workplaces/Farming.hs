@@ -15,10 +15,6 @@ farmingWorkplaceTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Farmin
       (playerId, _, _) <- startWorkingInFarming
       builtBuildings <- getsUniverse currentlyBuiltBuildings <*> pure playerId
       assert $ builtBuildings == [[Grass, Field]],
-    testProperty "Canceling cutting forest is possible" $ universeProperty $ do
-      (playerId, _, _) <- startWorkingInFarming
-      canCancel <- getsUniverse canCancelBuilding <*> pure playerId
-      assert $ canCancel,
     testProperty "Planting crops is available" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInFarming
       plCrops <- getsUniverse isPlantingCrops <*> pure playerId

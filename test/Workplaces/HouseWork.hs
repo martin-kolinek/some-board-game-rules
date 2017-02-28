@@ -13,12 +13,10 @@ import Control.Monad (join)
 
 houseWorkTests :: TestTree
 houseWorkTests = localOption (QuickCheckMaxRatio 500) $ testGroup "House work tests" $ [
-    testProperty "After working player is building living room and can cancel" $ universeProperty $ do
+    testProperty "After working, player is building living room and can cancel" $ universeProperty $ do
       (playerId, _, _) <- startWorkingInHouseWork
       buildings <- getsUniverse currentlyBuiltBuildings <*> pure playerId
-      assert $ buildings == [[LivingRoom]]
-      canCancel <- getsUniverse canCancelBuilding <*> pure playerId
-      assert $ canCancel,
+      assert $ buildings == [[LivingRoom]],
     testProperty "After working a dog is added" $ universeProperty $ do
       originalUniverse <- getUniverse
       (playerId, _, _) <- startWorkingInHouseWork

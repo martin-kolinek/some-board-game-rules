@@ -43,29 +43,29 @@ addWorkplaceResources workplaceData = workplaceData & workplaceStoredResources .
 workplaceAction :: WorkplaceType -> ActionDefinition
 workplaceAction CutForest = CompositeAction $
   ActionCombination AndOr
-    (InteractionAction (BuildBuildingsInteraction CanCancelBuilding [Grass, Field]) [])
+    (InteractionAction (BuildBuildingsInteraction [Grass, Field]) [])
     (InteractionAction CollectResourcesInteraction [])
 workplaceAction DigPassage = CompositeAction $
   ActionCombination AndOr
-    (InteractionAction (BuildBuildingsInteraction CanCancelBuilding [Cave, Passage]) [])
+    (InteractionAction (BuildBuildingsInteraction [Cave, Passage]) [])
     (InteractionAction CollectResourcesInteraction [])
 workplaceAction DigCave = CompositeAction $
   ActionCombination AndOr
     (InteractionAction CollectResourcesInteraction [])
     (ActionCombination Or
-      (InteractionAction (BuildBuildingsInteraction CanCancelBuilding [Cave, Cave]) [])
-      (InteractionAction (BuildBuildingsInteraction CanCancelBuilding [Cave, Passage]) []))
+      (InteractionAction (BuildBuildingsInteraction [Cave, Cave]) [])
+      (InteractionAction (BuildBuildingsInteraction [Cave, Passage]) []))
 workplaceAction WorkerNeed =
   CompositeAction $
     ActionCombination Or
       (InteractionAction HireWorkerInteraction [])
-      (InteractionAction (BuildBuildingsInteraction  CannotCancelBuilding [LivingRoom]) [])
+      (InteractionAction (BuildBuildingsInteraction [LivingRoom]) [])
 workplaceAction ResourceAddition = StepsAction [AddResourcesStep (wood 1 ^+^ stone 1 ^+^ iron 1 ^+^ food 1 ^+^ money 2)]
 workplaceAction GatherWood = StepsAction [CollectResourcesStep]
 workplaceAction GatherFood = CompositeAction $
   ActionCombination AndOr
     (InteractionAction CollectResourcesInteraction [AddResourcesStep (wheat 1)])
-    (InteractionAction (BuildBuildingsInteraction CanCancelBuilding [Grass, Field]) [])
+    (InteractionAction (BuildBuildingsInteraction [Grass, Field]) [])
 workplaceAction MakeStartPlayer =
   StepsAction [
     CollectResourcesStep,
@@ -73,12 +73,12 @@ workplaceAction MakeStartPlayer =
     SetStartPlayerStep]
 workplaceAction HouseWork = CompositeAction $
   ActionCombination AndOr
-    (InteractionAction (BuildBuildingsInteraction  CanCancelBuilding [LivingRoom]) [])
+    (InteractionAction (BuildBuildingsInteraction [LivingRoom]) [])
     (InteractionAction CollectResourcesInteraction [AddDogStep])
 workplaceAction Farming =
   CompositeAction $
     ActionCombination AndThenOr
-      (InteractionAction (BuildBuildingsInteraction CanCancelBuilding [Grass, Field]) [])
+      (InteractionAction (BuildBuildingsInteraction [Grass, Field]) [])
       (InteractionAction PlantCropsInteraction [])
 workplaceAction WeaponMaking =
   CompositeAction $ InteractionAction ArmWorkerInteraction []

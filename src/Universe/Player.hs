@@ -48,14 +48,9 @@ addDog universe = over (buildingSpace . buildingSpaceOccupants) addDogToOccupant
   where dogId = newDogId universe
         addDogToOccupants occupants = alter (Just . (DogOccupant dogId :) . fromMaybe []) (0, 0) occupants
 
-canCancelBuilding :: Universe -> PlayerId -> Bool
-canCancelBuilding universe plId = has (players . ix plId . playerStatus . statusAction . possibleInteractionsTraversal . filtered isCancelableBuilding) universe
-  where isCancelableBuilding (BuildBuildingsInteraction CanCancelBuilding _) = True
-        isCancelableBuilding _ = False
-
 currentlyBuiltBuildings :: Universe -> PlayerId -> [[BuildingType]]
 currentlyBuiltBuildings universe plId = universe ^.. players . ix plId . playerStatus . statusAction . possibleInteractionsTraversal . to builtBuildings . traverse
-  where builtBuildings (BuildBuildingsInteraction _ buildings) = [buildings]
+  where builtBuildings (BuildBuildingsInteraction buildings) = [buildings]
         builtBuildings _ = []
 
 isPlantingCrops :: Universe -> PlayerId -> Bool

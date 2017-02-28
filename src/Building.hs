@@ -34,8 +34,6 @@ data Building = Building BuildingType Position deriving (Show, Eq)
 
 data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight deriving (Show, Eq, Enum, Ord)
 
-data BuildingCancellation = CanCancelBuilding | CannotCancelBuilding deriving (Show, Eq)
-
 data BuildingOccupant = WorkerOccupant WorkerId | DogOccupant DogId deriving (Eq, Show, Ord)
 
 type BuildingOccupants = M.Map Position [BuildingOccupant]
