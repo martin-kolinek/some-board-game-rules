@@ -7,7 +7,7 @@ import Data.Map (keys, (!), elems, insert)
 import qualified Data.Map as M
 import Data.List ((\\), intersect)
 import Data.Maybe (maybeToList, isNothing, fromMaybe)
-import Control.Monad (guard, join, forM_)
+import Control.Monad (guard, join, forM_, liftM)
 import Text.Show.Pretty (ppShow)
 import Data.Foldable (foldl')
 import Data.Monoid ((<>))
@@ -206,7 +206,28 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       pre $ any cropsExist (getPlayers universe)
       forM_ (getPlayers universe) $ \playerId -> do
         crops <- getsUniverse getPlantedCrops <*> pure playerId
-        assert $ all plantedCropIsValid $ elems crops
+        assert $ all plantedCropIsValid $ elems crops,
+    testProperty "When can collect resources then can collect resources" $ universeProperty $ do
+      playerId <- findFittingPlayer canCollectResources
+      applyToUniverse $ collectResources playerId,
+    testProperty "When can hire worker then can hire worker" $ universeProperty $ do
+      playerId <- findFittingPlayer canHireWorker
+      applyToUniverse $ hireWorker playerId,
+    testProperty "When can finish action then can finish action" $ universeProperty $ do
+      playerId <- findFittingPlayer canFinishAction
+      applyToUniverse $ finishAction playerId,
+    testProperty "When cannot collect resources then cannot collect resources" $ universeProperty $ do
+      playerId <- findFittingPlayer $ liftM not . canCollectResources
+      applyToUniverse $ collectResources playerId
+      shouldHaveFailed,
+    testProperty "When can hire worker then cannot hire worker" $ universeProperty $ do
+      playerId <- findFittingPlayer $ liftM not . canHireWorker
+      applyToUniverse $ hireWorker playerId
+      shouldHaveFailed,
+    testProperty "When can finish action then cannot finish action" $ universeProperty $ do
+      playerId <- findFittingPlayer $ liftM not . canFinishAction
+      applyToUniverse $ finishAction playerId
+      shouldHaveFailed
   ]
 
 allPossibleOptions :: [Options]
@@ -276,3 +297,10 @@ positionOccupants buildings allOccupants =
       additionalPosition = M.singleton (3, 3) nonPositionedWorkers
   in M.unionWith (<>) resultOccupants (M.singleton (0, 0) dogs <> additionalPosition)
 
+findFittingPlayer :: (Universe -> PlayerId -> Bool) -> UniversePropertyMonad PlayerId
+findFittingPlayer condition = do
+  players <- getsUniverse getPlayers
+  u <- getUniverse
+  let fittingPlayers = filter (condition u) players
+  pre $ not $ null $ fittingPlayers
+  pick $ elements fittingPlayers

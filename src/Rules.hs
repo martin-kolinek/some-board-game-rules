@@ -66,15 +66,18 @@ module Rules (
   isMovingWorker,
   isPlantingCrops,
   currentlyBuiltBuildings,
+  canCollectResources,
+  canHireWorker,
+  canFinishAction,
 
   -- * Action functions
   startWorking,
-  buildBuildings,
-  alterOccupants,
-  plantCrops,
   collectResources,
+  buildBuildings,
+  plantCrops,
   finishAction,
   hireWorker,
+  alterOccupants,
 
   finishTurn,
 

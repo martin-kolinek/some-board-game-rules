@@ -53,8 +53,24 @@ currentlyBuiltBuildings universe plId = universe ^.. players . ix plId . playerS
   where builtBuildings (BuildBuildingsInteraction buildings) = [buildings]
         builtBuildings _ = []
 
+isInteractionPossible :: (ActionInteraction -> Bool) -> Universe -> PlayerId -> Bool
+isInteractionPossible interactionFunc universe plId =
+  has (players . ix plId . playerStatus . statusAction . possibleInteractionsTraversal . filtered interactionFunc) universe
+
 isPlantingCrops :: Universe -> PlayerId -> Bool
-isPlantingCrops universe plId = has (players . ix plId . playerStatus . statusAction . possibleInteractionsTraversal . filtered (== PlantCropsInteraction)) universe
+isPlantingCrops = isInteractionPossible (== PlantCropsInteraction)
+
+canCollectResources :: Universe -> PlayerId -> Bool
+canCollectResources = isInteractionPossible (== CollectResourcesInteraction)
+
+canHireWorker :: Universe -> PlayerId -> Bool
+canHireWorker = isInteractionPossible (== HireWorkerInteraction)
+
+canFinishAction :: Universe -> PlayerId -> Bool
+canFinishAction universe plId =
+  case universe ^? players . ix plId . playerStatus . statusAction of
+    Just (OptionalAction _) -> True
+    _ -> False
 
 isMovingWorker :: Universe -> PlayerId -> Bool
 isMovingWorker universe plId = universe ^? (players . ix plId . playerStatus) == Just MovingWorker

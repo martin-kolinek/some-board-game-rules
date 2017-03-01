@@ -79,9 +79,8 @@ collectResources plId = performInteraction plId CollectResourcesInteraction $ \w
 
 finishAction :: MonadError String m => PlayerId -> Universe -> m Universe
 finishAction plId universe = do
-  case universe ^? players . ix plId . playerStatus . statusAction of
-    Just (OptionalAction _) -> return $ startNextPlayer plId universe
-    _ -> throwError "Cannot finish action right now"
+  check "Cannot finish action right now" $ canFinishAction universe plId
+  return $ startNextPlayer plId universe
 
 hireWorker :: MonadError String m => PlayerId -> Universe -> m Universe
 hireWorker plId = performInteraction plId HireWorkerInteraction $ \workplaceId universe ->
