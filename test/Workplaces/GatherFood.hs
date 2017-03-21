@@ -47,10 +47,13 @@ gatherFoodTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Gather food 
       let originalFood = getFoodAmount $ (getPlayerResources originalUniverse playerId)
           workplaceAmount = getFoodAmount $ getWorkplaceResources $ (getWorkplaces originalUniverse ! workplaceId)
           originalWheat = getWheatAmount $ (getPlayerResources originalUniverse playerId)
+          originalStone = getStoneAmount $ (getPlayerResources originalUniverse playerId)
       newFood <- getFoodAmount <$> (getsUniverse getPlayerResources <*> pure playerId)
       newWheat <- getWheatAmount <$> (getsUniverse getPlayerResources <*> pure playerId)
+      newStone <- getStoneAmount <$> (getsUniverse getPlayerResources <*> pure playerId)
       assert $ newFood == originalFood + workplaceAmount
       assert $ newWheat == originalWheat + 1
+      assert $ newStone == originalStone
   ]
 
 startWorkingInGatherFood :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)

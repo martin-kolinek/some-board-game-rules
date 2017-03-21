@@ -81,7 +81,7 @@ iron :: Int -> Resources
 iron x = Resources 0 0 0 x 0 0 0 0
 
 wheat :: Int -> Resources
-wheat x = Resources 0 x 0 0 x 0 0 0
+wheat x = Resources 0 0 0 0 x 0 0 0
 
 potato :: Int -> Resources
 potato x = Resources 0 0 0 0 0 x 0 0
