@@ -22,13 +22,13 @@ data WorkplaceType =
   MakeStartPlayer |
   HouseWork |
   Farming |
-  WeaponMaking deriving (Eq, Show)
+  WeaponMaking deriving (Eq, Show, Ord, Enum)
 
 makeLenses ''WorkplaceData
 
 initialWorkplaces :: Map WorkplaceId WorkplaceData
 initialWorkplaces = fromList $ zip workplaceIds workplaceDatas
-  where workplaceTypes = replicate 8 CutForest ++ replicate 8 DigCave ++ replicate 8 DigPassage ++ replicate 4 WorkerNeed
+  where workplaceTypes = mconcat $ replicate 3 <$> [CutForest ..]
         createWorkplaceData workplaceTp = WorkplaceData workplaceTp (initialResources ^+^ snd (workplaceResourceAddition workplaceTp))
         workplaceDatas = createWorkplaceData <$> workplaceTypes
         workplaceIds = WorkplaceId <$> [1..]
