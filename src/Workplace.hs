@@ -29,7 +29,8 @@ makeLenses ''WorkplaceData
 initialWorkplaces :: Map WorkplaceId WorkplaceData
 initialWorkplaces = fromList $ zip workplaceIds workplaceDatas
   where workplaceTypes = replicate 8 CutForest ++ replicate 8 DigCave ++ replicate 8 DigPassage ++ replicate 4 WorkerNeed
-        workplaceDatas = flip WorkplaceData initialResources <$> workplaceTypes
+        createWorkplaceData workplaceTp = WorkplaceData workplaceTp (initialResources ^+^ snd (workplaceResourceAddition workplaceTp))
+        workplaceDatas = createWorkplaceData <$> workplaceTypes
         workplaceIds = WorkplaceId <$> [1..]
 
 workplaceResourceAddition :: WorkplaceType -> (Resources, Resources)
