@@ -22,6 +22,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
     testProperty "Starting working assigns worker" $ universeProperty $ do
         workplaceId <- pickEmptyWorkplace
         (plId, workerId) <- pickWorkerToMove
+        checkPlayerHasValidOccupants plId
         do
           workplaces <- getsUniverse getWorkplaces
           canBuildRoom <- getsUniverse currentPlayerCanBuildRoom
@@ -227,6 +228,12 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
     testProperty "When can finish action then cannot finish action" $ universeProperty $ do
       playerId <- findFittingPlayer $ liftM not . canFinishAction
       applyToUniverse $ finishAction playerId
+      shouldHaveFailed,
+    testProperty "Moving worker with invalid occupants is not possible" $ universeProperty $ do
+      workplaceId <- pickEmptyWorkplace
+      (plId, workerId) <- pickWorkerToMove
+      checkPlayerHasInvalidOccupants plId
+      applyToUniverse $ startWorking plId workerId workplaceId
       shouldHaveFailed
   ]
 

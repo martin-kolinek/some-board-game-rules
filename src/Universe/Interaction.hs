@@ -39,6 +39,7 @@ startWorking plId workerId workplaceId universe = do
   workerData <- checkMaybe "Invalid worker" (playerData ^? workers . ix workerId)
   check "Worker already working" $ hasn't (currentWorkplace . traverse) workerData
   check "Not moving worker" (has (players . ix plId . playerStatus . filtered (== MovingWorker)) universe)
+  checkOccupants universe plId
   let currentWorkplaceAction = workplaceAction currentWorkplaceType
   check "Precondition not met" $ actionPrecondition plId workplaceId universe currentWorkplaceAction
   let universeWithMovedWorker = universe & players . ix plId . workers . ix workerId . currentWorkplace .~ Just workplaceId
@@ -92,7 +93,7 @@ hireWorker plId = performInteraction plId HireWorkerInteraction $ \workplaceId u
 performInteraction :: MonadError String m => PlayerId -> ActionInteraction -> (WorkplaceId -> Universe -> m Universe) -> Universe -> m Universe
 performInteraction plId interaction effect universe = do
   (workplaceId, playerStatusAction) <- checkMaybe "Not current player" $ universe ^? players . ix plId . playerStatus . statusActionAndWorkplace
-  check "Fix occupants first" $ null $ getOccupantErrors universe plId
+  checkOccupants universe plId
   check "Precondition not met" $ interactionPrecondition interaction plId universe
   case actionAfterInteraction playerStatusAction interaction of
     InvalidInteraction -> throwError ("Not possible right now " ++ show interaction)
@@ -106,3 +107,6 @@ performInteraction plId interaction effect universe = do
         effect workplaceId <&>
         performSteps steps plId workplaceId <&>
         players . ix plId . playerStatus .~ PerformingAction workplaceId act
+
+checkOccupants :: MonadError String m => Universe -> PlayerId -> m ()
+checkOccupants universe plId = check "Fix occupants first" $ null $ getOccupantErrors universe plId

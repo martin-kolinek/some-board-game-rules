@@ -26,6 +26,7 @@ startWorkingInWorkplaceType wType = do
                 getWorkplaceType workplaceData == wType && not (S.member workplaceId filledWorkplaceIds)
               filledWorkplaceIds = S.fromList (extractFilledWorkplaces universe)
   currentPlayerId <- preMaybe =<< getsUniverse getCurrentPlayer
+  checkPlayerHasValidOccupants currentPlayerId
   pre =<< getsUniverse isMovingWorker <*> pure currentPlayerId
   freeWorkers <- getsUniverse $ extractFreeWorkers currentPlayerId
   pre $ not $ null $ freeWorkers
@@ -82,6 +83,9 @@ validateNextPlayer previousPlayerId = do
 
 checkPlayerHasValidOccupants :: PlayerId -> UniversePropertyMonad ()
 checkPlayerHasValidOccupants plId = pre =<< null <$> (getsUniverse getOccupantErrors <*> pure plId)
+
+checkPlayerHasInvalidOccupants :: PlayerId -> UniversePropertyMonad ()
+checkPlayerHasInvalidOccupants plId = pre =<< (not . null) <$> (getsUniverse getOccupantErrors <*> pure plId)
 
 validatePlayerHasValidOccupants :: PlayerId -> UniversePropertyMonad ()
 validatePlayerHasValidOccupants plId = assert =<< null <$> (getsUniverse getOccupantErrors <*> pure plId)
