@@ -136,3 +136,10 @@ currentPlayerHasFreeRoom universe = fromMaybe False $ do
 currentPlayerCanBuildRoom :: Universe -> Bool
 currentPlayerCanBuildRoom universe = (not $ null $ join $ maybeToList $ availableSingleCavePositions universe <$> getCurrentPlayer universe) &&
   currentPlayerHasEnoughResourcesForLivingRoom universe
+
+currentPlayerCanArmWorker :: WorkerId -> Universe -> Bool
+currentPlayerCanArmWorker workerId universe = fromMaybe False $ do
+  currentPlayerId <- getCurrentPlayer universe
+  let hasSomeIron = getIronAmount (getPlayerResources universe currentPlayerId) > 0
+      workerIsUnarmed = getWorkerStrength universe workerId == 0
+  return $ hasSomeIron && workerIsUnarmed

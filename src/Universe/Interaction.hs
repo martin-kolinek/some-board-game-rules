@@ -8,6 +8,7 @@ import Data.List (sortOn, groupBy, foldl')
 import Data.Function (on)
 import Data.AdditiveGroup
 import Data.Maybe (fromMaybe)
+import qualified Data.Map as M
 
 import Universe.Workplace
 import Universe.Actions
@@ -41,7 +42,7 @@ startWorking plId workerId workplaceId universe = do
   check "Not moving worker" (has (players . ix plId . playerStatus . filtered (== MovingWorker)) universe)
   checkOccupants universe plId
   let currentWorkplaceAction = workplaceAction currentWorkplaceType
-  check "Precondition not met" $ actionPrecondition plId workplaceId universe currentWorkplaceAction
+  check "Precondition not met" $ actionPrecondition plId workerId workplaceId universe currentWorkplaceAction
   let universeWithMovedWorker = universe & players . ix plId . workers . ix workerId . currentWorkplace .~ Just workplaceId
   case currentWorkplaceAction of
     StepsAction steps -> return $ universeWithMovedWorker &
@@ -94,7 +95,9 @@ performInteraction :: MonadError String m => PlayerId -> ActionInteraction -> (W
 performInteraction plId interaction effect universe = do
   (workplaceId, playerStatusAction) <- checkMaybe "Not current player" $ universe ^? players . ix plId . playerStatus . statusActionAndWorkplace
   checkOccupants universe plId
-  check "Precondition not met" $ interactionPrecondition interaction plId universe
+  workerId <- checkMaybe "This shouldn't happen" -- TODO find a way to represent it in the type system
+    $ universe ^? players . traverse . workers . to M.toList . traverse . filtered (has $ _2 . inWorkplace workplaceId) . _1
+  check "Precondition not met" $ interactionPrecondition interaction workerId plId workplaceId universe
   case actionAfterInteraction playerStatusAction interaction of
     InvalidInteraction -> throwError ("Not possible right now " ++ show interaction)
     ActionFinished steps ->

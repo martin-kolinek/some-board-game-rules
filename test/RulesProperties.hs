@@ -27,7 +27,9 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
           workplaces <- getsUniverse getWorkplaces
           canBuildRoom <- getsUniverse currentPlayerCanBuildRoom
           hasFreeRoom <- getsUniverse currentPlayerHasFreeRoom
+          canArmWorker <- getsUniverse (currentPlayerCanArmWorker workerId)
           pre $ getWorkplaceType (workplaces ! workplaceId) /= WorkerNeed || canBuildRoom || hasFreeRoom
+          pre $ getWorkplaceType (workplaces ! workplaceId) /= WeaponMaking || canArmWorker
         applyToUniverse $ startWorking plId workerId workplaceId
         workerWorkplace <- getsUniverse (flip getWorkerWorkplace workerId)
         assert $ workerWorkplace == Just workplaceId

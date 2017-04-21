@@ -10,27 +10,29 @@ import Actions
 import Universe.Building
 import Workplace
 import Universe.Player
+import Resources
+import Worker
 
-interactionPrecondition :: ActionInteraction -> PlayerId -> Universe -> Bool
-interactionPrecondition (BuildBuildingsInteraction buildings) plId universe =
+interactionPrecondition :: ActionInteraction -> WorkerId -> PlayerId -> WorkplaceId -> Universe -> Bool
+interactionPrecondition (BuildBuildingsInteraction buildings) _ plId _ universe =
   has (players . ix plId . filtered (playerCanBuildBuildings)) universe
   where playerCanBuildBuildings playerData = all (playerCanBuildBuilding playerData) buildings
-interactionPrecondition HireWorkerInteraction plId universe = has (players . ix plId . filtered playerCanHireWorker) universe
--- interactionPrecondition ArmWorkerInteraction plId universe = liftM2 (&&)
---   (has (players . ix plId . playerResources . ironAmount . filtered (>= strength)))
---   (has (players . ix plId . workers . traverse . inWorkplace workplaceId . workerStrength . filtered (== 0)))
-interactionPrecondition _ _ _ = True
+interactionPrecondition HireWorkerInteraction _ plId _ universe = has (players . ix plId . filtered playerCanHireWorker) universe
+interactionPrecondition ArmWorkerInteraction workerId plId _ universe =
+  (has (players . ix plId . playerResources . ironAmount . filtered (> 0)) universe) &&
+  (has (players . ix plId . workers . ix workerId . workerStrength . filtered (== 0)) universe)
+interactionPrecondition _ _ _ _ _ = True
 
-actionPrecondition :: PlayerId -> WorkplaceId -> Universe -> ActionDefinition -> Bool
-actionPrecondition plId _ universe (CompositeAction composite) = compositeActionPrecondition composite
-  where compositeActionPrecondition (InteractionAction interaction _) = interactionPrecondition interaction plId universe
+actionPrecondition :: PlayerId -> WorkerId -> WorkplaceId -> Universe -> ActionDefinition -> Bool
+actionPrecondition plId workerId workplaceId universe (CompositeAction composite) = compositeActionPrecondition composite
+  where compositeActionPrecondition (InteractionAction interaction _) = interactionPrecondition interaction workerId plId workplaceId universe
         compositeActionPrecondition (OptionalAction _ ) = True
         compositeActionPrecondition (ActionCombination combType interaction1 interaction2) = combinePreconditions combType (compositeActionPrecondition interaction1) (compositeActionPrecondition interaction2)
         combinePreconditions AndThen = const
         combinePreconditions AndOr = (||)
         combinePreconditions Or = (||)
         combinePreconditions AndThenOr = (||)
-actionPrecondition _ _ _ _ = True
+actionPrecondition _ _ _ _ _ = True
 
 performSteps :: [ActionStep] -> PlayerId -> WorkplaceId -> Universe -> Universe
 performSteps acts plId wId universe = foldl' (\u a -> performStep a plId wId u) universe acts
@@ -44,9 +46,6 @@ performStep CollectResourcesStep plId workplaceId universe =
   in universe &
        players . ix plId . playerResources %~ (^+^ resources) &
        availableWorkplaces . ix workplaceId . workplaceStoredResources .~ zeroV
-
--- performStep (ArmWorkerStep strengthIncrease) plId workplaceId universe = universe &
---   players . ix plId . workers . traverse . inWorkplace workplaceId . workerStrength +~ strengthIncrease
 
 performStep SetStartPlayerStep plId _ universe = universe & startingPlayer .~ plId
 
