@@ -26,7 +26,7 @@ import Resources
 
 buildBuildings :: MonadError String m => PlayerId -> Position -> Direction -> [BuildingType] -> Universe -> m Universe
 buildBuildings plId pos dir buildings = performInteraction plId (BuildBuildingsInteraction buildings) $
-  const $ mapMOf (players . ix plId . buildingSpace) (buildNewBuildings pos dir buildings)
+  const $ const $ mapMOf (players . ix plId . buildingSpace) (buildNewBuildings pos dir buildings)
 
 alterOccupants :: MonadError String m => PlayerId -> BuildingOccupants -> Universe -> m Universe
 alterOccupants plId occupants universe = return $ universe &
@@ -64,7 +64,7 @@ finishTurn universe = do
 type CropToPlant = (CropType, Position)
 
 plantCrops :: MonadError String m => PlayerId -> [CropToPlant] -> Universe -> m Universe
-plantCrops plId crops = performInteraction plId PlantCropsInteraction $ const $ \universe -> do
+plantCrops plId crops = performInteraction plId PlantCropsInteraction $ const $ const $ \universe -> do
   let groupedCrops = groupBy ((==) `on` fst) $ sortOn fst crops
       oldPlayerResources = fromMaybe zeroV $ universe ^? players . ix plId . playerResources
       subtractGroupResources resources grp = resources & cropResource (fst (head grp)) -~ length grp
@@ -76,7 +76,7 @@ plantCrops plId crops = performInteraction plId PlantCropsInteraction $ const $ 
     players . ix plId . playerResources .~ newPlayerResources
 
 collectResources :: MonadError String m => PlayerId -> Universe -> m Universe
-collectResources plId = performInteraction plId CollectResourcesInteraction $ \workplaceId universe ->
+collectResources plId = performInteraction plId CollectResourcesInteraction $ \workplaceId _ universe ->
   return $ performStep CollectResourcesStep plId workplaceId universe
 
 finishAction :: MonadError String m => PlayerId -> Universe -> m Universe
@@ -85,13 +85,22 @@ finishAction plId universe = do
   return $ startNextPlayer plId universe
 
 hireWorker :: MonadError String m => PlayerId -> Universe -> m Universe
-hireWorker plId = performInteraction plId HireWorkerInteraction $ \workplaceId universe ->
+hireWorker plId = performInteraction plId HireWorkerInteraction $ \workplaceId _ universe ->
   let addedWorkerId = newWorkerId universe
   in return $ universe &
        players . ix plId . workers . at addedWorkerId . non initialWorkerState . currentWorkplace .~ Just workplaceId &
        players . ix plId . buildingSpace %~ findSpaceForWorker (WorkerOccupant addedWorkerId)
 
-performInteraction :: MonadError String m => PlayerId -> ActionInteraction -> (WorkplaceId -> Universe -> m Universe) -> Universe -> m Universe
+armWorker :: MonadError String m => PlayerId -> Int -> Universe -> m Universe
+armWorker plId amount = performInteraction plId ArmWorkerInteraction $ \_ workerId universe -> do
+  check "Cannot arm with more than 8" $ amount <= 8
+  check "Need to arm with at least 1" $ amount >= 1
+  check "Not enough iron" $ all (amount <=) $ toListOf (players . ix plId . playerResources . ironAmount) universe
+  return $ universe &
+    players . ix plId . workers . ix workerId . workerStrength +~ amount &
+    players . ix plId . playerResources . ironAmount -~ amount
+
+performInteraction :: MonadError String m => PlayerId -> ActionInteraction -> (WorkplaceId -> WorkerId -> Universe -> m Universe) -> Universe -> m Universe
 performInteraction plId interaction effect universe = do
   (workplaceId, playerStatusAction) <- checkMaybe "Not current player" $ universe ^? players . ix plId . playerStatus . statusActionAndWorkplace
   checkOccupants universe plId
@@ -102,12 +111,12 @@ performInteraction plId interaction effect universe = do
     InvalidInteraction -> throwError ("Not possible right now " ++ show interaction)
     ActionFinished steps ->
       universe &
-        effect workplaceId <&>
+        effect workplaceId workerId <&>
         performSteps steps plId workplaceId <&>
         startNextPlayer plId
     RemainingAction act steps ->
       universe &
-        effect workplaceId <&>
+        effect workplaceId workerId <&>
         performSteps steps plId workplaceId <&>
         players . ix plId . playerStatus .~ PerformingAction workplaceId act
 

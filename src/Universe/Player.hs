@@ -3,6 +3,7 @@ module Universe.Player where
 import Control.Lens hiding (universe)
 import Data.Maybe
 import Data.Map hiding (filter, null)
+import Control.Monad (guard)
 
 import Player
 import Universe
@@ -11,6 +12,8 @@ import Resources
 import Building
 import Actions
 import Util
+import Universe.Workplace
+import Universe.Actions
 
 getCurrentPlayer :: Universe -> Maybe PlayerId
 getCurrentPlayer universe =
@@ -38,24 +41,18 @@ getStartingPlayer universe = universe ^. startingPlayer
 getDogs :: Universe -> PlayerId -> [DogId]
 getDogs universe plId = toListOf (players . ix plId . playerAnimals . dogs . traverse) universe
 
-newDogId :: Universe -> DogId
-newDogId universe = DogId (maximum dogNumbers + 1)
-  where getNumberFromId (DogId number) = number
-        dogNumbers = 0 : toListOf (players . traverse . playerAnimals . dogs . traverse . to getNumberFromId) universe
-
-addDog :: Universe -> PlayerData -> PlayerData
-addDog universe = over (buildingSpace . buildingSpaceOccupants) addDogToOccupants . over (playerAnimals . dogs) (dogId :)
-  where dogId = newDogId universe
-        addDogToOccupants occupants = alter (Just . (DogOccupant dogId :) . fromMaybe []) (0, 0) occupants
-
 currentlyBuiltBuildings :: Universe -> PlayerId -> [[BuildingType]]
 currentlyBuiltBuildings universe plId = universe ^.. players . ix plId . playerStatus . statusAction . possibleInteractionsTraversal . to builtBuildings . traverse
   where builtBuildings (BuildBuildingsInteraction buildings) = [buildings]
         builtBuildings _ = []
 
 isInteractionPossible :: (ActionInteraction -> Bool) -> Universe -> PlayerId -> Bool
-isInteractionPossible interactionFunc universe plId =
-  has (players . ix plId . playerStatus . statusAction . possibleInteractionsTraversal . filtered interactionFunc) universe
+isInteractionPossible interactionFunc universe plId = (not . null) $ do
+  (workplace, action) <- universe ^.. players . ix plId . playerStatus . statusActionAndWorkplace
+  interaction <- action ^.. possibleInteractionsTraversal . filtered interactionFunc
+  worker <- getWorkplaceOccupants universe workplace
+  guard $ interactionPrecondition interaction worker plId workplace universe
+  return ()
 
 isPlantingCrops :: Universe -> PlayerId -> Bool
 isPlantingCrops = isInteractionPossible (== PlantCropsInteraction)
@@ -74,6 +71,9 @@ canFinishAction universe plId =
 
 isMovingWorker :: Universe -> PlayerId -> Bool
 isMovingWorker universe plId = universe ^? (players . ix plId . playerStatus) == Just MovingWorker
+
+isArmingWorker :: Universe -> PlayerId -> Bool
+isArmingWorker = isInteractionPossible (== ArmWorkerInteraction)
 
 startNextPlayer :: PlayerId -> Universe -> Universe
 startNextPlayer plId universe = universe &

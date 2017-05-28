@@ -15,7 +15,8 @@ import Workplaces.HouseWork
 import Workplaces.Farming
 import Workplaces.WeaponMaking
 import BuildingProperties
-import FarmingProperties
+import Interaction.FarmingProperties
+import Interaction.ArmingProperties
 import InitialUniverseProperties
 
 main :: IO ()
@@ -36,4 +37,5 @@ main = defaultMain $ do
     farmingWorkplaceTests,
     buildingTests,
     weaponMakingTests,
-    initialUniverseTests]
+    initialUniverseTests,
+    armingTests]

@@ -62,6 +62,12 @@ generateWorkplaceData = oneof [
   generateMakeStartPlayer,
   elements [WorkplaceData HouseWork zeroV],
   elements [WorkplaceData Farming zeroV],
+  elements [WorkplaceData Farming zeroV],
+  elements [WorkplaceData Farming zeroV],
+  elements [WorkplaceData Farming zeroV],
+  elements [WorkplaceData WeaponMaking zeroV],
+  elements [WorkplaceData WeaponMaking zeroV],
+  elements [WorkplaceData WeaponMaking zeroV],
   elements [WorkplaceData WeaponMaking zeroV]]
 
 generateWorkplaces :: Int -> Gen WorkplaceData -> Gen [(WorkplaceId, WorkplaceData)]

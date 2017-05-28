@@ -1,4 +1,4 @@
-module FarmingProperties where
+module Interaction.FarmingProperties where
 
 import TestFramework
 import TestHelpers

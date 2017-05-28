@@ -3,15 +3,17 @@ module Universe.Actions where
 import Control.Lens hiding (universe)
 import Data.AdditiveGroup
 import Data.List (foldl')
+import Data.Map (alter)
+import Data.Maybe (fromMaybe)
 
 import Player
 import Universe
 import Actions
 import Universe.Building
 import Workplace
-import Universe.Player
 import Resources
 import Worker
+import Building
 
 interactionPrecondition :: ActionInteraction -> WorkerId -> PlayerId -> WorkplaceId -> Universe -> Bool
 interactionPrecondition (BuildBuildingsInteraction buildings) _ plId _ universe =
@@ -50,3 +52,13 @@ performStep CollectResourcesStep plId workplaceId universe =
 performStep SetStartPlayerStep plId _ universe = universe & startingPlayer .~ plId
 
 performStep AddDogStep plId _ universe = universe & players . ix plId %~ addDog universe
+
+newDogId :: Universe -> DogId
+newDogId universe = DogId (maximum dogNumbers + 1)
+  where getNumberFromId (DogId number) = number
+        dogNumbers = 0 : toListOf (players . traverse . playerAnimals . dogs . traverse . to getNumberFromId) universe
+
+addDog :: Universe -> PlayerData -> PlayerData
+addDog universe = over (buildingSpace . buildingSpaceOccupants) addDogToOccupants . over (playerAnimals . dogs) (dogId :)
+  where dogId = newDogId universe
+        addDogToOccupants occupants = alter (Just . (DogOccupant dogId :) . fromMaybe []) (0, 0) occupants

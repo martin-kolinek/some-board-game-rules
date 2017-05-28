@@ -69,6 +69,7 @@ module Rules (
   canCollectResources,
   canHireWorker,
   canFinishAction,
+  isArmingWorker,
 
   -- * Action functions
   startWorking,
@@ -78,6 +79,7 @@ module Rules (
   finishAction,
   hireWorker,
   alterOccupants,
+  armWorker,
 
   finishTurn,
 
