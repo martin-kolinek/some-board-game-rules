@@ -11,23 +11,23 @@ import Data.Maybe
 
 armingTests :: TestTree
 armingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Arming tests" [
-  testProperty "Cannot arm with more iron than had" $ universeProperty $ do
+  testProperty "Cannot arm with more iron than had" $ armingProperty $ do
       plId <- findArmingPlayer
       ironAmount <- fmap getIronAmount $ getsUniverse getPlayerResources <*> pure plId
       armAmount <- pick $ choose (ironAmount + 1, 1000)
       applyToUniverse $ armWorker plId armAmount
       shouldHaveFailed,
-  testProperty "Cannot arm with more than 8" $ universeProperty $ do
+  testProperty "Cannot arm with more than 8" $ armingProperty $ do
       plId <- findArmingPlayer
       armAmount <- pick $ choose (9, 1000)
       applyToUniverse $ armWorker plId armAmount
       shouldHaveFailed,
-  testProperty "Cannot arm with zero or negative" $ universeProperty $ do
+  testProperty "Cannot arm with zero or negative" $ armingProperty $ do
       plId <- findArmingPlayer
       armAmount <- pick $ choose (-1000, 0)
       applyToUniverse $ armWorker plId armAmount
       shouldHaveFailed,
-  testProperty "Arming increases strength" $ universeProperty $ do
+  testProperty "Arming increases strength" $ armingProperty $ do
       plId <- findArmingPlayer
       originalUniverse <- getUniverse
       let workers = getWorkers originalUniverse plId
@@ -41,6 +41,9 @@ armingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Arming tests" [
           increasedStrengths = filter (== armAmount) $ zipWith (-) newStrengths originalStrengths
       assert (length increasedStrengths == 1)
   ]
+
+armingProperty :: UniversePropertyMonad a -> Property
+armingProperty = propertyWithProperties (withWorkplaceProbability WeaponMaking 40 defaultGeneratorProperties)
 
 findArmingPlayer :: UniversePropertyMonad PlayerId
 findArmingPlayer = do

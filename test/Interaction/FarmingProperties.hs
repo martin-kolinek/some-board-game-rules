@@ -14,7 +14,7 @@ import Data.Maybe (listToMaybe)
 
 farmingTests :: TestTree
 farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming properties" $ [
-    testProperty "Planting crops adds crops" $ universeProperty $ do
+    testProperty "Planting crops adds crops" $ farmingProperty $ do
       playerId <- findFarmingPlayer
       cropsToPlant <- pickCropsToPlant playerId
       pre $ not $ null $ cropsToPlant
@@ -23,7 +23,7 @@ farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming propert
       let verifyCrop (Potatoes, pos) = lookup pos newCrops == Just (PlantedCrop Potatoes 2)
           verifyCrop (Wheat, pos) = lookup pos newCrops == Just (PlantedCrop Wheat 3)
       assert $ all verifyCrop cropsToPlant,
-    testProperty "Planting crops not on fields is not possible" $ universeProperty $ do
+    testProperty "Planting crops not on fields is not possible" $ farmingProperty $ do
       playerId <- findFarmingPlayer
       let nonFieldPositions (Building buildingType pos) = if buildingType == Field then [] else [pos]
       buildingSpace <- getsUniverse getBuildingSpace <*> pure playerId
@@ -36,7 +36,7 @@ farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming propert
       positions <- pick $ shuffle $ take invalidCount invalidPositions ++ take validCount validPositions
       applyToUniverse $ plantCrops playerId (zip cropTypes positions)
       shouldHaveFailed,
-    testProperty "Planting too many crops is not possible" $ universeProperty $ do
+    testProperty "Planting too many crops is not possible" $ farmingProperty $ do
       playerId <- findFarmingPlayer
       positions <- pickPlantingPositions playerId
       pre $ length positions >= 3
@@ -46,7 +46,7 @@ farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming propert
       crops <- pick $ shuffle $ additionalCrops ++ (replicate 3 tooManyType)
       applyToUniverse $ plantCrops playerId (zip crops positions)
       shouldHaveFailed,
-    testProperty "Planting more than had is not possible" $ universeProperty $ do
+    testProperty "Planting more than had is not possible" $ farmingProperty $ do
       playerId <- findFarmingPlayer
       positions <- pickPlantingPositions playerId
       potatoCorrect <- pick $ elements [True, False]
@@ -55,7 +55,7 @@ farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming propert
       pre $ length positions >= length crops
       applyToUniverse $ plantCrops playerId (zip crops positions)
       shouldHaveFailed,
-    testProperty "Planting crops subtracts resources" $ universeProperty $ do
+    testProperty "Planting crops subtracts resources" $ farmingProperty $ do
       playerId <- findFarmingPlayer
       originalResources <- getsUniverse getPlayerResources <*> pure playerId
       crops <- pickCropsToPlant playerId
@@ -67,6 +67,9 @@ farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming propert
       assert $ potatoCount == getPotatoAmount originalResources - getPotatoAmount newResources
       assert $ wheatCount == getWheatAmount originalResources - getWheatAmount newResources
   ]
+
+farmingProperty :: UniversePropertyMonad a -> Property
+farmingProperty = propertyWithProperties (withWorkplaceProbability Farming 20 defaultGeneratorProperties)
 
 findFarmingPlayer :: UniversePropertyMonad PlayerId
 findFarmingPlayer = do

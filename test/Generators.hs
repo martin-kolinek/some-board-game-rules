@@ -1,12 +1,12 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RankNTypes #-}
 module Generators where
 
 import Prelude hiding (lookup)
 import Test.QuickCheck
-import Data.Map.Strict (fromList, fromListWith, keys, (!), Map, empty, singleton, delete)
+import Data.Map.Strict (fromList, fromListWith, keys, (!), Map, empty, singleton, delete, findWithDefault)
 import qualified Data.Set as S
 import Control.Monad (forM, foldM, guard)
-import Text.Show.Pretty
 import Data.List.Split (splitPlaces, chunksOf)
 import Control.Lens ((^.))
 import Data.Monoid ((<>))
@@ -27,10 +27,18 @@ import Universe.Worker
 import Actions
 import Control.Lens hiding (elements, universe, chosen)
 
-newtype ArbitraryUniverse = ArbitraryUniverse Universe
+data GeneratorProperties = GeneratorProperties {
+  workplaceProbabilities :: Map WorkplaceType Int
+  }
 
-instance Show ArbitraryUniverse where
-  show (ArbitraryUniverse u) = ppShow u
+workplaceTypeResources :: WorkplaceType -> Gen Resources
+workplaceTypeResources CutForest = wood <$> choose (0, 1000)
+workplaceTypeResources DigPassage = stone <$> choose (0, 1000)
+workplaceTypeResources DigCave = stone <$> choose (0, 1000)
+workplaceTypeResources GatherWood = wood <$> choose (0, 1000)
+workplaceTypeResources GatherFood = food <$> choose (0, 1000)
+workplaceTypeResources MakeStartPlayer = food <$> choose (0, 1000)
+workplaceTypeResources _ = elements [zeroV]
 
 generateCutForest :: Gen WorkplaceData
 generateCutForest = WorkplaceData CutForest . wood <$> choose(0, 1000)
@@ -50,30 +58,16 @@ generateGatherFood = WorkplaceData GatherFood . food <$> choose (0, 1000)
 generateMakeStartPlayer :: Gen WorkplaceData
 generateMakeStartPlayer = WorkplaceData MakeStartPlayer . food <$> choose (0, 1000)
 
-generateWorkplaceData :: Gen WorkplaceData
-generateWorkplaceData = oneof [
-  generateDigPassage,
-  generateCutForest,
-  generateDigCave,
-  elements [WorkplaceData WorkerNeed zeroV],
-  elements [WorkplaceData ResourceAddition zeroV],
-  generateGatherWood,
-  generateGatherFood,
-  generateMakeStartPlayer,
-  elements [WorkplaceData HouseWork zeroV],
-  elements [WorkplaceData Farming zeroV],
-  elements [WorkplaceData Farming zeroV],
-  elements [WorkplaceData Farming zeroV],
-  elements [WorkplaceData Farming zeroV],
-  elements [WorkplaceData WeaponMaking zeroV],
-  elements [WorkplaceData WeaponMaking zeroV],
-  elements [WorkplaceData WeaponMaking zeroV],
-  elements [WorkplaceData WeaponMaking zeroV]]
+generateWorkplaceData :: GeneratorProperties -> Gen WorkplaceData
+generateWorkplaceData properties = frequency $ createFreqEntry <$> [CutForest ..]
+  where createFreqEntry wpType =
+          (findWithDefault 1 wpType (workplaceProbabilities properties),
+           WorkplaceData wpType <$> workplaceTypeResources wpType)
 
-generateWorkplaces :: Int -> Gen WorkplaceData -> Gen [(WorkplaceId, WorkplaceData)]
-generateWorkplaces minNumber firstWorkplaceGen = do
-  neededLst <- vectorOf (minNumber - 1) generateWorkplaceData
-  lst <- listOf generateWorkplaceData
+generateWorkplaces :: GeneratorProperties -> Int -> Gen WorkplaceData -> Gen [(WorkplaceId, WorkplaceData)]
+generateWorkplaces properties minNumber firstWorkplaceGen = do
+  neededLst <- vectorOf (minNumber - 1) (generateWorkplaceData properties)
+  lst <- listOf (generateWorkplaceData properties)
   firstWorkplace <- firstWorkplaceGen
   let ids = WorkplaceId <$> [1..]
   return $ zip ids (firstWorkplace : neededLst ++ lst)
@@ -188,15 +182,15 @@ generateFastShuffledSequence = do
     return $ ((20 * x) +) <$> if rev then [20, 19..1] else [1..20]
   return $ mconcat seqs
 
-instance Arbitrary ArbitraryUniverse where
-  arbitrary = do
+generateUniverse :: GeneratorProperties -> Gen Universe
+generateUniverse properties = do
     playerCount <- choose (1, 7) :: Gen Int
     workerIds <- (fmap WorkerId) <$> generateFastShuffledSequence
     allWorkplaceIds <- (fmap WorkplaceId) <$> generateFastShuffledSequence
     dogIds <- (fmap DogId) <$> generateFastShuffledSequence
     currentPlayerId : otherPlayerIds <- shuffle $ PlayerId <$> [1..playerCount]
     let (playerWorkplaceIds, additionalWorkplaceIds) = splitAt (playerCount * 7) allWorkplaceIds
-    additionalWorkplaceData <- mapM (const generateWorkplaceData) additionalWorkplaceIds
+    additionalWorkplaceData <- mapM (const (generateWorkplaceData properties)) additionalWorkplaceIds
     otherPlayersDone <- elements [True, False]
     let additionalWorkplaces = fromList $ zip additionalWorkplaceIds additionalWorkplaceData
         currentAvailableWorkerIds : otherAvailableWorkerIds = chunksOf 7 workerIds
@@ -206,10 +200,10 @@ instance Arbitrary ArbitraryUniverse where
         otherPlayerAvailableStatuses = if otherPlayersDone then [AllWorkersBusyStatus] else [WaitingStatus]
     otherPlayersGenerated <- forM (zip otherPlayerIds (zip otherAvailableWorkerIds (zip otherAvailableWorkplaceIds otherAvailableDogIds))) $
       \(generatedPlayerId, (availableWorkerIds, (availableWorkplaceIds, availableDogIds))) ->
-        generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availableDogIds otherPlayerAvailableStatuses
+        generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplaceIds availableDogIds otherPlayerAvailableStatuses
     let otherPlayerData = fst <$> otherPlayersGenerated
         otherPlayerWorkplaces = snd <$> otherPlayersGenerated
-    (currentPlayerData, currentPlayerWorkplaces) <- generatePlayer
+    (currentPlayerData, currentPlayerWorkplaces) <- generatePlayer properties
       currentPlayerId
       currentAvailableWorkerIds
       currentAvailableWorkplaceIds
@@ -218,8 +212,7 @@ instance Arbitrary ArbitraryUniverse where
     let allPlayers = fromList $ fmap (\x -> (_playerId x, x)) (currentPlayerData : otherPlayerData)
         allWorkplaces = additionalWorkplaces <> currentPlayerWorkplaces <> mconcat otherPlayerWorkplaces
     selectedStartingPlayer <- elements $ keys allPlayers
-    return $ ArbitraryUniverse $ Universe allWorkplaces allPlayers selectedStartingPlayer
-  shrink (ArbitraryUniverse u) = ArbitraryUniverse <$> shrinkUniverse u
+    return $ Universe allWorkplaces allPlayers selectedStartingPlayer
 
 data GeneratedPlayerStatus = WaitingStatus | AllWorkersBusyStatus | NotWaitingStatus deriving (Show, Eq)
 
@@ -241,8 +234,8 @@ possibleStatuses workplaceId currentWorkplaceType NotWaitingStatus = [MovingWork
 possibleStatuses _ _ WaitingStatus = [Waiting]
 possibleStatuses _ _ AllWorkersBusyStatus = [Waiting]
 
-generatePlayer :: PlayerId -> [WorkerId] -> [WorkplaceId] -> [DogId] -> [GeneratedPlayerStatus] -> Gen (PlayerData, Map WorkplaceId WorkplaceData)
-generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availableDogIds possibleGeneratedStatuses = do
+generatePlayer :: GeneratorProperties -> PlayerId -> [WorkerId] -> [WorkplaceId] -> [DogId] -> [GeneratedPlayerStatus] -> Gen (PlayerData, Map WorkplaceId WorkplaceData)
+generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplaceIds availableDogIds possibleGeneratedStatuses = do
   let currentWorkplaceId = head availableWorkplaceIds
   selectedGeneratedStatus <- elements possibleGeneratedStatuses
   totalWorkerCount <- choose (1, 5)
@@ -251,9 +244,9 @@ generatePlayer generatedPlayerId availableWorkerIds availableWorkplaceIds availa
   let allWorkerIds = take totalWorkerCount availableWorkerIds
       allWorkplaceIds = take totalWorkerCount availableWorkplaceIds
       alreadyBusyWorkplaceIds = take alreadyBusyWorkerCount (tail allWorkplaceIds)
-  alreadyBusyWorkplaceData <- mapM (const generateWorkplaceData) [1..alreadyBusyWorkerCount]
-  freeWorkplaceData <- mapM (const generateWorkplaceData) [1..totalWorkerCount - alreadyBusyWorkerCount - 1]
-  currentWorkplaceData <- generateWorkplaceData
+  alreadyBusyWorkplaceData <- mapM (const (generateWorkplaceData properties)) [1..alreadyBusyWorkerCount]
+  freeWorkplaceData <- mapM (const (generateWorkplaceData properties)) [1..totalWorkerCount - alreadyBusyWorkerCount - 1]
+  currentWorkplaceData <- generateWorkplaceData properties
   selectedStatus <- elements $ possibleStatuses currentWorkplaceId (currentWorkplaceData ^. workplaceType) selectedGeneratedStatus
   let alreadyBusyWorkerStates = Just <$> alreadyBusyWorkplaceIds
       currentWorkerState = case (selectedGeneratedStatus, selectedStatus) of

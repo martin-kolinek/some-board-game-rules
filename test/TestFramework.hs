@@ -11,12 +11,32 @@ import Test.QuickCheck.Monadic
 import Generators
 import Text.Show.Pretty
 import Data.Maybe
+import Data.Map (empty, insert)
 
 type UniversePropertyMonad = PropertyM (State (Either String Universe))
 
-universeProperty :: UniversePropertyMonad a -> ArbitraryUniverse -> Property
-universeProperty action (ArbitraryUniverse universe) = monadic extractProperty action
-  where extractProperty act = checkResult $ runState act (Right universe)
+newtype ArbitraryUniverse = ArbitraryUniverse Universe
+
+instance Arbitrary ArbitraryUniverse where
+  arbitrary = ArbitraryUniverse <$> generateUniverse defaultGeneratorProperties
+  shrink (ArbitraryUniverse u) = ArbitraryUniverse <$> shrinkUniverse u
+
+instance Show ArbitraryUniverse where
+  show (ArbitraryUniverse u) = ppShow u
+
+defaultGeneratorProperties :: GeneratorProperties
+defaultGeneratorProperties = GeneratorProperties empty
+
+withWorkplaceProbability :: WorkplaceType -> Int -> GeneratorProperties -> GeneratorProperties
+withWorkplaceProbability wpType probability props = props { workplaceProbabilities = insert wpType probability (workplaceProbabilities props) }
+
+universeProperty :: UniversePropertyMonad a -> Property
+universeProperty = propertyWithProperties defaultGeneratorProperties
+
+propertyWithProperties :: GeneratorProperties -> UniversePropertyMonad a -> Property
+propertyWithProperties properties action = monadic extractProperty action
+  where extractProperty act = forAllShrink (generateUniverse properties) shrinkUniverse (execOnUniverse act)
+        execOnUniverse act universe = checkResult $ runState act (Right universe)
         checkResult (prop, Right resultUniverse) =
           counterexample ("Resulting universe: " ++ ppShow resultUniverse) $
           prop

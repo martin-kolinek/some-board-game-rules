@@ -12,6 +12,7 @@ import Data.Either (isLeft)
 import Universe
 import Building
 import Player
+import TestFramework
 import Generators
 import Worker
 import Workplace
