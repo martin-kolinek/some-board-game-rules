@@ -10,7 +10,7 @@ import Control.Monad (forM, foldM, guard)
 import Data.List.Split (splitPlaces, chunksOf)
 import Control.Lens ((^.))
 import Data.Monoid ((<>))
-import Data.Maybe (mapMaybe)
+import Data.Maybe (mapMaybe, listToMaybe, fromMaybe)
 import Data.AdditiveGroup
 
 import Universe hiding (players)
@@ -26,9 +26,14 @@ import Universe.Workplace
 import Universe.Worker
 import Actions
 import Control.Lens hiding (elements, universe, chosen)
+import Control.Arrow (second)
 
 data GeneratorProperties = GeneratorProperties {
-  workplaceProbabilities :: Map WorkplaceType Int
+  workplaceProbabilities :: Map WorkplaceType Int,
+  interactionProbabilities :: [(ActionInteraction, Int)],
+  movingWorkerProbability :: Int,
+  otherWorkersNotDoneProbability :: Int,
+  unarmedWorkerProbability :: Int
   }
 
 workplaceTypeResources :: WorkplaceType -> Gen Resources
@@ -191,7 +196,7 @@ generateUniverse properties = do
     currentPlayerId : otherPlayerIds <- shuffle $ PlayerId <$> [1..playerCount]
     let (playerWorkplaceIds, additionalWorkplaceIds) = splitAt (playerCount * 7) allWorkplaceIds
     additionalWorkplaceData <- mapM (const (generateWorkplaceData properties)) additionalWorkplaceIds
-    otherPlayersDone <- elements [True, False]
+    otherPlayersDone <- frequency [(1, return True), (otherWorkersNotDoneProbability properties, return False)]
     let additionalWorkplaces = fromList $ zip additionalWorkplaceIds additionalWorkplaceData
         currentAvailableWorkerIds : otherAvailableWorkerIds = chunksOf 7 workerIds
         currentAvailableWorkplaceIds : otherAvailableWorkplaceIds = chunksOf 7 playerWorkplaceIds
@@ -216,9 +221,17 @@ generateUniverse properties = do
 
 data GeneratedPlayerStatus = WaitingStatus | AllWorkersBusyStatus | NotWaitingStatus deriving (Show, Eq)
 
-collectActions :: ActionDefinition -> [CompositeActionDefinition]
-collectActions (CompositeAction act) = collectCompositeActions act
-collectActions (StepsAction _) = []
+getActionProbability :: GeneratorProperties -> CompositeActionDefinition -> Int
+getActionProbability properties (OptionalAction inner) = getActionProbability properties inner
+getActionProbability properties (InteractionAction interaction _) = fromMaybe 1 $ fmap snd $ listToMaybe $ filter ((== interaction) . fst) (interactionProbabilities properties)
+getActionProbability properties (ActionCombination combinationType act1 act2) = combine combinationType (getActionProbability properties act1) (getActionProbability properties act2)
+  where combine AndThen p _ = p
+        combine _ p1 p2 = p1 + p2
+
+collectActions :: GeneratorProperties -> ActionDefinition -> [(Int, CompositeActionDefinition)]
+collectActions properties (CompositeAction act) = createFreq <$> collectCompositeActions act
+  where createFreq a = (getActionProbability properties a, a)
+collectActions _ (StepsAction _) = []
 
 collectCompositeActions :: CompositeActionDefinition -> [CompositeActionDefinition]
 collectCompositeActions (ActionCombination combinationType act1 act2) = combine combinationType (collectCompositeActions act1) (collectCompositeActions act2)
@@ -229,10 +242,11 @@ collectCompositeActions (ActionCombination combinationType act1 act2) = combine 
 collectCompositeActions action@(OptionalAction inner) = action : filter (/= inner) (collectCompositeActions inner)
 collectCompositeActions action = [action]
 
-possibleStatuses :: WorkplaceId -> WorkplaceType -> GeneratedPlayerStatus -> [PlayerStatus]
-possibleStatuses workplaceId currentWorkplaceType NotWaitingStatus = [MovingWorker] ++ (PerformingAction workplaceId <$> collectActions (workplaceAction currentWorkplaceType))
-possibleStatuses _ _ WaitingStatus = [Waiting]
-possibleStatuses _ _ AllWorkersBusyStatus = [Waiting]
+possibleStatuses :: GeneratorProperties -> WorkplaceId -> WorkplaceType -> GeneratedPlayerStatus -> [(Int, Gen PlayerStatus)]
+possibleStatuses properties workplaceId currentWorkplaceType NotWaitingStatus = [(movingWorkerProbability properties, return MovingWorker)] ++
+  (second (return . (PerformingAction workplaceId)) <$> collectActions properties (workplaceAction currentWorkplaceType))
+possibleStatuses _ _ _ WaitingStatus = [(1, return Waiting)]
+possibleStatuses _ _ _ AllWorkersBusyStatus = [(1, return Waiting)]
 
 generatePlayer :: GeneratorProperties -> PlayerId -> [WorkerId] -> [WorkplaceId] -> [DogId] -> [GeneratedPlayerStatus] -> Gen (PlayerData, Map WorkplaceId WorkplaceData)
 generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplaceIds availableDogIds possibleGeneratedStatuses = do
@@ -247,7 +261,7 @@ generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplac
   alreadyBusyWorkplaceData <- mapM (const (generateWorkplaceData properties)) [1..alreadyBusyWorkerCount]
   freeWorkplaceData <- mapM (const (generateWorkplaceData properties)) [1..totalWorkerCount - alreadyBusyWorkerCount - 1]
   currentWorkplaceData <- generateWorkplaceData properties
-  selectedStatus <- elements $ possibleStatuses currentWorkplaceId (currentWorkplaceData ^. workplaceType) selectedGeneratedStatus
+  selectedStatus <- frequency $ possibleStatuses properties currentWorkplaceId (currentWorkplaceData ^. workplaceType) selectedGeneratedStatus
   let alreadyBusyWorkerStates = Just <$> alreadyBusyWorkplaceIds
       currentWorkerState = case (selectedGeneratedStatus, selectedStatus) of
         (AllWorkersBusyStatus, _) -> Just currentWorkplaceId
@@ -259,7 +273,7 @@ generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplac
       allWorkplaceData = (currentWorkplaceData : alreadyBusyWorkplaceData) ++ freeWorkplaceData
       workplaceData = fromList $ zip allWorkplaceIds allWorkplaceData
   allWorkerStates <- forM allWorkerWorkplaces $ \workplace -> do
-    strength <- choose (0, 15)
+    strength <- frequency $ [(1, choose (0, 15)), (unarmedWorkerProbability properties, return 0)]
     return $ WorkerState workplace strength
   generatedAnimals <- generateAnimals availableDogIds
   generatedOccupants <- generateOccupants allWorkerIds (generatedAnimals ^. dogs) generatedBuildings

@@ -11,6 +11,7 @@ import Test.QuickCheck.Monadic
 import Data.List ((\\))
 import Data.Map (keys, lookup)
 import Data.Maybe (listToMaybe)
+import Data.Function ((&))
 
 farmingTests :: TestTree
 farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming properties" $ [
@@ -69,7 +70,9 @@ farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming propert
   ]
 
 farmingProperty :: UniversePropertyMonad a -> Property
-farmingProperty = propertyWithProperties (withWorkplaceProbability Farming 20 defaultGeneratorProperties)
+farmingProperty = propertyWithProperties $ defaultGeneratorProperties &
+  withWorkplaceProbability Farming 20 &
+  withFarmingProbability 20
 
 findFarmingPlayer :: UniversePropertyMonad PlayerId
 findFarmingPlayer = do

@@ -8,6 +8,7 @@ import Test.Tasty.QuickCheck
 import Test.Tasty
 import Test.QuickCheck.Monadic
 import Data.Maybe
+import Data.Function ((&))
 
 armingTests :: TestTree
 armingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Arming tests" [
@@ -43,7 +44,10 @@ armingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Arming tests" [
   ]
 
 armingProperty :: UniversePropertyMonad a -> Property
-armingProperty = propertyWithProperties (withWorkplaceProbability WeaponMaking 40 defaultGeneratorProperties)
+armingProperty = propertyWithProperties $ defaultGeneratorProperties &
+  withWorkplaceProbability WeaponMaking 20 &
+  withArmingProbability 20 &
+  withOtherWorkersNotDoneProbability 20
 
 findArmingPlayer :: UniversePropertyMonad PlayerId
 findArmingPlayer = do
