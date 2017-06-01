@@ -43,10 +43,15 @@ withOtherWorkersNotDoneProbability probability props = props { otherWorkersNotDo
 universeProperty :: UniversePropertyMonad a -> Property
 universeProperty = propertyWithProperties defaultGeneratorProperties
 
+newtype PrettyPrintedUniverse = PrettyUniverse { unPretty :: Universe}
+
+instance Show PrettyPrintedUniverse where
+  show (PrettyUniverse u) = ppShow u
+
 propertyWithProperties :: GeneratorProperties -> UniversePropertyMonad a -> Property
 propertyWithProperties properties action = monadic extractProperty action
-  where extractProperty act = forAllShrink (generateUniverse properties) shrinkUniverse (execOnUniverse act)
-        execOnUniverse act universe = checkResult $ runState act (Right universe)
+  where extractProperty act = forAllShrink (PrettyUniverse <$> generateUniverse properties) ((fmap PrettyUniverse) . shrinkUniverse . unPretty) (execOnUniverse act)
+        execOnUniverse act (PrettyUniverse universe) = checkResult $ runState act (Right universe)
         checkResult (prop, Right resultUniverse) =
           counterexample ("Resulting universe: " ++ ppShow resultUniverse) $
           prop

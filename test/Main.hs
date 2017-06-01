@@ -36,6 +36,6 @@ main = defaultMain $ do
     farmingTests,
     farmingWorkplaceTests,
     buildingTests,
-    weaponMakingTests,
     initialUniverseTests,
-    armingTests]
+    armingTests,
+    weaponMakingTests]
