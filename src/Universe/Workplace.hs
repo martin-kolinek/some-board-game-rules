@@ -81,4 +81,7 @@ workplaceAction Farming =
       (InteractionAction (BuildBuildingsInteraction [Grass, Field]) [])
       (InteractionAction PlantCropsInteraction [])
 workplaceAction WeaponMaking =
-  CompositeAction $ InteractionAction ArmWorkerInteraction []
+  CompositeAction $
+    ActionCombination AndThenOr
+      (InteractionAction ArmWorkerInteraction [])
+      (InteractionAction AdventureInteraction [])

@@ -23,6 +23,8 @@ interactionPrecondition HireWorkerInteraction _ plId _ universe = has (players .
 interactionPrecondition ArmWorkerInteraction workerId plId _ universe =
   (has (players . ix plId . playerResources . ironAmount . filtered (> 0)) universe) &&
   (has (players . ix plId . workers . ix workerId . workerStrength . filtered (== 0)) universe)
+interactionPrecondition AdventureInteraction workerId plId _ universe =
+  (has (players . ix plId . workers . ix workerId . workerStrength . filtered (> 0)) universe)
 interactionPrecondition _ _ _ _ _ = True
 
 actionPrecondition :: PlayerId -> WorkerId -> WorkplaceId -> Universe -> ActionDefinition -> Bool

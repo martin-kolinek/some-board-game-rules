@@ -75,6 +75,9 @@ isMovingWorker universe plId = universe ^? (players . ix plId . playerStatus) ==
 isArmingWorker :: Universe -> PlayerId -> Bool
 isArmingWorker = isInteractionPossible (== ArmWorkerInteraction)
 
+canGoOnAdventure :: Universe -> PlayerId -> Bool
+canGoOnAdventure = isInteractionPossible (== AdventureInteraction)
+
 startNextPlayer :: PlayerId -> Universe -> Universe
 startNextPlayer plId universe = universe &
   players . ix plId . playerStatus .~ Waiting &

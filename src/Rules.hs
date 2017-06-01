@@ -30,6 +30,8 @@ module Rules (
   WorkerNeedOptions(..),
   CaveOrPassageOptions(..),
   ArmOptions(..),
+  -- ** Adventure
+  AdventureReward(..),
 
   -- * Access functions
   -- ** Players
@@ -70,6 +72,7 @@ module Rules (
   canHireWorker,
   canFinishAction,
   isArmingWorker,
+  canGoOnAdventure,
 
   -- * Action functions
   startWorking,
@@ -80,6 +83,7 @@ module Rules (
   hireWorker,
   alterOccupants,
   armWorker,
+  adventure,
 
   finishTurn,
 
@@ -104,3 +108,4 @@ import Universe.Player
 import Universe.Workplace
 import Universe.Worker
 import Universe.Building
+import Universe.Adventure

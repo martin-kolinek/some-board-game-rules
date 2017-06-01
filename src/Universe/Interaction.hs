@@ -15,6 +15,7 @@ import Universe.Actions
 import Universe.Building
 import Universe.Player
 import Universe.Worker
+import Universe.Adventure
 import Player
 import Actions
 import Building
@@ -99,6 +100,10 @@ armWorker plId amount = performInteraction plId ArmWorkerInteraction $ \_ worker
   return $ universe &
     players . ix plId . workers . ix workerId . workerStrength +~ amount &
     players . ix plId . playerResources . ironAmount -~ amount
+
+adventure :: MonadError String m => PlayerId -> AdventureReward -> Universe -> m Universe
+adventure plId reward = performInteraction plId AdventureInteraction $ \_ _ universe -> do
+  return $ over (players . ix plId) (applyReward reward) universe
 
 performInteraction :: MonadError String m => PlayerId -> ActionInteraction -> (WorkplaceId -> WorkerId -> Universe -> m Universe) -> Universe -> m Universe
 performInteraction plId interaction effect universe = do

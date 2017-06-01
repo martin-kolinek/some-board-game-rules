@@ -234,7 +234,7 @@ collectActions properties (CompositeAction act) = createFreq <$> collectComposit
 collectActions _ (StepsAction _) = []
 
 collectCompositeActions :: CompositeActionDefinition -> [CompositeActionDefinition]
-collectCompositeActions (ActionCombination combinationType act1 act2) = combine combinationType (collectCompositeActions act1) (collectCompositeActions act2)
+collectCompositeActions action@(ActionCombination combinationType act1 act2) = action : combine combinationType (collectCompositeActions act1) (collectCompositeActions act2)
   where combine AndOr acts1 acts2 = [ActionCombination AndOr a1 a2 | a1 <- acts1, a2 <- acts2] ++ (OptionalAction <$> acts1) ++ (OptionalAction <$> acts2)
         combine AndThen acts1 acts2 = [ActionCombination AndThen a1 act2 | a1 <- acts1] ++ acts2
         combine AndThenOr acts1 acts2 = [ActionCombination AndThen a1 (OptionalAction act2) | a1 <- acts1, a1 /= act1] ++ [a2 | a2 <- acts2, a2 /= act2] ++ (OptionalAction <$> acts2)
