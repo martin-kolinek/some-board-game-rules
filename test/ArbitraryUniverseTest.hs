@@ -25,11 +25,11 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
     testProperty "Generated buildings don't overlap" $
       let noBuildingsOverlap buildings = positions == (nub positions)
             where positions = [pos | building <- buildings, pos <- buildingPositions building]
-      in forAll (generateBuildingSpace 0) noBuildingsOverlap,
+      in forAll (generateBuildingSpace defaultGeneratorProperties 0) noBuildingsOverlap,
     testProperty "Generate buildings have all positions" $
       let buildingsHaveAllPositions buildings = S.fromList positions == S.fromList [(x, y)| x <- [0..5], y <- [0..3]]
             where positions = [pos | building <- buildings, pos <- buildingPositions building]
-      in forAll (generateBuildingSpace 0) buildingsHaveAllPositions,
+      in forAll (generateBuildingSpace defaultGeneratorProperties 0) buildingsHaveAllPositions,
     testProperty "Universe has at most 1 active player" $
       let isActive playerData = playerData ^. playerStatus /= Waiting
           prop (ArbitraryUniverse universe) = (lengthOf (players . traverse . filtered isActive) universe) <= 1

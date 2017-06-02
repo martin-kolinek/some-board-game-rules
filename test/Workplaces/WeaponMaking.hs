@@ -38,6 +38,14 @@ weaponMakingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Weapon mak
       checkWorkerIsArmed workerId
       checkPlayerHasValidOccupants plId
       applyToUniverse $ adventure plId WoodReward
+      validateNextPlayer plId,
+    testProperty "Next player's turn after adventuring and building" $ universeProperty $ do
+      (plId, workerId, _) <- startWorkingInWeaponMaking
+      checkWorkerIsArmed workerId
+      checkPlayerHasValidOccupants plId
+      (pos, dir) <- pickSpecificPosition availableSingleForestPositions plId
+      applyToUniverse $ adventure plId GrassReward
+      applyToUniverse $ buildBuildings plId pos dir [Grass]
       validateNextPlayer plId
   ]
 

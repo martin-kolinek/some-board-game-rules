@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Universe.Interaction where
 
@@ -102,28 +103,48 @@ armWorker plId amount = performInteraction plId ArmWorkerInteraction $ \_ worker
     players . ix plId . playerResources . ironAmount -~ amount
 
 adventure :: MonadError String m => PlayerId -> AdventureReward -> Universe -> m Universe
-adventure plId reward = performInteraction plId AdventureInteraction $ \_ _ universe -> do
-  return $ over (players . ix plId) (applyReward reward) universe
+adventure plId reward = performInteractionWithNewInteraction plId AdventureInteraction $ \workplaceId workerId universe -> do
+  newActionDefinition <- case rewardInteraction reward
+    of Just interaction -> do
+         check "Cannot choose such reward" $ interactionPrecondition interaction workerId plId workplaceId universe
+         return $ Just $ InteractionAction interaction []
+       Nothing -> return Nothing
+  return $ (over (players . ix plId) (applyReward reward) universe, newActionDefinition)
 
 performInteraction :: MonadError String m => PlayerId -> ActionInteraction -> (WorkplaceId -> WorkerId -> Universe -> m Universe) -> Universe -> m Universe
-performInteraction plId interaction effect universe = do
+performInteraction plId int effect = performInteractionWithNewInteraction plId int $ \wpId wId u -> fmap (, Nothing) (effect wpId wId u)
+
+performInteractionWithNewInteraction :: MonadError String m =>
+                                        PlayerId ->
+                                        ActionInteraction ->
+                                        (WorkplaceId -> WorkerId -> Universe -> m (Universe, Maybe CompositeActionDefinition)) ->
+                                        Universe ->
+                                        m Universe
+performInteractionWithNewInteraction plId interaction effect universe = do
   (workplaceId, playerStatusAction) <- checkMaybe "Not current player" $ universe ^? players . ix plId . playerStatus . statusActionAndWorkplace
   checkOccupants universe plId
   workerId <- checkMaybe "This shouldn't happen" -- TODO find a way to represent it in the type system
     $ universe ^? players . traverse . workers . to M.toList . traverse . filtered (has $ _2 . inWorkplace workplaceId) . _1
   check "Precondition not met" $ interactionPrecondition interaction workerId plId workplaceId universe
+  let performStepsAndUpdateAction act steps u =
+        return $ u &
+          performSteps steps plId workplaceId &
+          players . ix plId . playerStatus .~ PerformingAction workplaceId act
   case actionAfterInteraction playerStatusAction interaction of
     InvalidInteraction -> throwError ("Not possible right now " ++ show interaction)
-    ActionFinished steps ->
-      universe &
-        effect workplaceId workerId <&>
-        performSteps steps plId workplaceId <&>
-        startNextPlayer plId
-    RemainingAction act steps ->
-      universe &
-        effect workplaceId workerId <&>
-        performSteps steps plId workplaceId <&>
-        players . ix plId . playerStatus .~ PerformingAction workplaceId act
+    ActionFinished steps -> do
+      (universeWithEffect, maybeNewInteraction) <- effect workplaceId workerId universe
+      case maybeNewInteraction of
+        Nothing -> return $ universeWithEffect &
+                     performSteps steps plId workplaceId &
+                     startNextPlayer plId
+        Just act -> performStepsAndUpdateAction act steps universeWithEffect
+    RemainingAction act steps -> do
+      (universeWithEffect, maybeNewInteraction) <- effect workplaceId workerId universe
+      let nextAction = case maybeNewInteraction of
+            Nothing -> act
+            Just prevAct -> ActionCombination AndThen prevAct act
+      performStepsAndUpdateAction nextAction steps universeWithEffect
 
 checkOccupants :: MonadError String m => Universe -> PlayerId -> m ()
 checkOccupants universe plId = check "Fix occupants first" $ null $ getOccupantErrors universe plId

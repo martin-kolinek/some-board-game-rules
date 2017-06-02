@@ -13,6 +13,7 @@ import Generators
 import Text.Show.Pretty
 import Data.Maybe
 import Data.Map (empty, insert)
+import Data.Either (isLeft)
 
 type UniversePropertyMonad = PropertyM (State (Either String Universe))
 
@@ -26,7 +27,7 @@ instance Show ArbitraryUniverse where
   show (ArbitraryUniverse u) = ppShow u
 
 defaultGeneratorProperties :: GeneratorProperties
-defaultGeneratorProperties = GeneratorProperties empty [] 1 5 5
+defaultGeneratorProperties = GeneratorProperties empty [] 1 5 5 5
 
 withWorkplaceProbability :: WorkplaceType -> Int -> GeneratorProperties -> GeneratorProperties
 withWorkplaceProbability wpType probability props = props { workplaceProbabilities = insert wpType probability (workplaceProbabilities props) }
@@ -36,6 +37,9 @@ withFarmingProbability probability props = props { interactionProbabilities = (P
 
 withArmingProbability :: Int -> GeneratorProperties -> GeneratorProperties
 withArmingProbability probability props = props { interactionProbabilities = (ArmWorkerInteraction, probability) : interactionProbabilities props }
+
+withAdventureProbability :: Int -> GeneratorProperties -> GeneratorProperties
+withAdventureProbability probability props = props { interactionProbabilities = (AdventureInteraction, probability) : interactionProbabilities props }
 
 withOtherWorkersNotDoneProbability :: Int -> GeneratorProperties -> GeneratorProperties
 withOtherWorkersNotDoneProbability probability props = props { otherWorkersNotDoneProbability = probability }
@@ -73,6 +77,7 @@ applyToUniverse :: (forall m. MonadError String m => Universe -> m Universe) -> 
 applyToUniverse action = do
   currentState <- run get
   let nextState = action =<< currentState
+  when (isLeft nextState) $ monitor $ counterexample ("Last valid universe: " ++ ppShow currentState)
   run $ put nextState
 
 shouldHaveFailed :: UniversePropertyMonad ()

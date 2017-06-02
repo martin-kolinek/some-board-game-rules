@@ -92,8 +92,16 @@ validatePlayerHasValidOccupants plId = assert =<< null <$> (getsUniverse getOccu
 
 availableForestPositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableForestPositions = availableSpecificPositions isCuttable isDevelopedOutside False
-  where isCuttable buildingSpace pos = Building Forest pos `elem` buildingSpace
-        isDevelopedOutside buildingSpace pos = not $ null $ intersect [Building Field pos, Building Grass pos, Building InitialRoom pos] buildingSpace
+
+availableSingleForestPositions :: Universe -> PlayerId -> [(Position, Direction)]
+availableSingleForestPositions = availableSpecificPositions isCuttable isDevelopedOutside True
+
+isCuttable :: Foldable t => t Building -> Position -> Bool
+isCuttable buildingSpace pos = Building Forest pos `elem` buildingSpace
+
+isDevelopedOutside :: [Building] -> Position -> Bool
+isDevelopedOutside buildingSpace pos = not $ null $ intersect [Building Field pos, Building Grass pos, Building InitialRoom pos] buildingSpace
+
 
 availableRockPositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableRockPositions = availableSpecificPositions isDiggable isDevelopedInside False

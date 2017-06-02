@@ -17,6 +17,7 @@ import Workplaces.WeaponMaking
 import BuildingProperties
 import Interaction.FarmingProperties
 import Interaction.ArmingProperties
+import Interaction.AdventureProperties
 import InitialUniverseProperties
 
 main :: IO ()
@@ -38,4 +39,5 @@ main = defaultMain $ do
     buildingTests,
     initialUniverseTests,
     armingTests,
-    weaponMakingTests]
+    weaponMakingTests,
+    adventureTests]

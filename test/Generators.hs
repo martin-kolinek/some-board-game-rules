@@ -33,7 +33,8 @@ data GeneratorProperties = GeneratorProperties {
   interactionProbabilities :: [(ActionInteraction, Int)],
   movingWorkerProbability :: Int,
   otherWorkersNotDoneProbability :: Int,
-  unarmedWorkerProbability :: Int
+  unarmedWorkerProbability :: Int,
+  notFullyDevelopedProbability :: Int
   }
 
 workplaceTypeResources :: WorkplaceType -> Gen Resources
@@ -77,10 +78,10 @@ generateWorkplaces properties minNumber firstWorkplaceGen = do
   let ids = WorkplaceId <$> [1..]
   return $ zip ids (firstWorkplace : neededLst ++ lst)
 
-generateBuildingSpace :: Int -> Gen [Building]
-generateBuildingSpace requiredWorkers = do
-  cutForestCount <- choose (0, 12) :: Gen Int
-  dugRockCount <- choose (requiredWorkers - 2, 11) :: Gen Int
+generateBuildingSpace :: GeneratorProperties -> Int -> Gen [Building]
+generateBuildingSpace properties requiredWorkers = do
+  cutForestCount <- frequency [(1, return 12), (notFullyDevelopedProbability properties, choose (0, 12) :: Gen Int)]
+  dugRockCount <- frequency [(1, return 11), (notFullyDevelopedProbability properties, choose (requiredWorkers - 2, 11) :: Gen Int)]
   let isValidForest (x, y) = x >=0 && x <=2 && y >= 0 && y <= 3
       isValidRock (x, y) = x >= 3 && x <= 5 && y >= 0 && y <= 3 && (x, y) /= (3, 3)
       findNextCandidates isValid (sx, sy) = S.filter isValid $ S.fromList [(sx+1, sy), (sx-1, sy), (sx, sy+1), (sx, sy-1)]
@@ -253,7 +254,7 @@ generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplac
   let currentWorkplaceId = head availableWorkplaceIds
   selectedGeneratedStatus <- elements possibleGeneratedStatuses
   totalWorkerCount <- choose (1, 5)
-  generatedBuildings <- generateBuildingSpace totalWorkerCount
+  generatedBuildings <- generateBuildingSpace properties totalWorkerCount
   alreadyBusyWorkerCount <- choose (if selectedGeneratedStatus == AllWorkersBusyStatus then totalWorkerCount else 0, totalWorkerCount)
   let allWorkerIds = take totalWorkerCount availableWorkerIds
       allWorkplaceIds = take totalWorkerCount availableWorkplaceIds
