@@ -9,6 +9,7 @@ import Data.AdditiveGroup
 
 import Universe
 import Universe.Worker
+import Universe.Building
 import Workplace
 import Worker
 import Player
@@ -59,7 +60,7 @@ workplaceAction WorkerNeed =
   CompositeAction $
     ActionCombination Or
       (InteractionAction HireWorkerInteraction [])
-      (InteractionAction (BuildBuildingsInteraction [LivingRoom]) [])
+      buildingAction
 workplaceAction ResourceAddition = StepsAction [AddResourcesStep (wood 1 ^+^ stone 1 ^+^ iron 1 ^+^ food 1 ^+^ money 2)]
 workplaceAction GatherWood = StepsAction [CollectResourcesStep]
 workplaceAction GatherFood = CompositeAction $
@@ -73,7 +74,7 @@ workplaceAction MakeStartPlayer =
     SetStartPlayerStep]
 workplaceAction HouseWork = CompositeAction $
   ActionCombination AndOr
-    (InteractionAction (BuildBuildingsInteraction [LivingRoom]) [])
+    buildingAction
     (InteractionAction CollectResourcesInteraction [AddDogStep])
 workplaceAction Farming =
   CompositeAction $

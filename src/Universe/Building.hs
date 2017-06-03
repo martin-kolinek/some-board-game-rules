@@ -9,6 +9,7 @@ import Universe
 import Player
 import Building
 import Resources
+import Actions
 
 getOccupantErrors :: Universe -> PlayerId -> [OccupantError]
 getOccupantErrors universe player = toListOf (players . ix player . folding verifyOccupants) universe
@@ -33,6 +34,8 @@ playerCanHireWorker :: PlayerData -> Bool
 playerCanHireWorker playerData = canSupportAdditionalWorker (getPlayerPossibleOccupants playerData) (playerData ^. buildingSpace)
 
 playerCanBuildBuilding :: PlayerData -> BuildingType -> Bool
-playerCanBuildBuilding playerData buildingType = hasUnderlyingBuilding && hasEnoughResources
+playerCanBuildBuilding playerData buildingType = hasUnderlyingBuilding
   where hasUnderlyingBuilding = has (buildingSpace . buildingSpaceBuildings . traverse . to getBuildingType . filtered (== getUnderlyingBuilding buildingType)) playerData
-        hasEnoughResources = isNonNegative $ playerData ^. playerResources ^-^ buildingCost buildingType
+
+buildingAction :: CompositeActionDefinition
+buildingAction = InteractionAction (BuildBuildingsInteraction [LivingRoom]) [PayResources (wood 4 ^+^ stone 3)]

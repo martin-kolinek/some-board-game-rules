@@ -51,7 +51,7 @@ isInteractionPossible interactionFunc universe plId = (not . null) $ do
   (workplace, action) <- universe ^.. players . ix plId . playerStatus . statusActionAndWorkplace
   interaction <- action ^.. possibleInteractionsTraversal . filtered interactionFunc
   worker <- getWorkplaceOccupants universe workplace
-  guard $ interactionPrecondition interaction worker plId workplace universe
+  guard $ interactionPrecondition worker workplace plId universe interaction
   return ()
 
 isPlantingCrops :: Universe -> PlayerId -> Bool

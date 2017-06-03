@@ -47,8 +47,8 @@ startWorking plId workerId workplaceId universe = do
   check "Precondition not met" $ actionPrecondition plId workerId workplaceId universe currentWorkplaceAction
   let universeWithMovedWorker = universe & players . ix plId . workers . ix workerId . currentWorkplace .~ Just workplaceId
   case currentWorkplaceAction of
-    StepsAction steps -> return $ universeWithMovedWorker &
-      performSteps steps plId workplaceId &
+    StepsAction steps -> universeWithMovedWorker &
+      performSteps steps plId workplaceId <&>
       startNextPlayer plId
     CompositeAction composite -> return $ universeWithMovedWorker &
       players . ix plId . playerStatus .~ PerformingAction workplaceId composite
@@ -79,7 +79,7 @@ plantCrops plId crops = performInteraction plId PlantCropsInteraction $ const $ 
 
 collectResources :: MonadError String m => PlayerId -> Universe -> m Universe
 collectResources plId = performInteraction plId CollectResourcesInteraction $ \workplaceId _ universe ->
-  return $ performStep CollectResourcesStep plId workplaceId universe
+  performStep CollectResourcesStep plId workplaceId universe
 
 finishAction :: MonadError String m => PlayerId -> Universe -> m Universe
 finishAction plId universe = do
@@ -106,7 +106,7 @@ adventure :: MonadError String m => PlayerId -> AdventureReward -> Universe -> m
 adventure plId reward = performInteractionWithNewInteraction plId AdventureInteraction $ \workplaceId workerId universe -> do
   newActionDefinition <- case rewardInteraction reward
     of Just interaction -> do
-         check "Cannot choose such reward" $ interactionPrecondition interaction workerId plId workplaceId universe
+         check "Cannot choose such reward" $ interactionPrecondition workerId workplaceId plId universe interaction
          return $ Just $ InteractionAction interaction []
        Nothing -> return Nothing
   return $ (over (players . ix plId) (applyReward reward) universe, newActionDefinition)
@@ -125,18 +125,18 @@ performInteractionWithNewInteraction plId interaction effect universe = do
   checkOccupants universe plId
   workerId <- checkMaybe "This shouldn't happen" -- TODO find a way to represent it in the type system
     $ universe ^? players . traverse . workers . to M.toList . traverse . filtered (has $ _2 . inWorkplace workplaceId) . _1
-  check "Precondition not met" $ interactionPrecondition interaction workerId plId workplaceId universe
+  check "Precondition not met" $ interactionPrecondition workerId workplaceId plId universe interaction
   let performStepsAndUpdateAction act steps u =
-        return $ u &
-          performSteps steps plId workplaceId &
+        u &
+          performSteps steps plId workplaceId <&>
           players . ix plId . playerStatus .~ PerformingAction workplaceId act
   case actionAfterInteraction playerStatusAction interaction of
     InvalidInteraction -> throwError ("Not possible right now " ++ show interaction)
     ActionFinished steps -> do
       (universeWithEffect, maybeNewInteraction) <- effect workplaceId workerId universe
       case maybeNewInteraction of
-        Nothing -> return $ universeWithEffect &
-                     performSteps steps plId workplaceId &
+        Nothing -> universeWithEffect &
+                     performSteps steps plId workplaceId <&>
                      startNextPlayer plId
         Just act -> performStepsAndUpdateAction act steps universeWithEffect
     RemainingAction act steps -> do

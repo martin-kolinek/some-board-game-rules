@@ -20,7 +20,8 @@ data ActionStep =
   AddResourcesStep Resources |
   SetStartPlayerStep |
   AddDogStep |
-  CollectResourcesStep
+  CollectResourcesStep |
+  PayResources Resources
   deriving (Show, Eq)
 
 data ActionDefinition =
