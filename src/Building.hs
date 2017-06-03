@@ -28,7 +28,8 @@ data BuildingType =
   Cave |
   Passage |
   LivingRoom |
-  InitialRoom deriving (Show, Eq, Ord)
+  InitialRoom |
+  SmallPasture deriving (Show, Eq, Ord)
 
 data Building = Building BuildingType Position deriving (Show, Eq)
 
@@ -114,6 +115,7 @@ isDevelopedFor Grass = isDevelopedOutside
 isDevelopedFor Forest = const False
 isDevelopedFor Rock = const False
 isDevelopedFor InitialRoom = const False
+isDevelopedFor SmallPasture = const True
 
 getUnderlyingBuilding :: BuildingType -> BuildingType
 getUnderlyingBuilding Cave = Rock
@@ -124,7 +126,7 @@ getUnderlyingBuilding Grass = Forest
 getUnderlyingBuilding Forest = Forest
 getUnderlyingBuilding Rock = Rock
 getUnderlyingBuilding InitialRoom = InitialRoom
-
+getUnderlyingBuilding SmallPasture = Grass
 
 type DevelopmentCheck = Building -> Bool
 type UnderlyingBuilding = BuildingType

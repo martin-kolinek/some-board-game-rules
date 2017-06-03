@@ -7,12 +7,13 @@ import Building
 
 import Control.Lens
 
-data AdventureReward = WoodReward | GrassReward
+data AdventureReward = WoodReward | GrassReward | SmallPastureReward
 
 applyReward :: AdventureReward -> Player.PlayerData -> Player.PlayerData
 applyReward WoodReward playerData = playerData & (playerResources . woodAmount) +~ 1
-applyReward GrassReward playerData = playerData
+applyReward _ playerData = playerData
 
-rewardInteraction :: AdventureReward -> Maybe ActionInteraction
-rewardInteraction GrassReward = Just $ BuildBuildingsInteraction [Grass]
+rewardInteraction :: AdventureReward -> Maybe CompositeActionDefinition
+rewardInteraction GrassReward = Just $ InteractionAction (BuildBuildingsInteraction [Grass]) []
+rewardInteraction SmallPastureReward = Just $ InteractionAction (BuildBuildingsInteraction [SmallPasture]) [PayResources (wood 1)]
 rewardInteraction _ = Nothing

@@ -105,9 +105,9 @@ armWorker plId amount = performInteraction plId ArmWorkerInteraction $ \_ worker
 adventure :: MonadError String m => PlayerId -> AdventureReward -> Universe -> m Universe
 adventure plId reward = performInteractionWithNewInteraction plId AdventureInteraction $ \workplaceId workerId universe -> do
   newActionDefinition <- case rewardInteraction reward
-    of Just interaction -> do
-         check "Cannot choose such reward" $ interactionPrecondition workerId workplaceId plId universe interaction
-         return $ Just $ InteractionAction interaction []
+    of Just def -> do
+         check "Cannot choose such reward" $ actionPrecondition plId workerId workplaceId universe (CompositeAction def)
+         return $ Just $ def
        Nothing -> return Nothing
   return $ (over (players . ix plId) (applyReward reward) universe, newActionDefinition)
 
