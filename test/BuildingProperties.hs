@@ -54,9 +54,10 @@ findBuildingPlayer = do
 getBuildingExtractor :: [BuildingType] -> Universe -> PlayerId -> [(Position, Direction)]
 getBuildingExtractor buildings = singleBuildingExtractor $ head buildings
   where singleBuildingExtractor building
-          | building `elem` [Grass, Field] = availableForestPositions
-          | building `elem` [Passage, Cave] = availableRockPositions
+          | building `elem` [Grass, Field] = if length buildings == 1 then availableSingleForestPositions else availableForestPositions
+          | building `elem` [Passage, Cave] = if length buildings == 1 then availableSingleRockPositions else availableRockPositions
           | building `elem` [LivingRoom] = availableSingleCavePositions
+          | building == SmallPasture = availableSingleGrassPositions
           | otherwise = const $ const []
 
 checkResources :: [BuildingType] -> UniversePropertyMonad ()

@@ -29,7 +29,7 @@ data BuildingType =
   Passage |
   LivingRoom |
   InitialRoom |
-  SmallPasture deriving (Show, Eq, Ord)
+  SmallPasture deriving (Show, Eq, Ord, Enum)
 
 data Building = Building BuildingType Position deriving (Show, Eq)
 
@@ -104,7 +104,7 @@ isDevelopedOutside :: Building -> Bool
 isDevelopedOutside building = getBuildingType building `elem` [Field, Grass, InitialRoom]
 
 isDevelopedInside :: Building -> Bool
-isDevelopedInside building = getBuildingType building `elem` [Cave, Passage, InitialRoom]
+isDevelopedInside building = getBuildingType building `elem` [Cave, Passage, InitialRoom, LivingRoom]
 
 isDevelopedFor :: BuildingType -> Building -> Bool
 isDevelopedFor Cave = isDevelopedInside

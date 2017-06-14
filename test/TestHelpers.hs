@@ -99,14 +99,26 @@ availableSingleForestPositions = availableSpecificPositions isCuttable isDevelop
 isCuttable :: Foldable t => t Building -> Position -> Bool
 isCuttable buildingSpace pos = Building Forest pos `elem` buildingSpace
 
+availableSingleGrassPositions :: Universe -> PlayerId -> [(Position, Direction)]
+availableSingleGrassPositions = availableSpecificPositions isGrass isDevelopedOutside True
+
+isGrass :: Foldable t => t Building -> Position -> Bool
+isGrass buildingSpace pos = Building Grass pos `elem` buildingSpace
+
 isDevelopedOutside :: [Building] -> Position -> Bool
 isDevelopedOutside buildingSpace pos = not $ null $ intersect [Building Field pos, Building Grass pos, Building InitialRoom pos] buildingSpace
 
-
 availableRockPositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableRockPositions = availableSpecificPositions isDiggable isDevelopedInside False
-  where isDiggable buildingSpace pos = Building Rock pos `elem` buildingSpace
-        isDevelopedInside buildingSpace pos = not $ null $ intersect [Building InitialRoom pos, Building Cave pos, Building Passage pos] buildingSpace
+
+availableSingleRockPositions :: Universe -> PlayerId -> [(Position, Direction)]
+availableSingleRockPositions = availableSpecificPositions isDiggable isDevelopedInside True
+
+isDiggable :: Foldable t => t Building -> Position -> Bool
+isDiggable buildingSpace pos = Building Rock pos `elem` buildingSpace
+
+isDevelopedInside :: [Building] -> Position -> Bool
+isDevelopedInside buildingSpace pos = not $ null $ intersect [Building InitialRoom pos, Building Cave pos, Building Passage pos, Building LivingRoom pos] buildingSpace
 
 availableSingleCavePositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableSingleCavePositions = availableSpecificPositions isBuildable (const $ const True) True

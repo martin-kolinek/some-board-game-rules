@@ -26,7 +26,6 @@ import Universe.Workplace
 import Universe.Worker
 import Actions
 import Control.Lens hiding (elements, universe, chosen)
-import Control.Arrow (second)
 
 data GeneratorProperties = GeneratorProperties {
   workplaceProbabilities :: Map WorkplaceType Int,
@@ -243,11 +242,40 @@ collectCompositeActions action@(ActionCombination combinationType act1 act2) = a
 collectCompositeActions action@(OptionalAction inner) = action : filter (/= inner) (collectCompositeActions inner)
 collectCompositeActions action = [action]
 
-possibleStatuses :: GeneratorProperties -> WorkplaceId -> WorkplaceType -> GeneratedPlayerStatus -> [(Int, Gen PlayerStatus)]
-possibleStatuses properties workplaceId currentWorkplaceType NotWaitingStatus = [(movingWorkerProbability properties, return MovingWorker)] ++
-  (second (return . (PerformingAction workplaceId)) <$> collectActions properties (workplaceAction currentWorkplaceType))
-possibleStatuses _ _ _ WaitingStatus = [(1, return Waiting)]
-possibleStatuses _ _ _ AllWorkersBusyStatus = [(1, return Waiting)]
+generateCompositeAction :: Gen CompositeActionDefinition
+generateCompositeAction = generateSizedCompositeAction =<< choose (1 :: Int, 4)
+  where generateSizedCompositeAction 1 = generateInteractionAction
+        generateSizedCompositeAction n = do
+          combinator <- elements [AndOr, AndThen, AndThenOr, Or]
+          firstAct <- generateSizedCompositeAction (n - 1)
+          secondAct <- generateSizedCompositeAction (n - 1)
+          let combined = ActionCombination combinator firstAct secondAct
+              optional = OptionalAction firstAct
+          oneof [return combined, generateInteractionAction, return optional]
+
+generateInteractionAction :: Gen CompositeActionDefinition
+generateInteractionAction = do
+  interaction <- frequency interactions
+  steps <- generateStepsForInteraction interaction
+  return $ InteractionAction interaction steps
+  where interactions = [(1, return PlantCropsInteraction),
+                        (1, return HireWorkerInteraction),
+                        (1, return CollectResourcesInteraction),
+                        (1, return ArmWorkerInteraction),
+                        (1, return AdventureInteraction),
+                        (1, generateBuildingInteraction)]
+        generateStepsForInteraction _ =
+          scale (min 4) $ listOf $ frequency
+            [(1, return SetStartPlayerStep),
+             (1, return AddDogStep)]
+        generateBuildingInteraction = fmap BuildBuildingsInteraction (elements ((return <$> [Forest ..]) ++ [[Grass, Field], [Cave, Cave], [Cave, Passage]]))
+
+possibleStatuses :: GeneratorProperties -> WorkplaceId -> GeneratedPlayerStatus -> Gen PlayerStatus
+possibleStatuses properties workplaceId NotWaitingStatus = frequency $
+  [(movingWorkerProbability properties, return MovingWorker),
+   (1, (PerformingAction workplaceId) <$> generateCompositeAction)]
+possibleStatuses _ _ WaitingStatus = return Waiting
+possibleStatuses _ _ AllWorkersBusyStatus = return Waiting
 
 generatePlayer :: GeneratorProperties -> PlayerId -> [WorkerId] -> [WorkplaceId] -> [DogId] -> [GeneratedPlayerStatus] -> Gen (PlayerData, Map WorkplaceId WorkplaceData)
 generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplaceIds availableDogIds possibleGeneratedStatuses = do
@@ -262,7 +290,7 @@ generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplac
   alreadyBusyWorkplaceData <- mapM (const (generateWorkplaceData properties)) [1..alreadyBusyWorkerCount]
   freeWorkplaceData <- mapM (const (generateWorkplaceData properties)) [1..totalWorkerCount - alreadyBusyWorkerCount - 1]
   currentWorkplaceData <- generateWorkplaceData properties
-  selectedStatus <- frequency $ possibleStatuses properties currentWorkplaceId (currentWorkplaceData ^. workplaceType) selectedGeneratedStatus
+  selectedStatus <- possibleStatuses properties currentWorkplaceId selectedGeneratedStatus
   let alreadyBusyWorkerStates = Just <$> alreadyBusyWorkplaceIds
       currentWorkerState = case (selectedGeneratedStatus, selectedStatus) of
         (AllWorkersBusyStatus, _) -> Just currentWorkplaceId
