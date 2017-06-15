@@ -1,4 +1,4 @@
-module BuildingProperties where
+module Interaction.BuildingProperties where
 
 import TestFramework
 import Rules
@@ -10,10 +10,11 @@ import Test.QuickCheck.Monadic
 import Data.Maybe
 import Data.AdditiveGroup
 import Control.Monad
+import Data.Function
 
 buildingTests :: TestTree
 buildingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Building properties" $ [
-    testProperty "Building in correct place places buildings" $ universeProperty $ do
+    testProperty "Building in correct place places buildings" $ buildingProperty $ do
       (playerId, buildingOptions) <- findBuildingPlayer
       buildings <- pick $ elements buildingOptions
       let buildingExtractor = getBuildingExtractor buildings
@@ -24,7 +25,7 @@ buildingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Building prope
       monitor $ counterexample $ "Checked buildings " ++ (show buildings)
       forM_ (zip buildings [pos, pos ^+^ directionAddition dir]) $ \(tp, position) ->
         assert $ (Building tp position) `elem` buildingSpace,
-    testProperty "Building in correct place keeps only one building in one place" $ universeProperty $ do
+    testProperty "Building in correct place keeps only one building in one place" $ buildingProperty $ do
       (playerId, buildingOptions) <- findBuildingPlayer
       buildings <- pick $ elements buildingOptions
       let buildingExtractor = getBuildingExtractor buildings
@@ -35,7 +36,7 @@ buildingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Building prope
       let isPositioned desiredPos (Building _ realPos) = desiredPos == realPos
       forM_ (zip buildings [pos, pos ^+^ directionAddition dir]) $ \(_, position) ->
         assert $ 1 == (length $ filter (isPositioned position) buildingSpace),
-    testProperty "Building in incorrect place fails" $ universeProperty $ do
+    testProperty "Building in incorrect place fails" $ buildingProperty $ do
       (playerId, buildingOptions) <- findBuildingPlayer
       buildings <- pick $ elements buildingOptions
       let buildingExtractor = getBuildingExtractor buildings
@@ -43,6 +44,10 @@ buildingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Building prope
       _ <- selectWrongPosition buildingExtractor playerId
       shouldHaveFailed
   ]
+
+buildingProperty :: UniversePropertyMonad a -> Property
+buildingProperty = propertyWithProperties $ defaultGeneratorProperties &
+  withNoResourceChangeSteps
 
 findBuildingPlayer :: UniversePropertyMonad (PlayerId, [[BuildingType]])
 findBuildingPlayer = do

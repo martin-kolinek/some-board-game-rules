@@ -10,36 +10,36 @@ import Test.QuickCheck.Monadic
 
 weaponMakingTests :: TestTree
 weaponMakingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Weapon making tests" $ [
-    testProperty "Can arm worker after starting working and worker is unarmed" $ universeProperty $ do
+    testProperty "Can arm worker after starting working and worker is unarmed" $ movingWorkerProperty $ do
         (plId, workerId, _) <- startWorkingInWeaponMaking
         canArm <- getsUniverse isArmingWorker <*> pure plId
         checkWorkerIsUnarmed workerId
         assert $ canArm,
-    testProperty "Can go on adventure after starting working and arming" $ universeProperty $ do
+    testProperty "Can go on adventure after starting working and arming" $ movingWorkerProperty $ do
         (plId, workerId, _) <- startWorkingInWeaponMaking
         checkWorkerIsUnarmed workerId
         applyToUniverse $ armWorker plId 1
         canAdventure <- getsUniverse canGoOnAdventure <*> pure plId
         assert $ canAdventure,
-    testProperty "Can arm worker after starting working and worker is unarmed" $ universeProperty $ do
+    testProperty "Can arm worker after starting working and worker is unarmed" $ movingWorkerProperty $ do
         (plId, workerId, _) <- startWorkingInWeaponMaking
         canArm <- getsUniverse isArmingWorker <*> pure plId
         checkWorkerIsUnarmed workerId
         assert $ canArm,
-    testProperty "Next player's turn after arming and adventuring" $ universeProperty $ do
+    testProperty "Next player's turn after arming and adventuring" $ movingWorkerProperty $ do
       (plId, workerId, _) <- startWorkingInWeaponMaking
       checkWorkerIsUnarmed workerId
       checkPlayerHasValidOccupants plId
       applyToUniverse $ armWorker plId 1
       applyToUniverse $ adventure plId WoodReward
       validateNextPlayer plId,
-    testProperty "Next player's turn after adventuring" $ universeProperty $ do
+    testProperty "Next player's turn after adventuring" $ movingWorkerProperty $ do
       (plId, workerId, _) <- startWorkingInWeaponMaking
       checkWorkerIsArmed workerId
       checkPlayerHasValidOccupants plId
       applyToUniverse $ adventure plId WoodReward
       validateNextPlayer plId,
-    testProperty "Next player's turn after adventuring and building" $ universeProperty $ do
+    testProperty "Next player's turn after adventuring and building" $ movingWorkerProperty $ do
       (plId, workerId, _) <- startWorkingInWeaponMaking
       checkWorkerIsArmed workerId
       checkPlayerHasValidOccupants plId

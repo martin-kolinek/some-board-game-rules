@@ -47,7 +47,8 @@ armingProperty :: UniversePropertyMonad a -> Property
 armingProperty = propertyWithProperties $ defaultGeneratorProperties &
   withWorkplaceProbability WeaponMaking 20 &
   withArmingProbability 20 &
-  withOtherWorkersNotDoneProbability 20
+  withOtherWorkersNotDoneProbability 20 &
+  withNoResourceChangeSteps
 
 findArmingPlayer :: UniversePropertyMonad PlayerId
 findArmingPlayer = do

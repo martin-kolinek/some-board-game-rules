@@ -14,7 +14,7 @@ import Workplaces.MakeStartPlayer
 import Workplaces.HouseWork
 import Workplaces.Farming
 import Workplaces.WeaponMaking
-import BuildingProperties
+import Interaction.BuildingProperties
 import Interaction.FarmingProperties
 import Interaction.ArmingProperties
 import Interaction.AdventureProperties

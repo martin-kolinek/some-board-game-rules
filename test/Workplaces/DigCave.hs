@@ -15,17 +15,17 @@ import qualified Data.Set as S
 
 digCaveTests :: TestTree
 digCaveTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Dig cave tests" $ [
-    testProperty "Starting working makes correct buildings available" $ universeProperty $ do
+    testProperty "Starting working makes correct buildings available" $ movingWorkerProperty $ do
         (playerId, _, _) <- startWorkingInDigCave
         buildings <- getsUniverse currentlyBuiltBuildings <*> pure playerId
         assert $ (S.fromList buildings) == (S.fromList [[Cave, Passage], [Cave, Cave]]),
-    testProperty "Starting working collecting resources and finishing" $ universeProperty $ do
+    testProperty "Starting working collecting resources and finishing" $ movingWorkerProperty $ do
         (playerId, _, _) <- startWorkingInDigCave
         checkPlayerHasValidOccupants playerId
         applyToUniverse $ collectResources playerId
         applyToUniverse $ finishAction playerId
         validateNextPlayer playerId,
-    testProperty "Starting working, and digging cave adds cave" $ universeProperty $ do
+    testProperty "Starting working, and digging cave adds cave" $ movingWorkerProperty $ do
         (playerId, _, _) <- startWorkingInDigCave
         checkPlayerHasValidOccupants playerId
         (pos, dir) <- pickSpecificPosition availableRockPositions playerId
@@ -33,7 +33,7 @@ digCaveTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Dig cave tests"
         buildings <- getsUniverse getBuildingSpace <*> pure playerId
         assert $ Building Cave pos `elem` buildings
         assert $ Building Cave (pos ^+^ directionAddition dir) `elem` buildings,
-    testProperty "Starting working, and digging passage adds cave" $ universeProperty $ do
+    testProperty "Starting working, and digging passage adds cave" $ movingWorkerProperty $ do
         (playerId, _, _) <- startWorkingInDigCave
         checkPlayerHasValidOccupants playerId
         (pos, dir) <- pickSpecificPosition availableRockPositions playerId
@@ -41,7 +41,7 @@ digCaveTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Dig cave tests"
         buildings <- getsUniverse getBuildingSpace <*> pure playerId
         assert $ Building Cave pos `elem` buildings
         assert $ Building Passage (pos ^+^ directionAddition dir) `elem` buildings,
-    testProperty "Starting working and collecting resources adds stone" $ universeProperty $ do
+    testProperty "Starting working and collecting resources adds stone" $ movingWorkerProperty $ do
         originalUniverse <- getUniverse
         (playerId, _, workplaceId) <- startWorkingInDigCave
         checkPlayerHasValidOccupants playerId
@@ -50,11 +50,11 @@ digCaveTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Dig cave tests"
             workplaceAmount = getStoneAmount $ getWorkplaceResources $ getWorkplaces originalUniverse ! workplaceId
         newStone <- getStoneAmount <$> (getsUniverse getPlayerResources <*> pure playerId)
         assert $ newStone == originalStone + workplaceAmount,
-    testProperty "Starting working, and selecting invalid position fails" $ universeProperty $ do
+    testProperty "Starting working, and selecting invalid position fails" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInDigCave
       _ <- selectWrongPosition availableRockPositions playerId
       shouldHaveFailed,
-    testProperty "Starting working, and selecting correct position starts next player" $ universeProperty $ do
+    testProperty "Starting working, and selecting correct position starts next player" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInDigCave
       checkPlayerHasValidOccupants playerId
       _ <- selectCorrectPosition availableRockPositions playerId

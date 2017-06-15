@@ -39,7 +39,7 @@ test-suite tests
                       Universe.Actions, Universe.Building, Universe.Player, Universe.Worker, Universe.Workplace, Universe.Interaction, Universe.Adventure,
                       Workplaces.CutForest, Workplaces.DigPassage, Workplaces.DigCave, Workplaces.WorkerNeed, Workplaces.ResourceAddition, Workplaces.GatherWood,
                       Workplaces.GatherFood, Workplaces.HouseWork, Workplaces.MakeStartPlayer, Workplaces.Farming, Workplaces.WeaponMaking
-                      BuildingProperties, InitialUniverseProperties,
+                      Interaction.BuildingProperties, InitialUniverseProperties,
                       Interaction.FarmingProperties, Interaction.ArmingProperties, Interaction.AdventureProperties
   hs-source-dirs:     test src
   default-language:   Haskell2010

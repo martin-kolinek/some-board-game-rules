@@ -72,7 +72,8 @@ farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming propert
 farmingProperty :: UniversePropertyMonad a -> Property
 farmingProperty = propertyWithProperties $ defaultGeneratorProperties &
   withWorkplaceProbability Farming 20 &
-  withFarmingProbability 20
+  withFarmingProbability 20 &
+  withNoResourceChangeSteps
 
 findFarmingPlayer :: UniversePropertyMonad PlayerId
 findFarmingPlayer = do

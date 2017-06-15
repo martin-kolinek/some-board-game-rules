@@ -51,4 +51,5 @@ adventureProperty :: UniversePropertyMonad a -> Property
 adventureProperty = propertyWithProperties $ defaultGeneratorProperties &
   withWorkplaceProbability WeaponMaking 20 &
   withAdventureProbability 20 &
-  withOtherWorkersNotDoneProbability 20
+  withOtherWorkersNotDoneProbability 20 &
+  withNoResourceChangeSteps

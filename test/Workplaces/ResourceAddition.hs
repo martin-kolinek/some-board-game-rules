@@ -10,7 +10,7 @@ import Test.QuickCheck.Monadic
 
 resourceAdditionTests :: TestTree
 resourceAdditionTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Resource addition tests" $ [
-    testProperty "Starting working adds resources" $ universeProperty $ do
+    testProperty "Starting working adds resources" $ movingWorkerProperty $ do
       originalUniverse <- getUniverse
       (playerId, _, _) <- startWorkingInResourceAddition
       newUniverse <- getUniverse
@@ -21,7 +21,7 @@ resourceAdditionTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Resour
       assert $ getStoneAmount originalResources + 1 == getStoneAmount newResources
       assert $ getFoodAmount originalResources + 1 == getFoodAmount newResources
       assert $ getMoneyAmount originalResources + 2 == getMoneyAmount newResources,
-    testProperty "Starting working stops turn" $ universeProperty $ do
+    testProperty "Starting working stops turn" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInResourceAddition
       checkPlayerHasValidOccupants playerId
       validateNextPlayer playerId

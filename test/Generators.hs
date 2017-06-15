@@ -10,7 +10,7 @@ import Control.Monad (forM, foldM, guard)
 import Data.List.Split (splitPlaces, chunksOf)
 import Control.Lens ((^.))
 import Data.Monoid ((<>))
-import Data.Maybe (mapMaybe, listToMaybe, fromMaybe)
+import Data.Maybe (mapMaybe, catMaybes)
 import Data.AdditiveGroup
 
 import Universe hiding (players)
@@ -27,13 +27,31 @@ import Universe.Worker
 import Actions
 import Control.Lens hiding (elements, universe, chosen)
 
+data StepProbabilities = StepProbabilities {
+  addResourcesProbability :: Int,
+  payResourcesProbability :: Int,
+  collectResourcesStepProbability :: Int,
+  addDogProbability :: Int,
+  setStartPlayerProbability :: Int
+  }
+
+data InteractionProbabilities = InteractionProbabilities {
+  plantCropsProbability :: Int,
+  hireWorkerProbability :: Int,
+  collectResourcesInteractionProbability :: Int,
+  armWorkerProbability :: Int,
+  adventureProbability :: Int,
+  buildProbability :: Int
+  }
+
 data GeneratorProperties = GeneratorProperties {
   workplaceProbabilities :: Map WorkplaceType Int,
-  interactionProbabilities :: [(ActionInteraction, Int)],
+  interactionProbabilities :: InteractionProbabilities,
   movingWorkerProbability :: Int,
   otherWorkersNotDoneProbability :: Int,
   unarmedWorkerProbability :: Int,
-  notFullyDevelopedProbability :: Int
+  notFullyDevelopedProbability :: Int,
+  stepProbabilities :: StepProbabilities
   }
 
 workplaceTypeResources :: WorkplaceType -> Gen Resources
@@ -221,59 +239,41 @@ generateUniverse properties = do
 
 data GeneratedPlayerStatus = WaitingStatus | AllWorkersBusyStatus | NotWaitingStatus deriving (Show, Eq)
 
-getActionProbability :: GeneratorProperties -> CompositeActionDefinition -> Int
-getActionProbability properties (OptionalAction inner) = getActionProbability properties inner
-getActionProbability properties (InteractionAction interaction _) = fromMaybe 1 $ fmap snd $ listToMaybe $ filter ((== interaction) . fst) (interactionProbabilities properties)
-getActionProbability properties (ActionCombination combinationType act1 act2) = combine combinationType (getActionProbability properties act1) (getActionProbability properties act2)
-  where combine AndThen p _ = p
-        combine _ p1 p2 = p1 + p2
-
-collectActions :: GeneratorProperties -> ActionDefinition -> [(Int, CompositeActionDefinition)]
-collectActions properties (CompositeAction act) = createFreq <$> collectCompositeActions act
-  where createFreq a = (getActionProbability properties a, a)
-collectActions _ (StepsAction _) = []
-
-collectCompositeActions :: CompositeActionDefinition -> [CompositeActionDefinition]
-collectCompositeActions action@(ActionCombination combinationType act1 act2) = action : combine combinationType (collectCompositeActions act1) (collectCompositeActions act2)
-  where combine AndOr acts1 acts2 = [ActionCombination AndOr a1 a2 | a1 <- acts1, a2 <- acts2] ++ (OptionalAction <$> acts1) ++ (OptionalAction <$> acts2)
-        combine AndThen acts1 acts2 = [ActionCombination AndThen a1 act2 | a1 <- acts1] ++ acts2
-        combine AndThenOr acts1 acts2 = [ActionCombination AndThen a1 (OptionalAction act2) | a1 <- acts1, a1 /= act1] ++ [a2 | a2 <- acts2, a2 /= act2] ++ (OptionalAction <$> acts2)
-        combine Or acts1 acts2 = [ActionCombination Or act1 act2] ++ filter (/= act1) acts1 ++ filter (/= act2) acts2
-collectCompositeActions action@(OptionalAction inner) = action : filter (/= inner) (collectCompositeActions inner)
-collectCompositeActions action = [action]
-
-generateCompositeAction :: Gen CompositeActionDefinition
-generateCompositeAction = generateSizedCompositeAction =<< choose (1 :: Int, 4)
-  where generateSizedCompositeAction 1 = generateInteractionAction
+generateCompositeAction :: GeneratorProperties -> Gen CompositeActionDefinition
+generateCompositeAction props = generateSizedCompositeAction =<< choose (1 :: Int, 4)
+  where generateSizedCompositeAction 1 = generateInteractionAction props
         generateSizedCompositeAction n = do
           combinator <- elements [AndOr, AndThen, AndThenOr, Or]
           firstAct <- generateSizedCompositeAction (n - 1)
           secondAct <- generateSizedCompositeAction (n - 1)
           let combined = ActionCombination combinator firstAct secondAct
               optional = OptionalAction firstAct
-          oneof [return combined, generateInteractionAction, return optional]
+          oneof [return combined, generateInteractionAction props, return optional]
 
-generateInteractionAction :: Gen CompositeActionDefinition
-generateInteractionAction = do
-  interaction <- frequency interactions
-  steps <- generateStepsForInteraction interaction
-  return $ InteractionAction interaction steps
-  where interactions = [(1, return PlantCropsInteraction),
-                        (1, return HireWorkerInteraction),
-                        (1, return CollectResourcesInteraction),
-                        (1, return ArmWorkerInteraction),
-                        (1, return AdventureInteraction),
-                        (1, generateBuildingInteraction)]
-        generateStepsForInteraction _ =
-          scale (min 4) $ listOf $ frequency
-            [(1, return SetStartPlayerStep),
-             (1, return AddDogStep)]
+generateInteractionAction :: GeneratorProperties -> Gen CompositeActionDefinition
+generateInteractionAction properties =
+  InteractionAction <$> interaction <*> steps
+  where ifreq getter = getter (interactionProbabilities properties)
+        interaction = frequency [(ifreq plantCropsProbability, return PlantCropsInteraction),
+                                 (ifreq hireWorkerProbability, return HireWorkerInteraction),
+                                 (ifreq collectResourcesInteractionProbability, return CollectResourcesInteraction),
+                                 (ifreq armWorkerProbability, return ArmWorkerInteraction),
+                                 (ifreq adventureProbability, return AdventureInteraction),
+                                 (ifreq buildProbability, generateBuildingInteraction)]
+        steps = do
+          let genStep freq step = frequency [(1, return Nothing), (freq (stepProbabilities properties), Just <$> step)]
+          setStartPlayer <- genStep setStartPlayerProbability (return SetStartPlayerStep)
+          addDog <- genStep addDogProbability (return AddDogStep)
+          payResources <- genStep payResourcesProbability (PayResources <$> generateResources)
+          collectResources <- genStep collectResourcesStepProbability (return CollectResourcesStep)
+          addResources <- genStep addResourcesProbability (AddResourcesStep <$> generateResources)
+          shuffle $ catMaybes $ [addDog, payResources, setStartPlayer, collectResources, addResources]
         generateBuildingInteraction = fmap BuildBuildingsInteraction (elements ((return <$> [Forest ..]) ++ [[Grass, Field], [Cave, Cave], [Cave, Passage]]))
 
 possibleStatuses :: GeneratorProperties -> WorkplaceId -> GeneratedPlayerStatus -> Gen PlayerStatus
 possibleStatuses properties workplaceId NotWaitingStatus = frequency $
   [(movingWorkerProbability properties, return MovingWorker),
-   (1, (PerformingAction workplaceId) <$> generateCompositeAction)]
+   (1, (PerformingAction workplaceId) <$> generateCompositeAction properties)]
 possibleStatuses _ _ WaitingStatus = return Waiting
 possibleStatuses _ _ AllWorkersBusyStatus = return Waiting
 

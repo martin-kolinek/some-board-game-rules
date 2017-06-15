@@ -19,7 +19,7 @@ import TestHelpers
 
 rulesPropertiesTests :: TestTree
 rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules properties" [
-    testProperty "Starting working assigns worker" $ universeProperty $ do
+    testProperty "Starting working assigns worker" $ generalUniverseProperty $ do
         workplaceId <- pickEmptyWorkplace
         (plId, workerId) <- pickWorkerToMove
         checkPlayerHasValidOccupants plId
@@ -34,26 +34,26 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         workerWorkplace <- getsUniverse (flip getWorkerWorkplace workerId)
         assert $ workerWorkplace == Just workplaceId
     ,
-    testProperty "Finishing turn unassigns all workers" $ universeProperty $ do
+    testProperty "Finishing turn unassigns all workers" $ generalUniverseProperty $ do
       pre =<< getsUniverse allPlayersWaiting
       applyToUniverse finishTurn
       updatedUniverse <- getUniverse
       let workerFree = (== Nothing) . getWorkerWorkplace updatedUniverse
           workers = [wId | plId <- getPlayers updatedUniverse, wId <- getWorkers updatedUniverse plId]
       assert $ all workerFree workers,
-    testProperty "Finishing turn starts starting player" $ universeProperty $ do
+    testProperty "Finishing turn starts starting player" $ generalUniverseProperty $ do
       pre =<< getsUniverse allPlayersWaiting
       startingPlayer <- getsUniverse getStartingPlayer
       applyToUniverse finishTurn
       currentPlayer <- getsUniverse getCurrentPlayer
       assert $ currentPlayer == Just startingPlayer,
-    testProperty "Finishing turn is not possible without all players waiting" $ universeProperty $ do
+    testProperty "Finishing turn is not possible without all players waiting" $ generalUniverseProperty $ do
       pre =<< getsUniverse (not . allPlayersWaiting)
       currentPlayer <- getsUniverse getCurrentPlayer
       monitor (counterexample $ "Current player: " ++ show currentPlayer)
       applyToUniverse finishTurn
       shouldHaveFailed,
-    testProperty "Moving same player twice causes an error" $ universeProperty $ do
+    testProperty "Moving same player twice causes an error" $ generalUniverseProperty $ do
       universe <- getUniverse
       let workersToMove = findWorkersToMove universe
           workplaces = findEmptyWorkplaces universe
@@ -72,7 +72,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             workerWorksInWorkplace workerId = getWorkerWorkplace universe workerId == Just workplaceId
             allWorkersWorkInWorkplace = all workerWorksInWorkplace occupants
         in workplaceIsNotEmpty && allWorkersWorkInWorkplace,
-    testProperty "Player not moving worker cannot move worker" $ universeProperty $ do
+    testProperty "Player not moving worker cannot move worker" $ generalUniverseProperty $ do
       players <- getsUniverse getPlayers
       playerId <- pick $ elements players
       universe <- getUniverse
@@ -163,7 +163,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             where playersWithFreeBuilding = [plId | plId <- getPlayers universe, length (getWorkers universe plId) <= 3]
                   originalOccupants playerId = join $ elems $ getBuildingOccupants universe playerId
       in prop,
-    testProperty "Finishing turn removes crops" $ universeProperty $ do
+    testProperty "Finishing turn removes crops" $ generalUniverseProperty $ do
       pre =<< getsUniverse allPlayersWaiting
       universe <- getUniverse
       let cropsExist plId = not $ M.null $ getPlantedCrops universe plId
@@ -182,7 +182,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
             else do
               monitor $ counterexample $ "Player = " ++ (show playerId) ++ " position = " ++ (show position)
               assert False,
-    testProperty "Finishing turn adds crop resources" $ universeProperty $ do
+    testProperty "Finishing turn adds crop resources" $ generalUniverseProperty $ do
       pre =<< getsUniverse allPlayersWaiting
       universe <- getUniverse
       applyToUniverse finishTurn
@@ -199,7 +199,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
         assert $ verifyCrop Potatoes
         assert $ verifyCrop Wheat
       return (),
-    testProperty "There are no planted crops with zero" $ universeProperty $ do
+    testProperty "There are no planted crops with zero" $ generalUniverseProperty $ do
       pre =<< getsUniverse allPlayersWaiting
       universe <- getUniverse
       applyToUniverse finishTurn
@@ -210,28 +210,28 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       forM_ (getPlayers universe) $ \playerId -> do
         crops <- getsUniverse getPlantedCrops <*> pure playerId
         assert $ all plantedCropIsValid $ elems crops,
-    testProperty "When can collect resources then can collect resources" $ universeProperty $ do
+    testProperty "When can collect resources then can collect resources" $ generalUniverseProperty $ do
       playerId <- findFittingPlayer canCollectResources
       applyToUniverse $ collectResources playerId,
-    testProperty "When can hire worker then can hire worker" $ universeProperty $ do
+    testProperty "When can hire worker then can hire worker" $ generalUniverseProperty $ do
       playerId <- findFittingPlayer canHireWorker
       applyToUniverse $ hireWorker playerId,
-    testProperty "When can finish action then can finish action" $ universeProperty $ do
+    testProperty "When can finish action then can finish action" $ generalUniverseProperty $ do
       playerId <- findFittingPlayer canFinishAction
       applyToUniverse $ finishAction playerId,
-    testProperty "When cannot collect resources then cannot collect resources" $ universeProperty $ do
+    testProperty "When cannot collect resources then cannot collect resources" $ generalUniverseProperty $ do
       playerId <- findFittingPlayer $ liftM not . canCollectResources
       applyToUniverse $ collectResources playerId
       shouldHaveFailed,
-    testProperty "When can hire worker then cannot hire worker" $ universeProperty $ do
+    testProperty "When can hire worker then cannot hire worker" $ generalUniverseProperty $ do
       playerId <- findFittingPlayer $ liftM not . canHireWorker
       applyToUniverse $ hireWorker playerId
       shouldHaveFailed,
-    testProperty "When can finish action then cannot finish action" $ universeProperty $ do
+    testProperty "When can finish action then cannot finish action" $ generalUniverseProperty $ do
       playerId <- findFittingPlayer $ liftM not . canFinishAction
       applyToUniverse $ finishAction playerId
       shouldHaveFailed,
-    testProperty "Moving worker with invalid occupants is not possible" $ universeProperty $ do
+    testProperty "Moving worker with invalid occupants is not possible" $ generalUniverseProperty $ do
       workplaceId <- pickEmptyWorkplace
       (plId, workerId) <- pickWorkerToMove
       checkPlayerHasInvalidOccupants plId

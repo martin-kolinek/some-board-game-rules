@@ -11,15 +11,15 @@ import Test.QuickCheck.Monadic
 
 farmingWorkplaceTests :: TestTree
 farmingWorkplaceTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Farming workplace tests" $ [
-    testProperty "Starting working starts cutting forest" $ universeProperty $ do
+    testProperty "Starting working starts cutting forest" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInFarming
       builtBuildings <- getsUniverse currentlyBuiltBuildings <*> pure playerId
       assert $ builtBuildings == [[Grass, Field]],
-    testProperty "Planting crops is available" $ universeProperty $ do
+    testProperty "Planting crops is available" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInFarming
       plCrops <- getsUniverse isPlantingCrops <*> pure playerId
       assert $ plCrops,
-    testProperty "Planting crops starts next player" $ universeProperty $ do
+    testProperty "Planting crops starts next player" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInFarming
       checkPlayerHasValidOccupants playerId
       applyToUniverse $ plantCrops playerId []

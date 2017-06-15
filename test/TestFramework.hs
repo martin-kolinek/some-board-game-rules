@@ -3,7 +3,6 @@
 module TestFramework where
 
 import Rules
-import Actions (ActionInteraction(..))
 
 import Control.Monad.State
 import Control.Monad.Except
@@ -27,25 +26,37 @@ instance Show ArbitraryUniverse where
   show (ArbitraryUniverse u) = ppShow u
 
 defaultGeneratorProperties :: GeneratorProperties
-defaultGeneratorProperties = GeneratorProperties empty [] 1 5 5 5
+defaultGeneratorProperties = GeneratorProperties empty defaultInteractionProbabilities 1 5 5 5 defaultStepProbabilities
+
+defaultInteractionProbabilities :: InteractionProbabilities
+defaultInteractionProbabilities = InteractionProbabilities 1 1 1 1 1 1
+
+defaultStepProbabilities :: StepProbabilities
+defaultStepProbabilities = StepProbabilities 1 1 1 1 1
 
 withWorkplaceProbability :: WorkplaceType -> Int -> GeneratorProperties -> GeneratorProperties
 withWorkplaceProbability wpType probability props = props { workplaceProbabilities = insert wpType probability (workplaceProbabilities props) }
 
 withFarmingProbability :: Int -> GeneratorProperties -> GeneratorProperties
-withFarmingProbability probability props = props { interactionProbabilities = (PlantCropsInteraction, probability) : interactionProbabilities props }
+withFarmingProbability probability props = props { interactionProbabilities = (interactionProbabilities props) { plantCropsProbability = probability}}
 
 withArmingProbability :: Int -> GeneratorProperties -> GeneratorProperties
-withArmingProbability probability props = props { interactionProbabilities = (ArmWorkerInteraction, probability) : interactionProbabilities props }
+withArmingProbability probability props = props { interactionProbabilities = (interactionProbabilities props) { armWorkerProbability = probability}}
 
 withAdventureProbability :: Int -> GeneratorProperties -> GeneratorProperties
-withAdventureProbability probability props = props { interactionProbabilities = (AdventureInteraction, probability) : interactionProbabilities props }
+withAdventureProbability probability props = props { interactionProbabilities = (interactionProbabilities props) { adventureProbability = probability}}
+
+withNoResourceChangeSteps :: GeneratorProperties -> GeneratorProperties
+withNoResourceChangeSteps props = props {stepProbabilities = (stepProbabilities props) {addResourcesProbability = 0, collectResourcesStepProbability = 0, payResourcesProbability = 0}}
 
 withOtherWorkersNotDoneProbability :: Int -> GeneratorProperties -> GeneratorProperties
 withOtherWorkersNotDoneProbability probability props = props { otherWorkersNotDoneProbability = probability }
 
-universeProperty :: UniversePropertyMonad a -> Property
-universeProperty = propertyWithProperties defaultGeneratorProperties
+generalUniverseProperty :: UniversePropertyMonad a -> Property
+generalUniverseProperty = propertyWithProperties defaultGeneratorProperties
+
+movingWorkerProperty :: UniversePropertyMonad a -> Property
+movingWorkerProperty = propertyWithProperties defaultGeneratorProperties {movingWorkerProbability = 50}
 
 newtype PrettyPrintedUniverse = PrettyUniverse { unPretty :: Universe}
 
