@@ -103,13 +103,10 @@ isNonNegative (Resources wd st gld ir wh pot mon fd) =
   mon >= 0 &&
   fd >= 0
 
-data Animals = Animals {
-  _dogs :: [DogId]
-} deriving (Show, Eq)
+newtype AnimalId = AnimalId Int deriving (Show, Eq, Ord)
 
-newtype DogId = DogId Int deriving (Show, Eq, Ord)
+data FarmAnimalType = Sheep deriving (Show, Eq, Ord)
 
-makeLenses ''Animals
+data AnimalType = Dog | FarmAnimalType FarmAnimalType deriving (Show, Eq, Ord)
 
-initialAnimals :: Animals
-initialAnimals = Animals []
+data Animal = Animal AnimalType AnimalId deriving (Show, Eq, Ord)

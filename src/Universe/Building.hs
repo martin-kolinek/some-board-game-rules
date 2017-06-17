@@ -28,7 +28,7 @@ getPlantedCrops universe player = fromMaybe empty $ universe ^? (players . ix pl
 
 getPlayerPossibleOccupants :: PlayerData -> [BuildingOccupant]
 getPlayerPossibleOccupants playerData =
-  (DogOccupant <$> toListOf (playerAnimals . dogs . traverse) playerData) ++ (WorkerOccupant <$> toListOf (workers . folding keys) playerData)
+  (AnimalOccupant <$> toListOf (playerAnimals . traverse) playerData) ++ (WorkerOccupant <$> toListOf (workers . folding keys) playerData)
 
 playerCanHireWorker :: PlayerData -> Bool
 playerCanHireWorker playerData = canSupportAdditionalWorker (getPlayerPossibleOccupants playerData) (playerData ^. buildingSpace)

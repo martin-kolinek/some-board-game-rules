@@ -122,14 +122,14 @@ generateBuildingSpace properties requiredWorkers = do
       forestBuildings = Building Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
   return $ cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom ++ dugRockBuildings ++ mandatoryRooms
 
-generateValidOccupants :: [WorkerId] -> [DogId] -> [Building] -> Gen BuildingOccupants
-generateValidOccupants workerIds dogIds buildings = do
+generateValidOccupants :: [WorkerId] -> [Animal] -> [Building] -> Gen BuildingOccupants
+generateValidOccupants workerIds animalIds buildings = do
   shuffledOccupants <- shuffle $ WorkerOccupant <$> workerIds
   let buildingsWithSpace = filter ((>0) . buildingSupportedWorkers) buildings
       workersPerBuilding = splitPlaces (buildingSupportedWorkers <$> buildingsWithSpace) shuffledOccupants
       positionedWorkers = zip (head . buildingPositions <$> buildingsWithSpace) workersPerBuilding
-  dogPositions <- forM dogIds $ \_ -> (,) <$> choose (0, 5) <*> choose (0, 3)
-  let positionedDogs = zip dogPositions ((pure . DogOccupant) <$> dogIds)
+  dogPositions <- forM animalIds $ \_ -> (,) <$> choose (0, 5) <*> choose (0, 3)
+  let positionedDogs = zip dogPositions ((pure . AnimalOccupant) <$> animalIds)
   return $ fromListWith (<>) (positionedWorkers ++ positionedDogs)
 
 generateInvalidOccupants :: [WorkerId] -> Gen BuildingOccupants
@@ -142,17 +142,17 @@ generateInvalidOccupants workerIds = do
   let positionsWithWorkers = zip positions (return . WorkerOccupant <$> shuffled)
   return $ fromListWith (++) positionsWithWorkers
 
-generateOccupants :: [WorkerId] -> [DogId] -> [Building] -> Gen BuildingOccupants
-generateOccupants workers dogIds playerBuildings =
-  frequency [(3, generateValidOccupants workers dogIds playerBuildings), (1, generateInvalidOccupants workers)]
+generateOccupants :: [WorkerId] -> [Animal] -> [Building] -> Gen BuildingOccupants
+generateOccupants workers animals playerBuildings =
+  frequency [(3, generateValidOccupants workers animals playerBuildings), (1, generateInvalidOccupants workers)]
 
 generateOccupantsForPlayer :: Universe -> PlayerId -> Gen BuildingOccupants
 generateOccupantsForPlayer universe playerId =
   let somePlayerData = (universe ^. U.players) ! playerId
       workerIds = keys (somePlayerData ^. P.workers)
       playerBuildings = somePlayerData ^. P.buildingSpace . buildingSpaceBuildings
-      playerDogs = somePlayerData ^. P.playerAnimals . dogs
-  in generateOccupants workerIds playerDogs playerBuildings
+      animals = somePlayerData ^. P.playerAnimals
+  in generateOccupants workerIds animals playerBuildings
 
 generateFullResources :: Gen Resources
 generateFullResources = Resources
@@ -210,7 +210,7 @@ generateUniverse properties = do
     playerCount <- choose (1, 7) :: Gen Int
     workerIds <- (fmap WorkerId) <$> generateFastShuffledSequence
     allWorkplaceIds <- (fmap WorkplaceId) <$> generateFastShuffledSequence
-    dogIds <- (fmap DogId) <$> generateFastShuffledSequence
+    animalIds <- (fmap AnimalId) <$> generateFastShuffledSequence
     currentPlayerId : otherPlayerIds <- shuffle $ PlayerId <$> [1..playerCount]
     let (playerWorkplaceIds, additionalWorkplaceIds) = splitAt (playerCount * 7) allWorkplaceIds
     additionalWorkplaceData <- mapM (const (generateWorkplaceData properties)) additionalWorkplaceIds
@@ -218,7 +218,7 @@ generateUniverse properties = do
     let additionalWorkplaces = fromList $ zip additionalWorkplaceIds additionalWorkplaceData
         currentAvailableWorkerIds : otherAvailableWorkerIds = chunksOf 7 workerIds
         currentAvailableWorkplaceIds : otherAvailableWorkplaceIds = chunksOf 7 playerWorkplaceIds
-        currentAvailableDogIds : otherAvailableDogIds = chunksOf 10 dogIds
+        currentAvailableDogIds : otherAvailableDogIds = chunksOf 10 animalIds
         currentPlayerAvailableStatuses = if otherPlayersDone then [AllWorkersBusyStatus, NotWaitingStatus] else [NotWaitingStatus]
         otherPlayerAvailableStatuses = if otherPlayersDone then [AllWorkersBusyStatus] else [WaitingStatus]
     otherPlayersGenerated <- forM (zip otherPlayerIds (zip otherAvailableWorkerIds (zip otherAvailableWorkplaceIds otherAvailableDogIds))) $
@@ -277,8 +277,8 @@ possibleStatuses properties workplaceId NotWaitingStatus = frequency $
 possibleStatuses _ _ WaitingStatus = return Waiting
 possibleStatuses _ _ AllWorkersBusyStatus = return Waiting
 
-generatePlayer :: GeneratorProperties -> PlayerId -> [WorkerId] -> [WorkplaceId] -> [DogId] -> [GeneratedPlayerStatus] -> Gen (PlayerData, Map WorkplaceId WorkplaceData)
-generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplaceIds availableDogIds possibleGeneratedStatuses = do
+generatePlayer :: GeneratorProperties -> PlayerId -> [WorkerId] -> [WorkplaceId] -> [AnimalId] -> [GeneratedPlayerStatus] -> Gen (PlayerData, Map WorkplaceId WorkplaceData)
+generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplaceIds availableAnimalIds possibleGeneratedStatuses = do
   let currentWorkplaceId = head availableWorkplaceIds
   selectedGeneratedStatus <- elements possibleGeneratedStatuses
   totalWorkerCount <- choose (1, 5)
@@ -304,8 +304,8 @@ generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplac
   allWorkerStates <- forM allWorkerWorkplaces $ \workplace -> do
     strength <- frequency $ [(1, choose (0, 15)), (unarmedWorkerProbability properties, return 0)]
     return $ WorkerState workplace strength
-  generatedAnimals <- generateAnimals availableDogIds
-  generatedOccupants <- generateOccupants allWorkerIds (generatedAnimals ^. dogs) generatedBuildings
+  generatedAnimals <- generateAnimals availableAnimalIds
+  generatedOccupants <- generateOccupants allWorkerIds generatedAnimals generatedBuildings
   generatedResources <- generateResources
   generatedPlantedCrops <- generatePlantedCrops generatedBuildings
   let playerData = PlayerData
@@ -317,10 +317,10 @@ generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplac
                      generatedAnimals
   return (playerData, workplaceData)
 
-generateAnimals :: [DogId] -> Gen Animals
+generateAnimals :: [AnimalId] -> Gen [Animal]
 generateAnimals availableDogIds = do
   dogCount <- choose (0, 10)
-  return $ Animals $ take dogCount availableDogIds
+  return $ Animal Dog <$> take dogCount availableDogIds
 
 shrinkUniverse :: Universe -> [Universe]
 shrinkUniverse universe =

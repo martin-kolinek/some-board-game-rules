@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -17,6 +18,7 @@ import Control.Monad.Writer
 import qualified Data.Map as M
 import Data.AdditiveGroup
 import Control.Lens
+import Data.List.Extra
 
 type Position = (Int, Int)
 
@@ -35,7 +37,7 @@ data Building = Building BuildingType Position deriving (Show, Eq)
 
 data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight deriving (Show, Eq, Enum, Ord)
 
-data BuildingOccupant = WorkerOccupant WorkerId | DogOccupant DogId deriving (Eq, Show, Ord)
+data BuildingOccupant = WorkerOccupant WorkerId | AnimalOccupant Animal deriving (Eq, Show, Ord)
 
 type BuildingOccupants = M.Map Position [BuildingOccupant]
 
@@ -67,6 +69,11 @@ buildingSupportedWorkers :: Building -> Int
 buildingSupportedWorkers (Building InitialRoom _) = 2
 buildingSupportedWorkers (Building LivingRoom _) = 1
 buildingSupportedWorkers _ = 0
+
+buildingSupportedAnimals :: Building -> Int
+buildingSupportedAnimals (Building InitialRoom _) = 2
+buildingSupportedAnimals (Building SmallPasture _) = 2
+buildingSupportedAnimals _ = 0
 
 makeLenses ''BuildingSpace
 
@@ -161,10 +168,26 @@ isWorkerOccupant :: BuildingOccupant -> Bool
 isWorkerOccupant (WorkerOccupant _) = True
 isWorkerOccupant _ = False
 
+isDogOccupant :: BuildingOccupant -> Bool
+isDogOccupant (AnimalOccupant (Animal Dog _)) = True
+isDogOccupant _ = False
+
 areBuildingOccupantsValid :: MonadWriter [OccupantError] m => Building -> [BuildingOccupant] -> m ()
-areBuildingOccupantsValid building occupants =
+areBuildingOccupantsValid building occupants = do
   checkWriter (length workerOccupants <= buildingSupportedWorkers building) ("Too many people here", head $ buildingPositions building)
+  checkWriter (length animalOccupantGroups <= 1) ("Too many types of animals here", head $ buildingPositions building)
+  forM_ animalOccupantGroups $ \(animalType, groupAnimals) -> case animalType of
+    Sheep -> do
+      let (Building buildingType pos) = building
+          sheepAmount = length groupAnimals
+          sheepFit = buildingSupportedWorkers building >= sheepAmount
+          sheepGuarded = buildingType `elem` [Grass, SmallPasture] && dogAmount >= sheepAmount - 1
+      checkWriter (sheepFit || sheepGuarded) ("Too many unguarded sheep here", pos)
   where workerOccupants = filter isWorkerOccupant occupants
+        farmAnimalGroup (AnimalOccupant (Animal (FarmAnimalType animalType) _)) = Just animalType
+        farmAnimalGroup _ = Nothing
+        dogAmount = length $ filter isDogOccupant occupants
+        animalOccupantGroups = groupSort $ catMaybes $ (\occ -> (,occ) <$> (farmAnimalGroup occ)) <$> occupants
 
 areOccupantsValid :: [BuildingOccupant] -> BuildingSpace -> [OccupantError]
 areOccupantsValid allOccupants (BuildingSpace buildings occupants _) = snd $ runWriter $ do

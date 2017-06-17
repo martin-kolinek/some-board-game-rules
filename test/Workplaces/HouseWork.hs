@@ -23,16 +23,20 @@ houseWorkTests = localOption (QuickCheckMaxRatio 500) $ testGroup "House work te
       checkPlayerHasValidOccupants playerId
       applyToUniverse $ collectResources playerId
       newUniverse <- getUniverse
-      let originalDog = S.fromList $ getDogs originalUniverse playerId
-          newDog = S.fromList $ getDogs newUniverse playerId
-      assert $ S.size (newDog S.\\ originalDog) == 1,
+      let originalDog = S.fromList $ getAnimals originalUniverse playerId
+          newDog = S.fromList $ getAnimals newUniverse playerId
+          animalDifference = (newDog S.\\ originalDog)
+          isDog (Animal Dog _) = True
+          isDog _ = False
+      assert $ S.size animalDifference == 1
+      assert $ all isDog animalDifference,
     testProperty "After working and collecting resources a dog is added to occupants" $ movingWorkerProperty $ do
       originalUniverse <- getUniverse
       (playerId, _, _) <- startWorkingInHouseWork
       checkPlayerHasValidOccupants playerId
       applyToUniverse $ collectResources playerId
       newUniverse <- getUniverse
-      let isDogOccupant (DogOccupant _) = True
+      let isDogOccupant (AnimalOccupant (Animal Dog _)) = True
           isDogOccupant _ = False
           getDogOccupants universe = (S.fromList . filter isDogOccupant . join . elems) (getBuildingOccupants universe playerId)
           originalDogOccupants = getDogOccupants originalUniverse

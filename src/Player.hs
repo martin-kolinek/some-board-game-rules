@@ -19,7 +19,7 @@ data PlayerData = PlayerData {
   _buildingSpace :: BuildingSpace,
   _playerStatus :: PlayerStatus,
   _playerResources :: Resources,
-  _playerAnimals :: Animals
+  _playerAnimals :: [Animal]
 } deriving (Show, Eq)
 
 data PlayerStatus =
@@ -38,7 +38,7 @@ statusAction :: Traversal' PlayerStatus CompositeActionDefinition
 statusAction = statusActionAndWorkplace . _2
 
 allOccupants :: PlayerData -> [BuildingOccupant]
-allOccupants plData = (WorkerOccupant <$> keys (plData ^. workers)) ++ (DogOccupant <$> (plData ^. playerAnimals . dogs))
+allOccupants plData = (WorkerOccupant <$> keys (plData ^. workers)) ++ (AnimalOccupant <$> (plData ^. playerAnimals))
 
 verifyOccupants :: PlayerData -> [OccupantError]
 verifyOccupants plData = areOccupantsValid (allOccupants plData) buildings
@@ -65,5 +65,5 @@ initialPlayers = fromList
      (initialBuildingSpace $ WorkerOccupant <$> keys initialWorkers)
      (if i == 1 then MovingWorker else Waiting)
      initialResources
-     initialAnimals)
+     [])
   | i <- [1..2], let initialWorkers = createWorkers (i * 2 - 1) 2]

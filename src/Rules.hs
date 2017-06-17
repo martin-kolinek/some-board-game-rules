@@ -6,7 +6,7 @@ module Rules (
   WorkerId,
   WorkplaceId,
   PlayerId,
-  DogId,
+  AnimalId,
   -- ** Workers
   WorkerStrength,
   -- ** Workplaces
@@ -14,6 +14,10 @@ module Rules (
   WorkplaceType(..),
   -- ** Resources
   Resources,
+  -- ** Animals
+  Animal (..),
+  AnimalType (..),
+  FarmAnimalType (..),
   -- ** Buildings
   Building(Building),
   BuildingType(..),
@@ -63,7 +67,7 @@ module Rules (
   getPotatoAmount,
   getMoneyAmount,
   getFoodAmount,
-  getDogs,
+  getAnimals,
   -- ** Player status functions
   isMovingWorker,
   isPlantingCrops,

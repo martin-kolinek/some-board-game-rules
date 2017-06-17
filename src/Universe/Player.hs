@@ -38,8 +38,8 @@ nextPlayer universe currentPlayer = do
 getStartingPlayer :: Universe -> PlayerId
 getStartingPlayer universe = universe ^. startingPlayer
 
-getDogs :: Universe -> PlayerId -> [DogId]
-getDogs universe plId = toListOf (players . ix plId . playerAnimals . dogs . traverse) universe
+getAnimals :: Universe -> PlayerId -> [Animal]
+getAnimals universe plId = toListOf (players . ix plId . playerAnimals . traverse) universe
 
 currentlyBuiltBuildings :: Universe -> PlayerId -> [[BuildingType]]
 currentlyBuiltBuildings universe plId = universe ^.. players . ix plId . playerStatus . statusAction . possibleInteractionsTraversal . to builtBuildings . traverse

@@ -99,7 +99,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       in prop,
     testProperty "Getting all occupants returns workers" $
       let prop (ArbitraryUniverse universe) = all (correct universe) (getPlayers universe)
-          correct universe playerId = (DogOccupant <$> getDogs universe playerId) ++ (WorkerOccupant <$> getWorkers universe playerId) == getAllOccupants universe playerId
+          correct universe playerId = (AnimalOccupant <$> getAnimals universe playerId) ++ (WorkerOccupant <$> getWorkers universe playerId) == getAllOccupants universe playerId
       in prop,
     testProperty "Having a worker outside of room causes error" $
       let prop (ArbitraryUniverse universe) = playersWithNoOccupantErrors /= [] ==>
@@ -297,7 +297,7 @@ positionOccupants buildings allOccupants =
       isWorker (WorkerOccupant _) = True
       isWorker _ = False
       dogs = filter isDog allOccupants
-      isDog (DogOccupant _) = True
+      isDog (AnimalOccupant (Animal Dog _)) = True
       isDog _ = False
       accumulateWorkers (occupants, remainingWorkers) (Building LivingRoom pos)  = (insert pos (take 1 remainingWorkers) occupants, drop 1 remainingWorkers)
       accumulateWorkers (occupants, remainingWorkers) (Building InitialRoom pos) = (insert pos (take 2 remainingWorkers) occupants, drop 2 remainingWorkers)

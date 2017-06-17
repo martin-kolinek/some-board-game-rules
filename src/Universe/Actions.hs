@@ -71,12 +71,13 @@ performStep (PayResources resources) plId _ universe = do
   check "Not enough resources" $ has (resourceTrav . filtered isNonNegative) updatedUniverse
   return updatedUniverse
 
-newDogId :: Universe -> DogId
-newDogId universe = DogId (maximum dogNumbers + 1)
-  where getNumberFromId (DogId number) = number
-        dogNumbers = 0 : toListOf (players . traverse . playerAnimals . dogs . traverse . to getNumberFromId) universe
+newAnimalId :: Universe -> AnimalId
+newAnimalId universe = AnimalId (maximum dogNumbers + 1)
+  where getNumberFromId (Animal _ (AnimalId number)) = number
+        dogNumbers = 0 : toListOf (players . traverse . playerAnimals . traverse . to getNumberFromId) universe
 
 addDog :: Universe -> PlayerData -> PlayerData
-addDog universe = over (buildingSpace . buildingSpaceOccupants) addDogToOccupants . over (playerAnimals . dogs) (dogId :)
-  where dogId = newDogId universe
-        addDogToOccupants occupants = alter (Just . (DogOccupant dogId :) . fromMaybe []) (0, 0) occupants
+addDog universe = over (buildingSpace . buildingSpaceOccupants) addDogToOccupants . over playerAnimals (dog :)
+  where dogId = newAnimalId universe
+        dog = (Animal Dog dogId)
+        addDogToOccupants occupants = alter (Just . (AnimalOccupant dog :) . fromMaybe []) (0, 0) occupants
