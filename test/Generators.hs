@@ -4,14 +4,14 @@ module Generators where
 
 import Prelude hiding (lookup)
 import Test.QuickCheck
-import Data.Map.Strict (fromList, fromListWith, keys, (!), Map, empty, singleton, delete, findWithDefault)
+import Data.Map.Strict (fromList, fromListWith, keys, Map, empty, singleton, delete, findWithDefault, (!), elems)
 import qualified Data.Set as S
 import Control.Monad (forM, foldM, guard)
 import Data.List.Split (splitPlaces, chunksOf)
-import Control.Lens ((^.))
 import Data.Monoid ((<>))
 import Data.Maybe (mapMaybe, catMaybes)
 import Data.AdditiveGroup
+import Control.Arrow (second)
 
 import Universe hiding (players)
 import qualified Universe as U
@@ -122,15 +122,41 @@ generateBuildingSpace properties requiredWorkers = do
       forestBuildings = Building Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
   return $ cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom ++ dugRockBuildings ++ mandatoryRooms
 
-generateValidOccupants :: [WorkerId] -> [Animal] -> [Building] -> Gen BuildingOccupants
-generateValidOccupants workerIds animalIds buildings = do
+generateValidOccupants :: [WorkerId] -> [AnimalId] -> [Building] -> Gen BuildingOccupants
+generateValidOccupants workerIds availableAnimalIds buildings = do
   shuffledOccupants <- shuffle $ WorkerOccupant <$> workerIds
   let buildingsWithSpace = filter ((>0) . buildingSupportedWorkers) buildings
       workersPerBuilding = splitPlaces (buildingSupportedWorkers <$> buildingsWithSpace) shuffledOccupants
       positionedWorkers = zip (head . buildingPositions <$> buildingsWithSpace) workersPerBuilding
-  dogPositions <- forM animalIds $ \_ -> (,) <$> choose (0, 5) <*> choose (0, 3)
-  let positionedDogs = zip dogPositions ((pure . AnimalOccupant) <$> animalIds)
-  return $ fromListWith (<>) (positionedWorkers ++ positionedDogs)
+  animalOccupantGenerators <- forM buildings $ \(Building buildingType pos) ->
+    generateValidAnimalsForBuilding buildingType pos
+  let animalOccupants = second return <$> zipWith ($) (mconcat animalOccupantGenerators) availableAnimalIds
+  return $ fromListWith (<>) (positionedWorkers ++ animalOccupants)
+
+generateValidAnimalsForBuilding :: BuildingType -> Position -> Gen [(AnimalId -> (Position, BuildingOccupant))]
+generateValidAnimalsForBuilding buildingType position = do
+  generateAnimalsNumber <- choose (0 :: Int, 20)
+  if generateAnimalsNumber == 0 then do
+    let allowedAnimals = case buildingType of
+          SmallPasture -> 2
+          _ -> 0
+    dogAmount <- choose(0, 6)
+    dogs <- vectorOf dogAmount (return (Animal Dog))
+    let dogSupportedSheep = if dogAmount == 0 then 0 else dogAmount + 1
+    possibleSheepAmount <- choose(0, max dogSupportedSheep allowedAnimals)
+    let sheepAmount = if buildingType `elem` [Grass, SmallPasture] then possibleSheepAmount else 0
+    sheep <- vectorOf sheepAmount (return (Animal (FarmAnimalType Sheep)))
+    return $ (((position,) . AnimalOccupant) .) <$> (dogs ++ sheep)
+  else
+    return []
+
+shuffleOccupantsForPlayer :: Universe -> PlayerId -> Gen BuildingOccupants
+shuffleOccupantsForPlayer universe playerId = do
+  let somePlayerData = (universe ^. U.players) ! playerId
+      buildingOccupants = somePlayerData ^. buildingSpace . buildingSpaceOccupants
+      occupants = return <$> mconcat $ elems buildingOccupants
+  positions <- infiniteListOf ((,) <$> choose (0 :: Int, 5) <*> choose (0 :: Int, 3))
+  return $ fromListWith (++) $ zip positions occupants
 
 generateInvalidOccupants :: [WorkerId] -> Gen BuildingOccupants
 generateInvalidOccupants workerIds = do
@@ -142,17 +168,14 @@ generateInvalidOccupants workerIds = do
   let positionsWithWorkers = zip positions (return . WorkerOccupant <$> shuffled)
   return $ fromListWith (++) positionsWithWorkers
 
-generateOccupants :: [WorkerId] -> [Animal] -> [Building] -> Gen BuildingOccupants
-generateOccupants workers animals playerBuildings =
-  frequency [(3, generateValidOccupants workers animals playerBuildings), (1, generateInvalidOccupants workers)]
+generateOccupants :: [WorkerId] -> [AnimalId] -> [Building] -> Gen BuildingOccupants
+generateOccupants workers availableAnimalIds playerBuildings =
+  frequency [(3, generateValidOccupants workers availableAnimalIds playerBuildings), (1, generateInvalidOccupants workers)]
 
-generateOccupantsForPlayer :: Universe -> PlayerId -> Gen BuildingOccupants
-generateOccupantsForPlayer universe playerId =
-  let somePlayerData = (universe ^. U.players) ! playerId
-      workerIds = keys (somePlayerData ^. P.workers)
-      playerBuildings = somePlayerData ^. P.buildingSpace . buildingSpaceBuildings
-      animals = somePlayerData ^. P.playerAnimals
-  in generateOccupants workerIds animals playerBuildings
+extractAnimalsFromOccupants :: BuildingOccupants -> [Animal]
+extractAnimalsFromOccupants buildingOccupants = mconcat $ extractAnimal <$> (mconcat $ elems buildingOccupants)
+  where extractAnimal (AnimalOccupant animal) = [animal]
+        extractAnimal _ = []
 
 generateFullResources :: Gen Resources
 generateFullResources = Resources
@@ -304,8 +327,7 @@ generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplac
   allWorkerStates <- forM allWorkerWorkplaces $ \workplace -> do
     strength <- frequency $ [(1, choose (0, 15)), (unarmedWorkerProbability properties, return 0)]
     return $ WorkerState workplace strength
-  generatedAnimals <- generateAnimals availableAnimalIds
-  generatedOccupants <- generateOccupants allWorkerIds generatedAnimals generatedBuildings
+  generatedOccupants <- generateOccupants allWorkerIds availableAnimalIds generatedBuildings
   generatedResources <- generateResources
   generatedPlantedCrops <- generatePlantedCrops generatedBuildings
   let playerData = PlayerData
@@ -314,7 +336,7 @@ generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplac
                      (BuildingSpace generatedBuildings generatedOccupants generatedPlantedCrops)
                      selectedStatus
                      generatedResources
-                     generatedAnimals
+                     (extractAnimalsFromOccupants generatedOccupants)
   return (playerData, workplaceData)
 
 generateAnimals :: [AnimalId] -> Gen [Animal]

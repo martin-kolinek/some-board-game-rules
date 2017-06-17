@@ -88,7 +88,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
     testProperty "Reverting occupants returns original errors" $
       let prop (ArbitraryUniverse universe) =
             forAll (elements $ getPlayers universe) $ \playerId ->
-            forAll (generateOccupantsForPlayer universe playerId) $ \newOccupants ->
+            forAll (shuffleOccupantsForPlayer universe playerId) $ \newOccupants ->
             rightProp $ do
               let oldOccupants = getBuildingOccupants universe playerId
               otherUniverse <- alterOccupants playerId newOccupants universe
@@ -159,7 +159,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
               let newOccupants = positionOccupants (getBuildingSpace universe playerId) (originalOccupants playerId ++ [occupant])
               nextUniverse <- alterOccupants playerId newOccupants universe
               let errors = getOccupantErrors nextUniverse playerId
-              return $ not $ null errors
+              return $ counterexample (ppShow nextUniverse) $ not $ null errors
             where playersWithFreeBuilding = [plId | plId <- getPlayers universe, length (getWorkers universe plId) <= 3]
                   originalOccupants playerId = join $ elems $ getBuildingOccupants universe playerId
       in prop,
@@ -286,10 +286,6 @@ findWorkersToMove universe = do
 
 allPlayersWaiting :: Universe -> Bool
 allPlayersWaiting universe = getCurrentPlayer universe == Nothing
-
-createValidOccupants :: Universe -> PlayerId -> M.Map Position [BuildingOccupant]
-createValidOccupants universe playerId =
-  positionOccupants (getBuildingSpace universe playerId) (getAllOccupants universe playerId)
 
 positionOccupants :: [Building] -> [BuildingOccupant] -> BuildingOccupants
 positionOccupants buildings allOccupants =
