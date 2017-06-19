@@ -135,7 +135,7 @@ generateValidOccupants workerIds availableAnimalIds buildings = do
 
 generateValidAnimalsForBuilding :: BuildingType -> Position -> Gen [(AnimalId -> (Position, BuildingOccupant))]
 generateValidAnimalsForBuilding buildingType position = do
-  generateAnimalsNumber <- choose (0 :: Int, 20)
+  generateAnimalsNumber <- choose (0 :: Int, 10)
   if generateAnimalsNumber == 0 then do
     let allowedAnimals = case buildingType of
           SmallPasture -> 2

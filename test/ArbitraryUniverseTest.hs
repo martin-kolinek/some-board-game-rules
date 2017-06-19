@@ -5,7 +5,7 @@ import Test.Tasty.QuickCheck
 import Test.Tasty
 import Data.List (nub, (\\), group, sort)
 import Data.Map (toList, keys, (!))
-import Data.Maybe (isJust, fromJust, fromMaybe, isNothing)
+import Data.Maybe (isJust, fromJust, fromMaybe, isNothing, maybeToList)
 import qualified Data.Set as S
 import Data.Either (isLeft)
 
@@ -19,6 +19,7 @@ import Workplace
 import Universe.Building
 import Universe.Interaction
 import Universe.Player
+import Resources
 
 arbitraryUniverseTests :: TestTree
 arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbitrary universe tests" [
@@ -130,6 +131,14 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
       let prop (ArbitraryUniverse universe) = cover currentPlayerHasValidWorkers 30 "Valid workers" $
             getCurrentPlayer universe /= Nothing ==> True
             where currentPlayerHasValidWorkers = (getOccupantErrors universe <$> getCurrentPlayer universe) == Just []
+      in prop,
+    testProperty "Current player can have valid occupants with sheep" $
+      let prop (ArbitraryUniverse universe) = cover (currentPlayerHasValidOccupants && currentPlayerHasSheep) 10 "Valid workers" $
+            getCurrentPlayer universe /= Nothing ==> True
+            where currentPlayerHasValidOccupants = (getOccupantErrors universe <$> getCurrentPlayer universe) == Just []
+                  isSheep (Animal (FarmAnimalType Sheep) _) = True
+                  isSheep _ = False
+                  currentPlayerHasSheep = any isSheep $ mconcat $ maybeToList (getAnimals universe <$> getCurrentPlayer universe)
       in prop
   ]
 
