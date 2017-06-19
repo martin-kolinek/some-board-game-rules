@@ -3,14 +3,12 @@ module RulesProperties where
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic
-import Data.Map (keys, (!), elems, insert)
+import Data.Map (keys, (!), elems, findWithDefault, alter)
 import qualified Data.Map as M
 import Data.List ((\\), intersect)
 import Data.Maybe (maybeToList, isNothing, fromMaybe)
 import Control.Monad (guard, join, forM_, liftM)
 import Text.Show.Pretty (ppShow)
-import Data.Foldable (foldl')
-import Data.Monoid ((<>))
 
 import Generators
 import Rules
@@ -136,32 +134,33 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                   occupantsToMove playerId = join $ elems $ originalOccupants playerId
       in prop,
     testProperty "Having same occupant multiple times causes an error" $
-      let prop (ArbitraryUniverse universe) = playersWithFreeBuilding /= [] ==>
-            forAll (elements $ playersWithFreeBuilding) $ \playerId ->
-            forAll (elements $ originalOccupants playerId) $ \occupant ->
+      let prop (ArbitraryUniverse universe) =
+            forAll (elements $ getPlayers universe) $ \playerId ->
+            forAll (elements $ join $ elems $ originalOccupants playerId) $ \occupant ->
+            playerCanPlaceOccupant universe playerId occupant ==>
             rightProp $ do
-              let newOccupants = positionOccupants (getBuildingSpace universe playerId) (originalOccupants playerId ++ [occupant])
+              let newOccupants = positionOccupants (getBuildingSpace universe playerId) (originalOccupants playerId) occupant
               nextUniverse <- alterOccupants playerId newOccupants universe
               let errors = getOccupantErrors nextUniverse playerId
               return $
                 counterexample ("new occupants: " ++ show newOccupants) $
                 counterexample ("original occupants: " ++ show (originalOccupants playerId)) $
                 not $ null errors
-            where playersWithFreeBuilding = [plId | plId <- getPlayers universe, length (getWorkers universe plId) <= 3]
-                  originalOccupants playerId = join $ elems $ getBuildingOccupants universe playerId
+            where originalOccupants playerId = getBuildingOccupants universe playerId
       in prop,
     testProperty "Having occupant from different player causes error" $
-      let prop (ArbitraryUniverse universe) = playersWithFreeBuilding /= [] && length (getPlayers universe) > 1 ==>
+      let prop (ArbitraryUniverse universe) =
+            forAll (elements $ getPlayers universe) $ \otherPlayerId ->
+            forAll (elements $ join $ elems $ originalOccupants otherPlayerId) $ \occupant ->
+            let playersWithFreeBuilding = [plId | plId <- getPlayers universe, playerCanPlaceOccupant universe plId occupant]
+            in playersWithFreeBuilding /= [] && length (getPlayers universe) > 1 ==>
             forAll (elements $ playersWithFreeBuilding) $ \playerId ->
-            forAll (elements $ getPlayers universe \\ [playerId]) $ \otherPlayerId ->
-            forAll (elements $ originalOccupants otherPlayerId) $ \occupant ->
             rightProp $ do
-              let newOccupants = positionOccupants (getBuildingSpace universe playerId) (originalOccupants playerId ++ [occupant])
+              let newOccupants = positionOccupants (getBuildingSpace universe playerId) (originalOccupants playerId) occupant
               nextUniverse <- alterOccupants playerId newOccupants universe
               let errors = getOccupantErrors nextUniverse playerId
               return $ counterexample (ppShow nextUniverse) $ not $ null errors
-            where playersWithFreeBuilding = [plId | plId <- getPlayers universe, length (getWorkers universe plId) <= 3]
-                  originalOccupants playerId = join $ elems $ getBuildingOccupants universe playerId
+            where originalOccupants playerId = getBuildingOccupants universe playerId
       in prop,
     testProperty "Finishing turn removes crops" $ generalUniverseProperty $ do
       pre =<< getsUniverse allPlayersWaiting
@@ -287,20 +286,10 @@ findWorkersToMove universe = do
 allPlayersWaiting :: Universe -> Bool
 allPlayersWaiting universe = getCurrentPlayer universe == Nothing
 
-positionOccupants :: [Building] -> [BuildingOccupant] -> BuildingOccupants
-positionOccupants buildings allOccupants =
-  let workers = filter isWorker allOccupants
-      isWorker (WorkerOccupant _) = True
-      isWorker _ = False
-      dogs = filter isDog allOccupants
-      isDog (AnimalOccupant (Animal Dog _)) = True
-      isDog _ = False
-      accumulateWorkers (occupants, remainingWorkers) (Building LivingRoom pos)  = (insert pos (take 1 remainingWorkers) occupants, drop 1 remainingWorkers)
-      accumulateWorkers (occupants, remainingWorkers) (Building InitialRoom pos) = (insert pos (take 2 remainingWorkers) occupants, drop 2 remainingWorkers)
-      accumulateWorkers accumulator _ = accumulator
-      (resultOccupants, nonPositionedWorkers) = foldl' accumulateWorkers (M.empty, workers) buildings
-      additionalPosition = M.singleton (3, 3) nonPositionedWorkers
-  in M.unionWith (<>) resultOccupants (M.singleton (0, 0) dogs <> additionalPosition)
+positionOccupants :: [Building] -> BuildingOccupants -> BuildingOccupant -> BuildingOccupants
+positionOccupants buildings oldOccupants newOccupant =
+  let (Building _ pos) = head $ filter (canBuildingSupportAdditionalOccupant oldOccupants newOccupant) buildings
+  in alter (\old -> Just $ newOccupant : fromMaybe [] old) pos oldOccupants
 
 findFittingPlayer :: (Universe -> PlayerId -> Bool) -> UniversePropertyMonad PlayerId
 findFittingPlayer condition = do
@@ -309,3 +298,36 @@ findFittingPlayer condition = do
   let fittingPlayers = filter (condition u) players
   pre $ not $ null $ fittingPlayers
   pick $ elements fittingPlayers
+
+isWorkerOccupant :: BuildingOccupant -> Bool
+isWorkerOccupant (WorkerOccupant _) = True
+isWorkerOccupant _ = False
+
+isAnimalOccupant :: AnimalType -> BuildingOccupant -> Bool
+isAnimalOccupant animalType (AnimalOccupant (Animal animalType2 _)) = animalType == animalType2
+isAnimalOccupant _ _ = False
+
+playerCanPlaceOccupant :: Universe -> PlayerId -> BuildingOccupant -> Bool
+playerCanPlaceOccupant universe plId occupant =
+  let space = getBuildingSpace universe plId
+      occupants = getBuildingOccupants universe plId
+  in any (canBuildingSupportAdditionalOccupant occupants occupant) space
+
+canBuildingSupportAdditionalOccupant :: BuildingOccupants -> BuildingOccupant -> Building -> Bool
+canBuildingSupportAdditionalOccupant _ (AnimalOccupant (Animal Dog _)) _ = True
+canBuildingSupportAdditionalOccupant occupants (AnimalOccupant (Animal (FarmAnimalType Sheep) _)) (Building buildingType position) =
+  let existingOccupants = findWithDefault [] position occupants
+      dogAmount = length $ filter (isAnimalOccupant Dog) existingOccupants
+      supportedSheep = case buildingType of
+        Grass -> dogAmount + 1
+        SmallPasture -> max (dogAmount + 1) 2
+        _ -> 0
+      currentSheep = length $ filter (isAnimalOccupant (FarmAnimalType Sheep)) existingOccupants
+  in currentSheep < supportedSheep
+canBuildingSupportAdditionalOccupant occupants (WorkerOccupant _) (Building buildingType position) =
+  let supportedWorkers = case buildingType of
+        LivingRoom -> 1
+        InitialRoom -> 2
+        _ -> 0
+      existingWorkers = length $ filter isWorkerOccupant $ findWithDefault [] position occupants
+  in existingWorkers < supportedWorkers

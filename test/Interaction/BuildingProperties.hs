@@ -41,7 +41,8 @@ buildingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Building prope
       buildings <- pick $ elements buildingOptions
       let buildingExtractor = getBuildingExtractor buildings
       checkResources buildings
-      _ <- selectWrongPosition buildingExtractor playerId
+      (pos, dir) <- pickWrongPosition buildingExtractor playerId
+      applyToUniverse $ buildBuildings playerId pos dir buildings
       shouldHaveFailed
   ]
 
