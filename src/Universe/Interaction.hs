@@ -109,7 +109,7 @@ adventure plId reward = performInteractionWithNewInteraction plId AdventureInter
          check "Cannot choose such reward" $ actionPrecondition plId workerId workplaceId universe (CompositeAction def)
          return $ Just $ def
        Nothing -> return Nothing
-  return $ (over (players . ix plId) (applyReward reward) universe, newActionDefinition)
+  return $ (over (players . ix plId) (applyReward reward universe) universe, newActionDefinition)
 
 performInteraction :: MonadError String m => PlayerId -> ActionInteraction -> (WorkplaceId -> WorkerId -> Universe -> m Universe) -> Universe -> m Universe
 performInteraction plId int effect = performInteractionWithNewInteraction plId int $ \wpId wId u -> fmap (, Nothing) (effect wpId wId u)

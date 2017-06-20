@@ -62,7 +62,7 @@ performStep CollectResourcesStep plId workplaceId universe = return $
 
 performStep SetStartPlayerStep plId _ universe = return $ universe & startingPlayer .~ plId
 
-performStep AddDogStep plId _ universe = return $ universe & players . ix plId %~ addDog universe
+performStep AddDogStep plId _ universe = return $ universe & players . ix plId %~ (addAnimal Dog) universe
 
 performStep (PayResources resources) plId _ universe = do
   let resourceTrav :: Traversal' Universe Resources
@@ -76,8 +76,8 @@ newAnimalId universe = AnimalId (maximum dogNumbers + 1)
   where getNumberFromId (Animal _ (AnimalId number)) = number
         dogNumbers = 0 : toListOf (players . traverse . playerAnimals . traverse . to getNumberFromId) universe
 
-addDog :: Universe -> PlayerData -> PlayerData
-addDog universe = over (buildingSpace . buildingSpaceOccupants) addDogToOccupants . over playerAnimals (dog :)
-  where dogId = newAnimalId universe
-        dog = (Animal Dog dogId)
-        addDogToOccupants occupants = alter (Just . (AnimalOccupant dog :) . fromMaybe []) (0, 0) occupants
+addAnimal :: AnimalType -> Universe -> PlayerData -> PlayerData
+addAnimal animalType universe = over (buildingSpace . buildingSpaceOccupants) addAnimalToOccupants . over playerAnimals (animal :)
+  where animalId = newAnimalId universe
+        animal = (Animal animalType animalId)
+        addAnimalToOccupants occupants = alter (Just . (AnimalOccupant animal :) . fromMaybe []) (0, 0) occupants

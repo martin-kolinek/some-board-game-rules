@@ -4,14 +4,17 @@ import Player
 import Resources
 import Actions
 import Building
+import Universe
+import Universe.Actions
 
-import Control.Lens
+import Control.Lens hiding (universe)
 
-data AdventureReward = WoodReward | GrassReward | SmallPastureReward
+data AdventureReward = WoodReward | GrassReward | SmallPastureReward | SheepReward
 
-applyReward :: AdventureReward -> Player.PlayerData -> Player.PlayerData
-applyReward WoodReward playerData = playerData & (playerResources . woodAmount) +~ 1
-applyReward _ playerData = playerData
+applyReward :: AdventureReward -> Universe -> PlayerData -> PlayerData
+applyReward WoodReward _ playerData = playerData & (playerResources . woodAmount) +~ 1
+applyReward SheepReward universe playerData = addAnimal (FarmAnimalType Sheep) universe playerData
+applyReward _ _ playerData = playerData
 
 rewardInteraction :: AdventureReward -> Maybe CompositeActionDefinition
 rewardInteraction GrassReward = Just $ InteractionAction (BuildBuildingsInteraction [Grass]) []

@@ -47,7 +47,11 @@ withAdventureProbability :: Int -> GeneratorProperties -> GeneratorProperties
 withAdventureProbability probability props = props { interactionProbabilities = (interactionProbabilities props) { adventureProbability = probability}}
 
 withNoResourceChangeSteps :: GeneratorProperties -> GeneratorProperties
-withNoResourceChangeSteps props = props {stepProbabilities = (stepProbabilities props) {addResourcesProbability = 0, collectResourcesStepProbability = 0, payResourcesProbability = 0}}
+withNoResourceChangeSteps props = props {stepProbabilities = (stepProbabilities props) {
+                                            addResourcesProbability = 0,
+                                            collectResourcesStepProbability = 0,
+                                            payResourcesProbability = 0,
+                                            addDogProbability = 0}}
 
 withOtherWorkersNotDoneProbability :: Int -> GeneratorProperties -> GeneratorProperties
 withOtherWorkersNotDoneProbability probability props = props { otherWorkersNotDoneProbability = probability }
