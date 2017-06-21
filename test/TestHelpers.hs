@@ -106,7 +106,7 @@ isGrass :: Foldable t => t Building -> Position -> Bool
 isGrass buildingSpace pos = Building Grass pos `elem` buildingSpace
 
 isDevelopedOutside :: [Building] -> Position -> Bool
-isDevelopedOutside buildingSpace pos = not $ null $ intersect [Building Field pos, Building Grass pos, Building InitialRoom pos] buildingSpace
+isDevelopedOutside buildingSpace pos = not $ null $ intersect [Building Field pos, Building Grass pos, Building InitialRoom pos, Building SmallPasture pos] buildingSpace
 
 availableRockPositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableRockPositions = availableSpecificPositions isDiggable isDevelopedInside False

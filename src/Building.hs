@@ -108,7 +108,7 @@ build buildings building =
   in assert (notOverlapping && originalPositionsOccupied) $ newBuildings
 
 isDevelopedOutside :: Building -> Bool
-isDevelopedOutside building = getBuildingType building `elem` [Field, Grass, InitialRoom]
+isDevelopedOutside building = getBuildingType building `elem` [Field, Grass, InitialRoom, SmallPasture]
 
 isDevelopedInside :: Building -> Bool
 isDevelopedInside building = getBuildingType building `elem` [Cave, Passage, InitialRoom, LivingRoom]
@@ -176,13 +176,14 @@ areBuildingOccupantsValid :: MonadWriter [OccupantError] m => Building -> [Build
 areBuildingOccupantsValid building occupants = do
   checkWriter (length workerOccupants <= buildingSupportedWorkers building) ("Too many people here", head $ buildingPositions building)
   checkWriter (length animalOccupantGroups <= 1) ("Too many types of animals here", head $ buildingPositions building)
+  let (Building buildingType pos) = building
   forM_ animalOccupantGroups $ \(animalType, groupAnimals) -> case animalType of
     Sheep -> do
-      let (Building buildingType pos) = building
-          sheepAmount = length groupAnimals
-          sheepFit = buildingSupportedWorkers building >= sheepAmount
+      let sheepAmount = length groupAnimals
+          sheepFit = buildingSupportedAnimals building >= sheepAmount
           sheepGuarded = buildingType `elem` [Grass, SmallPasture] && dogAmount >= sheepAmount - 1
       checkWriter (sheepFit || sheepGuarded) ("Too many unguarded sheep here", pos)
+    Cow -> checkWriter (buildingSupportedAnimals building >= length groupAnimals) ("Too many cows here", pos)
   where workerOccupants = filter isWorkerOccupant occupants
         farmAnimalGroup (AnimalOccupant (Animal (FarmAnimalType animalType) _)) = Just animalType
         farmAnimalGroup _ = Nothing

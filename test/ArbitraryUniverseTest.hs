@@ -133,12 +133,20 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
             where currentPlayerHasValidWorkers = (getOccupantErrors universe <$> getCurrentPlayer universe) == Just []
       in prop,
     testProperty "Current player can have valid occupants with sheep" $
-      let prop (ArbitraryUniverse universe) = cover (currentPlayerHasValidOccupants && currentPlayerHasSheep) 10 "Valid workers" $
+      let prop (ArbitraryUniverse universe) = cover (currentPlayerHasValidOccupants && currentPlayerHasSheep) 10 "Valid with sheep" $
             getCurrentPlayer universe /= Nothing ==> True
             where currentPlayerHasValidOccupants = (getOccupantErrors universe <$> getCurrentPlayer universe) == Just []
                   isSheep (Animal (FarmAnimalType Sheep) _) = True
                   isSheep _ = False
                   currentPlayerHasSheep = any isSheep $ mconcat $ maybeToList (getAnimals universe <$> getCurrentPlayer universe)
+      in prop,
+    testProperty "Current player can have valid occupants with cows" $
+      let prop (ArbitraryUniverse universe) = cover (currentPlayerHasValidOccupants && currentPlayerHasCows) 5 "Valid with cows" $
+            getCurrentPlayer universe /= Nothing ==> True
+            where currentPlayerHasValidOccupants = (getOccupantErrors universe <$> getCurrentPlayer universe) == Just []
+                  isCow (Animal (FarmAnimalType Cow) _) = True
+                  isCow _ = False
+                  currentPlayerHasCows = any isCow $ mconcat $ maybeToList (getAnimals universe <$> getCurrentPlayer universe)
       in prop
   ]
 

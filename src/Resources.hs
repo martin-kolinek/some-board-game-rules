@@ -105,7 +105,7 @@ isNonNegative (Resources wd st gld ir wh pot mon fd) =
 
 newtype AnimalId = AnimalId Int deriving (Show, Eq, Ord)
 
-data FarmAnimalType = Sheep deriving (Show, Eq, Ord)
+data FarmAnimalType = Sheep | Cow deriving (Show, Eq, Ord)
 
 data AnimalType = Dog | FarmAnimalType FarmAnimalType deriving (Show, Eq, Ord)
 

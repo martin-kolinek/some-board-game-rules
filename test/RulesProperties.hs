@@ -307,6 +307,10 @@ isAnimalOccupant :: AnimalType -> BuildingOccupant -> Bool
 isAnimalOccupant animalType (AnimalOccupant (Animal animalType2 _)) = animalType == animalType2
 isAnimalOccupant _ _ = False
 
+isOtherFarmAnimalOccupant :: FarmAnimalType -> BuildingOccupant -> Bool
+isOtherFarmAnimalOccupant animalType (AnimalOccupant (Animal (FarmAnimalType animalType2) _)) = animalType /= animalType2
+isOtherFarmAnimalOccupant _ _ = False
+
 playerCanPlaceOccupant :: Universe -> PlayerId -> BuildingOccupant -> Bool
 playerCanPlaceOccupant universe plId occupant =
   let space = getBuildingSpace universe plId
@@ -315,15 +319,23 @@ playerCanPlaceOccupant universe plId occupant =
 
 canBuildingSupportAdditionalOccupant :: BuildingOccupants -> BuildingOccupant -> Building -> Bool
 canBuildingSupportAdditionalOccupant _ (AnimalOccupant (Animal Dog _)) _ = True
-canBuildingSupportAdditionalOccupant occupants (AnimalOccupant (Animal (FarmAnimalType Sheep) _)) (Building buildingType position) =
-  let existingOccupants = findWithDefault [] position occupants
-      dogAmount = length $ filter (isAnimalOccupant Dog) existingOccupants
-      supportedSheep = case buildingType of
-        Grass -> dogAmount + 1
-        SmallPasture -> max (dogAmount + 1) 2
-        _ -> 0
-      currentSheep = length $ filter (isAnimalOccupant (FarmAnimalType Sheep)) existingOccupants
-  in currentSheep < supportedSheep
+canBuildingSupportAdditionalOccupant occupants (AnimalOccupant (Animal (FarmAnimalType animalType) _)) (Building buildingType position) =
+  otherFarmAnimalCount == 0 && canBuildingSupportAdditionalFarmAnimal animalType
+  where currentSameTypeAnimalCount = length $ filter (isAnimalOccupant (FarmAnimalType animalType)) existingOccupants
+        existingOccupants = findWithDefault [] position occupants
+        otherFarmAnimalCount = length $ filter (isOtherFarmAnimalOccupant animalType) existingOccupants
+        canBuildingSupportAdditionalFarmAnimal Sheep =
+          let dogAmount = length $ filter (isAnimalOccupant Dog) existingOccupants
+              supportedSheep = case buildingType of
+                Grass -> dogAmount + 1
+                SmallPasture -> max (dogAmount + 1) 2
+                _ -> 0
+          in currentSameTypeAnimalCount < supportedSheep
+        canBuildingSupportAdditionalFarmAnimal Cow =
+          let supportedCows = case buildingType of
+                SmallPasture -> 2
+                _ -> 0
+          in currentSameTypeAnimalCount < supportedCows
 canBuildingSupportAdditionalOccupant occupants (WorkerOccupant _) (Building buildingType position) =
   let supportedWorkers = case buildingType of
         LivingRoom -> 1

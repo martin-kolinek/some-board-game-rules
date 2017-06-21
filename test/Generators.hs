@@ -110,7 +110,7 @@ generateBuildingSpace properties requiredWorkers = do
   (_, cutPositions) <- foldM (expand isValidForest) (S.singleton (2, 3), S.empty) [1..cutForestCount]
   (_, dugPositions) <- foldM (expand isValidRock) (S.fromList [(4, 3), (3, 2)], S.empty) [1..dugRockCount]
   cutForestBuildings <- forM (S.toList cutPositions) $ \position ->
-    elements [Building Field position, Building Grass position]
+    elements [Building Field position, Building Grass position, Building SmallPasture position]
   dugRockShuffled <- shuffle $ S.toList dugPositions
   let mandatoryRooms = Building LivingRoom <$> take (requiredWorkers - 2) dugRockShuffled
   hasAdditionalRooms <- elements [True, False]
@@ -135,18 +135,25 @@ generateValidOccupants workerIds availableAnimalIds buildings = do
 
 generateValidAnimalsForBuilding :: BuildingType -> Position -> Gen [(AnimalId -> (Position, BuildingOccupant))]
 generateValidAnimalsForBuilding buildingType position = do
-  generateAnimalsNumber <- choose (0 :: Int, 10)
+  generateAnimalsNumber <- choose (0 :: Int, 1)
   if generateAnimalsNumber == 0 then do
     let allowedAnimals = case buildingType of
           SmallPasture -> 2
           _ -> 0
-    dogAmount <- choose(0, 6)
+    dogAmount <- oneof [return 0, choose(0, 2)]
     dogs <- vectorOf dogAmount (return (Animal Dog))
-    let dogSupportedSheep = if dogAmount == 0 then 0 else dogAmount + 1
-    possibleSheepAmount <- choose(0, max dogSupportedSheep allowedAnimals)
-    let sheepAmount = if buildingType `elem` [Grass, SmallPasture] then possibleSheepAmount else 0
-    sheep <- vectorOf sheepAmount (return (Animal (FarmAnimalType Sheep)))
-    return $ (((position,) . AnimalOccupant) .) <$> (dogs ++ sheep)
+    otherAnimalType <- elements [Nothing, Just Cow, Just Sheep]
+    otherAnimals <- case otherAnimalType of
+      Nothing -> return dogs
+      Just Sheep -> do
+        let dogSupportedSheep = if dogAmount == 0 then 0 else dogAmount + 1
+        possibleSheepAmount <- choose(0, max dogSupportedSheep allowedAnimals)
+        let sheepAmount = if buildingType `elem` [Grass, SmallPasture] then possibleSheepAmount else 0
+        vectorOf sheepAmount (return (Animal (FarmAnimalType Sheep)))
+      Just Cow -> do
+        cowAmount <- choose (0, allowedAnimals)
+        vectorOf cowAmount (return (Animal (FarmAnimalType Cow)))
+    return $ (((position,) . AnimalOccupant) .) <$> (otherAnimals ++ dogs)
   else
     return []
 
