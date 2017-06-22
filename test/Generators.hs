@@ -110,16 +110,16 @@ generateBuildingSpace properties requiredWorkers = do
   (_, cutPositions) <- foldM (expand isValidForest) (S.singleton (2, 3), S.empty) [1..cutForestCount]
   (_, dugPositions) <- foldM (expand isValidRock) (S.fromList [(4, 3), (3, 2)], S.empty) [1..dugRockCount]
   cutForestBuildings <- forM (S.toList cutPositions) $ \position ->
-    elements [Building Field position, Building Grass position, Building SmallPasture position]
+    elements [SmallBuilding Field position, SmallBuilding Grass position, SmallBuilding SmallPasture position]
   dugRockShuffled <- shuffle $ S.toList dugPositions
-  let mandatoryRooms = Building LivingRoom <$> take (requiredWorkers - 2) dugRockShuffled
+  let mandatoryRooms = SmallBuilding LivingRoom <$> take (requiredWorkers - 2) dugRockShuffled
   hasAdditionalRooms <- elements [True, False]
   dugRockBuildings <- forM (drop (requiredWorkers - 2) dugRockShuffled) $ \position ->
-    if hasAdditionalRooms then elements $ [Building Passage, Building Cave, Building LivingRoom] <*> pure position
-                          else elements $ [Building Passage, Building Cave] <*> pure position
-  let rocks = Building Rock <$> S.toList (S.fromList [(x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3)] S.\\ dugPositions)
-      initialRoom = [Building InitialRoom (3, 3)]
-      forestBuildings = Building Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
+    if hasAdditionalRooms then elements $ [SmallBuilding Passage, SmallBuilding Cave, SmallBuilding LivingRoom] <*> pure position
+                          else elements $ [SmallBuilding Passage, SmallBuilding Cave] <*> pure position
+  let rocks = SmallBuilding Rock <$> S.toList (S.fromList [(x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3)] S.\\ dugPositions)
+      initialRoom = [SmallBuilding InitialRoom (3, 3)]
+      forestBuildings = SmallBuilding Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
   return $ cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom ++ dugRockBuildings ++ mandatoryRooms
 
 generateValidOccupants :: [WorkerId] -> [AnimalId] -> [Building] -> Gen BuildingOccupants
@@ -128,17 +128,19 @@ generateValidOccupants workerIds availableAnimalIds buildings = do
   let buildingsWithSpace = filter ((>0) . buildingSupportedWorkers) buildings
       workersPerBuilding = splitPlaces (buildingSupportedWorkers <$> buildingsWithSpace) shuffledOccupants
       positionedWorkers = zip (head . buildingPositions <$> buildingsWithSpace) workersPerBuilding
-  animalOccupantGenerators <- forM buildings $ \(Building buildingType pos) ->
-    generateValidAnimalsForBuilding buildingType pos
+  animalOccupantGenerators <- forM buildings $ \building ->
+    generateValidAnimalsForBuilding building
   let animalOccupants = second return <$> zipWith ($) (mconcat animalOccupantGenerators) availableAnimalIds
   return $ fromListWith (<>) (positionedWorkers ++ animalOccupants)
 
-generateValidAnimalsForBuilding :: BuildingType -> Position -> Gen [(AnimalId -> (Position, BuildingOccupant))]
-generateValidAnimalsForBuilding buildingType position = do
+generateValidAnimalsForBuilding :: Building -> Gen [(AnimalId -> (Position, BuildingOccupant))]
+generateValidAnimalsForBuilding building = do
   generateAnimalsNumber <- choose (0 :: Int, 1)
+  position <- elements $ buildingPositions building
   if generateAnimalsNumber == 0 then do
-    let allowedAnimals = case buildingType of
-          SmallPasture -> 2
+    let allowedAnimals = case building of
+          (SmallBuilding SmallPasture _) -> 2
+          (LargeBuilding LargePasture _ _) -> 4
           _ -> 0
     dogAmount <- oneof [return 0, choose(0, 2)]
     dogs <- vectorOf dogAmount (return (Animal Dog))
@@ -148,7 +150,9 @@ generateValidAnimalsForBuilding buildingType position = do
       Just Sheep -> do
         let dogSupportedSheep = if dogAmount == 0 then 0 else dogAmount + 1
         possibleSheepAmount <- choose(0, max dogSupportedSheep allowedAnimals)
-        let sheepAmount = if buildingType `elem` [Grass, SmallPasture] then possibleSheepAmount else 0
+        let sheepAmount = case building of
+              (SmallBuilding buildingType _) -> if buildingType `elem` [Grass, SmallPasture] then possibleSheepAmount else 0
+              (LargeBuilding LargePasture _ _) -> possibleSheepAmount
         vectorOf sheepAmount (return (Animal (FarmAnimalType Sheep)))
       Just Cow -> do
         cowAmount <- choose (0, allowedAnimals)
@@ -208,7 +212,7 @@ generateEmptyResources = Resources
 
 generatePlantedCrops :: [Building] -> Gen (Map Position PlantedCrop)
 generatePlantedCrops buildings = do
-  let getValidPosition (Building Field pos) = Just pos
+  let getValidPosition (SmallBuilding Field pos) = Just pos
       getValidPosition _ = Nothing
       possiblePositions = mapMaybe getValidPosition buildings
   plantedCropList <- forM possiblePositions $ \position -> do
@@ -298,7 +302,9 @@ generateInteractionAction properties =
           collectResources <- genStep collectResourcesStepProbability (return CollectResourcesStep)
           addResources <- genStep addResourcesProbability (AddResourcesStep <$> generateResources)
           shuffle $ catMaybes $ [addDog, payResources, setStartPlayer, collectResources, addResources]
-        generateBuildingInteraction = fmap BuildBuildingsInteraction (elements ((return <$> [Forest ..]) ++ [[Grass, Field], [Cave, Cave], [Cave, Passage]]))
+        generateBuildingInteraction = fmap BuildBuildingsInteraction
+          (elements ((SingleSmallBuildingDesc <$> [Forest ..]) ++
+                     [(DoubleSmallBuildingDesc Grass Field), (DoubleSmallBuildingDesc Cave Cave), (DoubleSmallBuildingDesc Cave Passage)]))
 
 possibleStatuses :: GeneratorProperties -> WorkplaceId -> GeneratedPlayerStatus -> Gen PlayerStatus
 possibleStatuses properties workplaceId NotWaitingStatus = frequency $

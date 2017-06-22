@@ -19,10 +19,11 @@ import qualified Data.Map as M
 import Data.AdditiveGroup
 import Control.Lens
 import Data.List.Extra
+import Data.Either (isRight)
 
 type Position = (Int, Int)
 
-data BuildingType =
+data SmallBuildingType =
   Forest |
   Grass |
   Rock |
@@ -33,7 +34,16 @@ data BuildingType =
   InitialRoom |
   SmallPasture deriving (Show, Eq, Ord, Enum)
 
-data Building = Building BuildingType Position deriving (Show, Eq)
+data LargeBuildingType = LargePasture deriving (Show, Eq, Ord, Enum)
+
+data Building = SmallBuilding SmallBuildingType Position | LargeBuilding LargeBuildingType Position Direction deriving (Show, Eq)
+
+data BuildingDescription =
+  SingleSmallBuildingDesc SmallBuildingType |
+  DoubleSmallBuildingDesc SmallBuildingType SmallBuildingType |
+  LargeBuildingDesc LargeBuildingType
+  deriving (Show, Eq, Ord)
+
 
 data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight deriving (Show, Eq, Enum, Ord)
 
@@ -63,25 +73,27 @@ directionAddition DirectionLeft = (-1, 0)
 directionAddition DirectionRight = (1, 0)
 
 buildingPositions :: Building -> [Position]
-buildingPositions (Building _ pos) = [pos]
+buildingPositions (SmallBuilding _ pos) = [pos]
+buildingPositions (LargeBuilding _ pos dir) = [pos, pos ^+^ directionAddition dir]
 
 buildingSupportedWorkers :: Building -> Int
-buildingSupportedWorkers (Building InitialRoom _) = 2
-buildingSupportedWorkers (Building LivingRoom _) = 1
+buildingSupportedWorkers (SmallBuilding InitialRoom _) = 2
+buildingSupportedWorkers (SmallBuilding LivingRoom _) = 1
 buildingSupportedWorkers _ = 0
 
 buildingSupportedAnimals :: Building -> Int
-buildingSupportedAnimals (Building InitialRoom _) = 2
-buildingSupportedAnimals (Building SmallPasture _) = 2
+buildingSupportedAnimals (SmallBuilding InitialRoom _) = 2
+buildingSupportedAnimals (SmallBuilding SmallPasture _) = 2
+buildingSupportedAnimals (LargeBuilding LargePasture _ _) = 4
 buildingSupportedAnimals _ = 0
 
 makeLenses ''BuildingSpace
 
 initialBuildingSpace :: [BuildingOccupant] -> BuildingSpace
 initialBuildingSpace workers =
-  let forests = [Building Forest (x, y) | x <- [0..2], y <- [0..3]]
-      rocks = [Building Rock (x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)]
-      initialRoom = [Building InitialRoom (3, 3), Building Cave (3, 2)]
+  let forests = [SmallBuilding Forest (x, y) | x <- [0..2], y <- [0..3]]
+      rocks = [SmallBuilding Rock (x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)]
+      initialRoom = [SmallBuilding InitialRoom (3, 3), SmallBuilding Cave (3, 2)]
       buildings = (forests ++ rocks ++ initialRoom)
   in BuildingSpace buildings (initialOccupants workers buildings) M.empty
 
@@ -94,9 +106,6 @@ availableBuildingPositions = getBuildings (initialBuildingSpace []) >>= building
 getBuilding :: [Building] -> Position -> Maybe Building
 getBuilding buildings position = listToMaybe [b | b <- buildings, position `elem` buildingPositions b]
 
-getBuildingType :: Building -> BuildingType
-getBuildingType (Building tp _) = tp
-
 build :: [Building] -> Building -> [Building]
 build buildings building =
   let positions = buildingPositions building
@@ -108,59 +117,70 @@ build buildings building =
   in assert (notOverlapping && originalPositionsOccupied) $ newBuildings
 
 isDevelopedOutside :: Building -> Bool
-isDevelopedOutside building = getBuildingType building `elem` [Field, Grass, InitialRoom, SmallPasture]
+isDevelopedOutside (LargeBuilding LargePasture _ _) = True
+isDevelopedOutside (SmallBuilding buildingType _) = buildingType `elem` [Field, Grass, InitialRoom, SmallPasture]
 
 isDevelopedInside :: Building -> Bool
-isDevelopedInside building = getBuildingType building `elem` [Cave, Passage, InitialRoom, LivingRoom]
+isDevelopedInside (SmallBuilding buildingType _) = buildingType `elem` [Cave, Passage, InitialRoom, LivingRoom]
+isDevelopedInside (LargeBuilding _ _ _) = False
 
-isDevelopedFor :: BuildingType -> Building -> Bool
-isDevelopedFor Cave = isDevelopedInside
-isDevelopedFor Passage = isDevelopedInside
-isDevelopedFor LivingRoom = const True
-isDevelopedFor Field = isDevelopedOutside
-isDevelopedFor Grass = isDevelopedOutside
-isDevelopedFor Forest = const False
-isDevelopedFor Rock = const False
-isDevelopedFor InitialRoom = const False
-isDevelopedFor SmallPasture = const True
+isDevelopedFor :: Building -> Building -> Bool
+isDevelopedFor (SmallBuilding Cave _) = isDevelopedInside
+isDevelopedFor (SmallBuilding Passage _) = isDevelopedInside
+isDevelopedFor (SmallBuilding LivingRoom _) = const True
+isDevelopedFor (SmallBuilding Field _) = isDevelopedOutside
+isDevelopedFor (SmallBuilding Grass _) = isDevelopedOutside
+isDevelopedFor (SmallBuilding Forest _) = const False
+isDevelopedFor (SmallBuilding Rock _) = const False
+isDevelopedFor (SmallBuilding InitialRoom _) = const False
+isDevelopedFor (SmallBuilding SmallPasture _) = const True
+isDevelopedFor (LargeBuilding LargePasture _ _) = isDevelopedOutside
 
-getUnderlyingBuilding :: BuildingType -> BuildingType
-getUnderlyingBuilding Cave = Rock
-getUnderlyingBuilding Passage = Rock
-getUnderlyingBuilding LivingRoom = Cave
-getUnderlyingBuilding Field = Forest
-getUnderlyingBuilding Grass = Forest
-getUnderlyingBuilding Forest = Forest
-getUnderlyingBuilding Rock = Rock
-getUnderlyingBuilding InitialRoom = InitialRoom
-getUnderlyingBuilding SmallPasture = Grass
+isUnderlyingBuilding :: Building -> Building -> Bool
+isUnderlyingBuilding (SmallBuilding Cave _) (SmallBuilding Rock _) = True
+isUnderlyingBuilding (SmallBuilding Passage _) (SmallBuilding Rock _) = True
+isUnderlyingBuilding (SmallBuilding LivingRoom _) (SmallBuilding Cave _) = True
+isUnderlyingBuilding (SmallBuilding Field _) (SmallBuilding Forest _) = True
+isUnderlyingBuilding (SmallBuilding Grass _) (SmallBuilding Forest _) = True
+isUnderlyingBuilding (SmallBuilding Forest _) (SmallBuilding Forest _) = True
+isUnderlyingBuilding (SmallBuilding Rock _) (SmallBuilding Rock _) = True
+isUnderlyingBuilding (SmallBuilding InitialRoom _) (SmallBuilding InitialRoom _) = True
+isUnderlyingBuilding (SmallBuilding SmallPasture _) (SmallBuilding Grass _) = True
+isUnderlyingBuilding (LargeBuilding LargePasture _ _) (SmallBuilding Grass _) = True
+isUnderlyingBuilding _ _ = False
 
-type DevelopmentCheck = Building -> Bool
-type UnderlyingBuilding = BuildingType
+canBuildNewBuildings :: BuildingDescription -> BuildingSpace -> Bool
+canBuildNewBuildings buildingDescription buildingSpace = any canBuild possibilities
+  where canBuild (pos, dir) = isRight $ buildNewBuildings pos dir buildingDescription buildingSpace
+        possibilities = [((x, y), dir) | x <- [0..5], y <- [0..3], dir <- allDirections]
 
 buildNewBuildings ::
   MonadError String f =>
   Position
   -> Direction
-  -> [BuildingType]
+  -> BuildingDescription
   -> BuildingSpace
   -> f BuildingSpace
-buildNewBuildings position direction buildingTypes =
+buildNewBuildings position direction buildingDescription =
   traverseOf buildingSpaceBuildings (buildNewBuildingsInBuildingCollection newBuildings)
-  where newBuildings = zip [position, position ^+^ directionAddition direction] buildingTypes
+  where newBuildings = case buildingDescription of
+          (SingleSmallBuildingDesc buildingType) -> [SmallBuilding buildingType position]
+          (DoubleSmallBuildingDesc buildingType1 buildingType2) -> [SmallBuilding buildingType1 position, SmallBuilding buildingType2 (position ^+^ directionAddition direction)]
+          (LargeBuildingDesc buildingType) -> [LargeBuilding buildingType position direction]
 
-buildNewBuildingsInBuildingCollection :: MonadError String m => [(Position, BuildingType)] -> [Building] -> m [Building]
+buildNewBuildingsInBuildingCollection :: MonadError String m => [Building] -> [Building] -> m [Building]
 buildNewBuildingsInBuildingCollection newBuildings originalBuildings = do
   let neighbourBuildings pos = catMaybes $ getBuilding originalBuildings <$> [pos ^+^ directionAddition dir | dir <- allDirections]
       developmentCheck :: Building -> Bool
-      developmentCheck = any id . sequence (isDevelopedFor <$> snd <$> newBuildings)
+      developmentCheck = any id . sequence (isDevelopedFor <$> newBuildings)
       hasDevelopedNeighbours pos = any developmentCheck (neighbourBuildings pos)
-  check "Cannot reach yet" (any (hasDevelopedNeighbours . fst) newBuildings)
-  buildings <- forM newBuildings $ \(newPosition, buildingType) -> do
-    building <- checkMaybe "Invalid position" (getBuilding originalBuildings newPosition)
-    let underlyingBuilding = getUnderlyingBuilding buildingType
-    check "Position not suitable" (getBuildingType building == underlyingBuilding)
-    return $ Building buildingType newPosition
+  check "Cannot reach yet" (any hasDevelopedNeighbours (newBuildings >>= buildingPositions))
+  buildings <- forM newBuildings $ \newBuilding -> do
+    let positions = buildingPositions newBuilding
+        underlyingBuildingMaybes = getBuilding originalBuildings <$> positions
+    underlyingBuildings <- checkMaybe "Invalid position" (sequence underlyingBuildingMaybes)
+    check "Position not suitable" $ all (isUnderlyingBuilding newBuilding) underlyingBuildings
+    return newBuilding
   return $ foldl' build originalBuildings buildings
 
 
@@ -176,7 +196,7 @@ areBuildingOccupantsValid :: MonadWriter [OccupantError] m => Building -> [Build
 areBuildingOccupantsValid building occupants = do
   checkWriter (length workerOccupants <= buildingSupportedWorkers building) ("Too many people here", head $ buildingPositions building)
   checkWriter (length animalOccupantGroups <= 1) ("Too many types of animals here", head $ buildingPositions building)
-  let (Building buildingType pos) = building
+  let (SmallBuilding buildingType pos) = building
   forM_ animalOccupantGroups $ \(animalType, groupAnimals) -> case animalType of
     Sheep -> do
       let sheepAmount = length groupAnimals
@@ -222,7 +242,7 @@ plantCropsInBuildingSpace crops buildingSpace = foldM (flip $ uncurry plantCropI
 
 plantCropInBuildingSpace :: MonadError [Char] m => CropType -> Position -> BuildingSpace -> m BuildingSpace
 plantCropInBuildingSpace cropType position buildingSpace = do
-  check "Must plant on field" (Building Field position `elem` buildingSpace ^. buildingSpaceBuildings)
+  check "Must plant on field" (SmallBuilding Field position `elem` buildingSpace ^. buildingSpaceBuildings)
   check "Cannot plant over other crops" (M.notMember position $ buildingSpace ^. buildingSpaceCrops)
   let plantCropType Wheat = PlantedCrop Wheat 3
       plantCropType Potatoes = PlantedCrop Potatoes 2
@@ -232,6 +252,6 @@ cropResource :: CropType -> Lens' Resources Int
 cropResource Potatoes = potatoAmount
 cropResource Wheat = wheatAmount
 
-buildingCost :: BuildingType -> Resources
+buildingCost :: SmallBuildingType -> Resources
 buildingCost LivingRoom = wood 4 ^+^ stone 3
 buildingCost _ = zeroV

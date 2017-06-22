@@ -33,9 +33,8 @@ getPlayerPossibleOccupants playerData =
 playerCanHireWorker :: PlayerData -> Bool
 playerCanHireWorker playerData = canSupportAdditionalWorker (getPlayerPossibleOccupants playerData) (playerData ^. buildingSpace)
 
-playerCanBuildBuilding :: PlayerData -> BuildingType -> Bool
-playerCanBuildBuilding playerData buildingType = hasUnderlyingBuilding
-  where hasUnderlyingBuilding = has (buildingSpace . buildingSpaceBuildings . traverse . to getBuildingType . filtered (== getUnderlyingBuilding buildingType)) playerData
+playerCanBuildBuilding :: PlayerData -> BuildingDescription -> Bool
+playerCanBuildBuilding playerData buildingDescription = canBuildNewBuildings buildingDescription $ playerData ^. buildingSpace
 
 buildingAction :: CompositeActionDefinition
-buildingAction = InteractionAction (BuildBuildingsInteraction [LivingRoom]) [PayResources (wood 4 ^+^ stone 3)]
+buildingAction = InteractionAction (BuildBuildingsInteraction (SingleSmallBuildingDesc LivingRoom)) [PayResources (wood 4 ^+^ stone 3)]

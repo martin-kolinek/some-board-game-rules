@@ -12,6 +12,7 @@ import Data.List ((\\))
 import Data.Map (keys, lookup)
 import Data.Maybe (listToMaybe)
 import Data.Function ((&))
+import Data.AdditiveGroup
 
 farmingTests :: TestTree
 farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming properties" $ [
@@ -26,7 +27,8 @@ farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming propert
       assert $ all verifyCrop cropsToPlant,
     testProperty "Planting crops not on fields is not possible" $ farmingProperty $ do
       playerId <- findFarmingPlayer
-      let nonFieldPositions (Building buildingType pos) = if buildingType == Field then [] else [pos]
+      let nonFieldPositions (SmallBuilding buildingType pos) = if buildingType == Field then [] else [pos]
+          nonFieldPositions (LargeBuilding _ pos dir) = [pos, directionAddition dir ^+^ pos]
       buildingSpace <- getsUniverse getBuildingSpace <*> pure playerId
       validPositions <- pickPlantingPositions playerId
       invalidPositions <- pick $ shuffle $ nonFieldPositions =<< buildingSpace
@@ -86,7 +88,7 @@ pickPlantingPositions :: PlayerId -> UniversePropertyMonad [Position]
 pickPlantingPositions plId = do
   buildingSpace <- getsUniverse getBuildingSpace <*> pure plId
   existingCrops <- getsUniverse getPlantedCrops <*> pure plId
-  let fieldPosition (Building Field pos) = [pos]
+  let fieldPosition (SmallBuilding Field pos) = [pos]
       fieldPosition _ = []
       allFieldPositions = buildingSpace >>= fieldPosition
       freeFieldPositions = allFieldPositions \\ keys existingCrops

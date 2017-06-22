@@ -69,7 +69,7 @@ workerNeedTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Worker need 
       checkRoomPrecondition
       (pos, _) <- selectCorrectPosition availableSingleCavePositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
-      assert $ Building LivingRoom pos `elem` buildings,
+      assert $ SmallBuilding LivingRoom pos `elem` buildings,
     testProperty "Building room subtracts resources" $ movingWorkerProperty $ do
       (playerId, _, _) <- checkedStartWorkingInWorkerNeed
       checkPlayerHasValidOccupants playerId

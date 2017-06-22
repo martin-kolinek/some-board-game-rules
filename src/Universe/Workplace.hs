@@ -44,18 +44,18 @@ addWorkplaceResources workplaceData = workplaceData & workplaceStoredResources .
 workplaceAction :: WorkplaceType -> ActionDefinition
 workplaceAction CutForest = CompositeAction $
   ActionCombination AndOr
-    (InteractionAction (BuildBuildingsInteraction [Grass, Field]) [])
+    (InteractionAction (BuildBuildingsInteraction (DoubleSmallBuildingDesc Grass Field)) [])
     (InteractionAction CollectResourcesInteraction [])
 workplaceAction DigPassage = CompositeAction $
   ActionCombination AndOr
-    (InteractionAction (BuildBuildingsInteraction [Cave, Passage]) [])
+    (InteractionAction (BuildBuildingsInteraction (DoubleSmallBuildingDesc Cave Passage)) [])
     (InteractionAction CollectResourcesInteraction [])
 workplaceAction DigCave = CompositeAction $
   ActionCombination AndOr
     (InteractionAction CollectResourcesInteraction [])
     (ActionCombination Or
-      (InteractionAction (BuildBuildingsInteraction [Cave, Cave]) [])
-      (InteractionAction (BuildBuildingsInteraction [Cave, Passage]) []))
+      (InteractionAction (BuildBuildingsInteraction (DoubleSmallBuildingDesc Cave Cave)) [])
+      (InteractionAction (BuildBuildingsInteraction (DoubleSmallBuildingDesc Cave Passage)) []))
 workplaceAction WorkerNeed =
   CompositeAction $
     ActionCombination Or
@@ -66,7 +66,7 @@ workplaceAction GatherWood = StepsAction [CollectResourcesStep]
 workplaceAction GatherFood = CompositeAction $
   ActionCombination AndOr
     (InteractionAction CollectResourcesInteraction [AddResourcesStep (wheat 1)])
-    (InteractionAction (BuildBuildingsInteraction [Grass, Field]) [])
+    (InteractionAction (BuildBuildingsInteraction (DoubleSmallBuildingDesc Grass Field)) [])
 workplaceAction MakeStartPlayer =
   StepsAction [
     CollectResourcesStep,
@@ -79,7 +79,7 @@ workplaceAction HouseWork = CompositeAction $
 workplaceAction Farming =
   CompositeAction $
     ActionCombination AndThenOr
-      (InteractionAction (BuildBuildingsInteraction [Grass, Field]) [])
+      (InteractionAction (BuildBuildingsInteraction (DoubleSmallBuildingDesc Grass Field)) [])
       (InteractionAction PlantCropsInteraction [])
 workplaceAction WeaponMaking =
   CompositeAction $

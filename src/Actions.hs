@@ -8,7 +8,7 @@ import Control.Lens.TH
 import Control.Lens
 
 data ActionInteraction =
-  BuildBuildingsInteraction [BuildingType] |
+  BuildBuildingsInteraction BuildingDescription |
   PlantCropsInteraction |
   HireWorkerInteraction |
   CollectResourcesInteraction |

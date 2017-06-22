@@ -41,7 +41,7 @@ getStartingPlayer universe = universe ^. startingPlayer
 getAnimals :: Universe -> PlayerId -> [Animal]
 getAnimals universe plId = toListOf (players . ix plId . playerAnimals . traverse) universe
 
-currentlyBuiltBuildings :: Universe -> PlayerId -> [[BuildingType]]
+currentlyBuiltBuildings :: Universe -> PlayerId -> [BuildingDescription]
 currentlyBuiltBuildings universe plId = universe ^.. players . ix plId . playerStatus . statusAction . possibleInteractionsTraversal . to builtBuildings . traverse
   where builtBuildings (BuildBuildingsInteraction buildings) = [buildings]
         builtBuildings _ = []

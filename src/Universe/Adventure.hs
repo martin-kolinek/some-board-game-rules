@@ -17,6 +17,6 @@ applyReward SheepReward universe playerData = addAnimal (FarmAnimalType Sheep) u
 applyReward _ _ playerData = playerData
 
 rewardInteraction :: AdventureReward -> Maybe CompositeActionDefinition
-rewardInteraction GrassReward = Just $ InteractionAction (BuildBuildingsInteraction [Grass]) []
-rewardInteraction SmallPastureReward = Just $ InteractionAction (BuildBuildingsInteraction [SmallPasture]) [PayResources (wood 1)]
+rewardInteraction GrassReward = Just $ InteractionAction (BuildBuildingsInteraction (SingleSmallBuildingDesc Grass)) []
+rewardInteraction SmallPastureReward = Just $ InteractionAction (BuildBuildingsInteraction (SingleSmallBuildingDesc SmallPasture)) [PayResources (wood 1)]
 rewardInteraction _ = Nothing

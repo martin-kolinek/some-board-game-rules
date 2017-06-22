@@ -14,7 +14,7 @@ farmingWorkplaceTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Farmin
     testProperty "Starting working starts cutting forest" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInFarming
       builtBuildings <- getsUniverse currentlyBuiltBuildings <*> pure playerId
-      assert $ builtBuildings == [[Grass, Field]],
+      assert $ builtBuildings == [DoubleSmallBuildingDesc Grass Field],
     testProperty "Planting crops is available" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInFarming
       plCrops <- getsUniverse isPlantingCrops <*> pure playerId

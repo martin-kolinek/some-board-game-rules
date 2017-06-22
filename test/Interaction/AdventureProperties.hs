@@ -31,7 +31,7 @@ adventureTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Adventure tes
     pre $ forestPositions /= []
     applyToUniverse $ adventure plId GrassReward
     builtBuildings <- getsUniverse currentlyBuiltBuildings <*> pure plId
-    assert $ builtBuildings == [[Grass]],
+    assert $ builtBuildings == [SingleSmallBuildingDesc Grass],
   testProperty "Cannot choose small pasture reward when there is no space" $ adventureProperty $ do
     plId <- findAdventuringPlayer
     grassPositions <- getsUniverse availableSingleGrassPositions <*> pure plId
@@ -46,14 +46,14 @@ adventureTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Adventure tes
     pre $ getWoodAmount resources >= 2
     applyToUniverse $ adventure plId SmallPastureReward
     builtBuildings <- getsUniverse currentlyBuiltBuildings <*> pure plId
-    assert $ builtBuildings == [[SmallPasture]],
+    assert $ builtBuildings == [SingleSmallBuildingDesc SmallPasture],
   testProperty "Building works after adventuring" $ adventureProperty $ do
     plId <- findAdventuringPlayer
     (pos, dir) <- pickSpecificPosition availableSingleForestPositions plId
     applyToUniverse $ adventure plId GrassReward
-    applyToUniverse $ buildBuildings plId pos dir [Grass]
+    applyToUniverse $ buildBuildings plId pos dir (SingleSmallBuildingDesc Grass)
     buildings <- getsUniverse getBuildingSpace <*> pure plId
-    assert $ (Building Grass pos) `elem` buildings,
+    assert $ (SmallBuilding Grass pos) `elem` buildings,
   testProperty "Choosing sheep reward adds sheep" $ adventureProperty $ do
     plId <- findAdventuringPlayer
     animals <- getsUniverse getAnimals <*> pure plId

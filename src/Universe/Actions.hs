@@ -20,9 +20,9 @@ import Worker
 import Building
 
 interactionPrecondition :: WorkerId -> WorkplaceId -> PlayerId -> Universe -> ActionInteraction -> Bool
-interactionPrecondition _ _ plId universe (BuildBuildingsInteraction buildings) =
+interactionPrecondition _ _ plId universe (BuildBuildingsInteraction buildingDescription) =
   has (players . ix plId . filtered (playerCanBuildBuildings)) universe
-  where playerCanBuildBuildings playerData = all (playerCanBuildBuilding playerData) buildings
+  where playerCanBuildBuildings playerData = playerCanBuildBuilding playerData buildingDescription
 interactionPrecondition _ _ plId universe HireWorkerInteraction = has (players . ix plId . filtered playerCanHireWorker) universe
 interactionPrecondition workerId _ plId universe ArmWorkerInteraction =
   (has (players . ix plId . playerResources . ironAmount . filtered (> 0)) universe) &&

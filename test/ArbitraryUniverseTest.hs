@@ -88,17 +88,17 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
       in prop,
     testProperty "Caves exist" $
       let prop (ArbitraryUniverse universe) =
-            has (players . traverse . buildingSpace . to getBuildings . traverse . to getBuildingType . filtered (== Cave)) universe ==> True
+            has (players . traverse . buildingSpace . to getBuildings . traverse . to getBuildingType . filtered (== Just Cave)) universe ==> True
       in prop,
     testProperty "Passages exist" $
       let prop (ArbitraryUniverse universe) =
             has (players . traverse . buildingSpace . to getBuildings . traverse . filtered isPassage) universe ==> True
-            where isPassage = (== Passage) . getBuildingType
+            where isPassage = (== Just Passage) . getBuildingType
       in prop,
     testProperty "Living rooms exist" $
       let prop (ArbitraryUniverse universe) =
             has (players . traverse . buildingSpace . to getBuildings . traverse . filtered isLivingRoom) universe ==> True
-            where isLivingRoom = (== LivingRoom) . getBuildingType
+            where isLivingRoom = (== Just LivingRoom) . getBuildingType
       in prop,
     testProperty "Current player can be the last player" $
       let prop (ArbitraryUniverse universe) =
@@ -179,3 +179,7 @@ allPlayersWaiting = allOf (players . traverse . playerStatus) (==Waiting)
 isPerformingAction :: PlayerStatus -> Bool
 isPerformingAction (PerformingAction _ _) = True
 isPerformingAction _ = False
+
+getBuildingType :: Building -> Maybe SmallBuildingType
+getBuildingType (SmallBuilding bType _) = Just bType
+getBuildingType _ = Nothing

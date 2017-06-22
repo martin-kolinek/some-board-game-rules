@@ -15,7 +15,7 @@ cutForestTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest te
     testProperty "Starting working start position selection" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInCutForest
       buildings <- getsUniverse currentlyBuiltBuildings <*> pure playerId
-      assert $ buildings == [[Grass, Field]],
+      assert $ buildings == [DoubleSmallBuildingDesc Grass Field],
     testProperty "Starting working and selecting invalid position fails" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInCutForest
       _ <- selectWrongPosition availableForestPositions playerId
@@ -25,8 +25,8 @@ cutForestTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Cut forest te
       checkPlayerHasValidOccupants playerId
       (pos, dir) <- selectCorrectPosition availableForestPositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
-      assert $ Building Grass pos `elem` buildings
-      assert $ Building Field (pos ^+^ directionAddition dir) `elem` buildings,
+      assert $ SmallBuilding Grass pos `elem` buildings
+      assert $ SmallBuilding Field (pos ^+^ directionAddition dir) `elem` buildings,
     testProperty "Starting working collecting resources and canceling starts next player turn" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInCutForest
       checkPlayerHasValidOccupants playerId

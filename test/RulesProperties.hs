@@ -116,7 +116,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                   occupantsToMove playerId = filter isWorker $ join $ elems $ originalOccupants playerId
                   isWorker (WorkerOccupant _) = True
                   isWorker _ = False
-                  isPositionInvalid playerId pos = intersect [Building InitialRoom pos, Building LivingRoom pos] (getBuildingSpace universe playerId) == []
+                  isPositionInvalid playerId pos = intersect [SmallBuilding InitialRoom pos, SmallBuilding LivingRoom pos] (getBuildingSpace universe playerId) == []
                   destinationPositions playerId = filter (isPositionInvalid playerId) availableBuildingPositions
       in prop,
     testProperty "Having a worker without a room causes error" $
@@ -288,8 +288,10 @@ allPlayersWaiting universe = getCurrentPlayer universe == Nothing
 
 positionOccupants :: [Building] -> BuildingOccupants -> BuildingOccupant -> BuildingOccupants
 positionOccupants buildings oldOccupants newOccupant =
-  let (Building _ pos) = head $ filter (canBuildingSupportAdditionalOccupant oldOccupants newOccupant) buildings
-  in alter (\old -> Just $ newOccupant : fromMaybe [] old) pos oldOccupants
+  let position = case head $ filter (canBuildingSupportAdditionalOccupant oldOccupants newOccupant) buildings of
+        (SmallBuilding _ pos) -> pos
+        (LargeBuilding _ pos _) -> pos
+  in alter (\old -> Just $ newOccupant : fromMaybe [] old) position oldOccupants
 
 findFittingPlayer :: (Universe -> PlayerId -> Bool) -> UniversePropertyMonad PlayerId
 findFittingPlayer condition = do
@@ -319,27 +321,31 @@ playerCanPlaceOccupant universe plId occupant =
 
 canBuildingSupportAdditionalOccupant :: BuildingOccupants -> BuildingOccupant -> Building -> Bool
 canBuildingSupportAdditionalOccupant _ (AnimalOccupant (Animal Dog _)) _ = True
-canBuildingSupportAdditionalOccupant occupants (AnimalOccupant (Animal (FarmAnimalType animalType) _)) (Building buildingType position) =
+canBuildingSupportAdditionalOccupant occupants (AnimalOccupant (Animal (FarmAnimalType animalType) _)) building =
   otherFarmAnimalCount == 0 && canBuildingSupportAdditionalFarmAnimal animalType
   where currentSameTypeAnimalCount = length $ filter (isAnimalOccupant (FarmAnimalType animalType)) existingOccupants
-        existingOccupants = findWithDefault [] position occupants
+        positions = buildingPositions building
+        existingOccupants = [x | pos <- positions, x <- findWithDefault [] pos occupants]
         otherFarmAnimalCount = length $ filter (isOtherFarmAnimalOccupant animalType) existingOccupants
         canBuildingSupportAdditionalFarmAnimal Sheep =
           let dogAmount = length $ filter (isAnimalOccupant Dog) existingOccupants
-              supportedSheep = case buildingType of
-                Grass -> dogAmount + 1
-                SmallPasture -> max (dogAmount + 1) 2
+              supportedSheep = case building of
+                (SmallBuilding Grass _) -> dogAmount + 1
+                (SmallBuilding SmallPasture _) -> max (dogAmount + 1) 2
+                (LargeBuilding LargePasture _ _) -> max (dogAmount + 1) 4
                 _ -> 0
           in currentSameTypeAnimalCount < supportedSheep
         canBuildingSupportAdditionalFarmAnimal Cow =
-          let supportedCows = case buildingType of
-                SmallPasture -> 2
+          let supportedCows = case building of
+                (SmallBuilding SmallPasture _) -> 2
+                (LargeBuilding LargePasture _ _) -> 4
                 _ -> 0
           in currentSameTypeAnimalCount < supportedCows
-canBuildingSupportAdditionalOccupant occupants (WorkerOccupant _) (Building buildingType position) =
+canBuildingSupportAdditionalOccupant occupants (WorkerOccupant _) (SmallBuilding buildingType position) =
   let supportedWorkers = case buildingType of
         LivingRoom -> 1
         InitialRoom -> 2
         _ -> 0
       existingWorkers = length $ filter isWorkerOccupant $ findWithDefault [] position occupants
   in existingWorkers < supportedWorkers
+canBuildingSupportAdditionalOccupant _ (WorkerOccupant _) _ = False

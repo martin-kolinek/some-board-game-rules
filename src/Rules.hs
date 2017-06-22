@@ -19,8 +19,10 @@ module Rules (
   AnimalType (..),
   FarmAnimalType (..),
   -- ** Buildings
-  Building(Building),
-  BuildingType(..),
+  Building(..),
+  SmallBuildingType(..),
+  LargeBuildingType(..),
+  BuildingDescription(..),
   BuildingOccupant(..),
   BuildingOccupants,
   Direction(..),
@@ -98,6 +100,7 @@ module Rules (
   directionAddition,
   allDirections,
   availableBuildingPositions,
+  buildingPositions
   ) where
 
 import Worker

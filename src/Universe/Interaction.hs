@@ -26,7 +26,7 @@ import Worker
 import Workplace
 import Resources
 
-buildBuildings :: MonadError String m => PlayerId -> Position -> Direction -> [BuildingType] -> Universe -> m Universe
+buildBuildings :: MonadError String m => PlayerId -> Position -> Direction -> BuildingDescription -> Universe -> m Universe
 buildBuildings plId pos dir buildings = performInteraction plId (BuildBuildingsInteraction buildings) $
   const $ const $ mapMOf (players . ix plId . buildingSpace) (buildNewBuildings pos dir buildings)
 
@@ -39,7 +39,7 @@ startWorking plId workerId workplaceId universe = do
   currentWorkplaceType <- checkMaybe "Invalid workplace" (universe ^? availableWorkplaces . ix workplaceId . workplaceType)
   check "Workplace already occupied" (workplaceId `elem` freeWorkplaces universe)
   playerData <- checkMaybe "Invalid player" (universe ^? players . ix plId)
-  workerData <- checkMaybe "Invalid worker" (playerData ^? workers . ix workerId)
+  workerData <- checkMaybe "Invalid wrker" (playerData ^? workers . ix workerId)
   check "Worker already working" $ hasn't (currentWorkplace . traverse) workerData
   check "Not moving worker" (has (players . ix plId . playerStatus . filtered (== MovingWorker)) universe)
   checkOccupants universe plId

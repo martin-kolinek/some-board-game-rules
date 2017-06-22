@@ -16,7 +16,7 @@ digPassageTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Dig passage 
     testProperty "Starting working start position selection" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInDigPassage
       buildings <- getsUniverse currentlyBuiltBuildings <*> pure playerId
-      assert $ buildings == [[Cave, Passage]],
+      assert $ buildings == [DoubleSmallBuildingDesc Cave Passage],
     testProperty "Starting working and selecting invalid position fails" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInDigPassage
       _ <- selectWrongPosition availableRockPositions playerId
@@ -26,8 +26,8 @@ digPassageTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Dig passage 
       checkPlayerHasValidOccupants playerId
       (pos, dir) <- selectCorrectPosition availableRockPositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
-      assert $ Building Cave pos `elem` buildings
-      assert $ Building Passage (pos ^+^ directionAddition dir) `elem` buildings,
+      assert $ SmallBuilding Cave pos `elem` buildings
+      assert $ SmallBuilding Passage (pos ^+^ directionAddition dir) `elem` buildings,
     testProperty "Starting working collecting resources and canceling starts next player turn" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInDigPassage
       checkPlayerHasValidOccupants playerId

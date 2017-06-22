@@ -45,7 +45,7 @@ weaponMakingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Weapon mak
       checkPlayerHasValidOccupants plId
       (pos, dir) <- pickSpecificPosition availableSingleForestPositions plId
       applyToUniverse $ adventure plId GrassReward
-      applyToUniverse $ buildBuildings plId pos dir [Grass]
+      applyToUniverse $ buildBuildings plId pos dir $ SingleSmallBuildingDesc Grass
       validateNextPlayer plId
   ]
 

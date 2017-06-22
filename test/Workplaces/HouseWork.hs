@@ -16,7 +16,7 @@ houseWorkTests = localOption (QuickCheckMaxRatio 500) $ testGroup "House work te
     testProperty "After working, player is building living room and can cancel" $ movingWorkerProperty $ do
       (playerId, _, _) <- startWorkingInHouseWork
       buildings <- getsUniverse currentlyBuiltBuildings <*> pure playerId
-      assert $ buildings == [[LivingRoom]],
+      assert $ buildings == [SingleSmallBuildingDesc LivingRoom],
     testProperty "After working and collecting resources, a dog is added" $ movingWorkerProperty $ do
       originalUniverse <- getUniverse
       (playerId, _, _) <- startWorkingInHouseWork
@@ -64,7 +64,7 @@ houseWorkTests = localOption (QuickCheckMaxRatio 500) $ testGroup "House work te
       pre =<< getsUniverse currentPlayerCanBuildRoom
       (pos, _) <- selectCorrectPosition availableSingleCavePositions playerId
       buildings <- getsUniverse getBuildingSpace <*> pure playerId
-      assert $ Building LivingRoom pos `elem` buildings
+      assert $ SmallBuilding LivingRoom pos `elem` buildings
   ]
 
 startWorkingInHouseWork :: UniversePropertyMonad (PlayerId, WorkerId, WorkplaceId)
