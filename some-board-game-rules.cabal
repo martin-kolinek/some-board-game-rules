@@ -59,3 +59,27 @@ test-suite tests
                       split,
                       extra
   ghc-options:        -Wall -Werror
+
+executable sample
+  main-is:            Sample.hs
+  other-modules:      Rules, Universe, Building, Util, Worker, Workplace, Player, Resources, Decisions, Actions,
+                      Generators, ArbitraryUniverseTest, TestFramework, RulesProperties, TestHelpers,
+                      Universe.Actions, Universe.Building, Universe.Player, Universe.Worker, Universe.Workplace, Universe.Interaction, Universe.Adventure
+  hs-source-dirs:     test src
+  default-language:   Haskell2010
+  build-depends:      base,
+                      tasty,
+                      tasty-hunit,
+                      lens,
+                      containers,
+                      mtl,
+                      transformers,
+                      data-default,
+                      vector-space,
+                      QuickCheck,
+                      tasty-quickcheck,
+                      pretty-show,
+                      split,
+                      extra
+  ghc-options:        -Wall -Werror
+          
