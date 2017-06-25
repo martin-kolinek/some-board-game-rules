@@ -101,26 +101,52 @@ generateBuildingSpace properties requiredWorkers = do
   dugRockCount <- frequency [(1, return 11), (notFullyDevelopedProbability properties, choose (requiredWorkers - 2, 11) :: Gen Int)]
   let isValidForest (x, y) = x >=0 && x <=2 && y >= 0 && y <= 3
       isValidRock (x, y) = x >= 3 && x <= 5 && y >= 0 && y <= 3 && (x, y) /= (3, 3)
-      findNextCandidates isValid (sx, sy) = S.filter isValid $ S.fromList [(sx+1, sy), (sx-1, sy), (sx, sy+1), (sx, sy-1)]
-      expand isValid (candidates, current) _ = do
-        chosen <- elements $ S.toList candidates
-        let nextCurrent = S.insert chosen current
-        let nextCandidates = (candidates `S.union` findNextCandidates isValid chosen) `S.difference` nextCurrent
-        return (nextCandidates, nextCurrent)
-  (_, cutPositions) <- foldM (expand isValidForest) (S.singleton (2, 3), S.empty) [1..cutForestCount]
-  (_, dugPositions) <- foldM (expand isValidRock) (S.fromList [(4, 3), (3, 2)], S.empty) [1..dugRockCount]
-  cutForestBuildings <- forM (S.toList cutPositions) $ \position ->
-    elements [SmallBuilding Field position, SmallBuilding Grass position, SmallBuilding SmallPasture position]
-  dugRockShuffled <- shuffle $ S.toList dugPositions
-  let mandatoryRooms = SmallBuilding LivingRoom <$> take (requiredWorkers - 2) dugRockShuffled
+      findNextCandidates isValid (sx, sy) = filter isValid $ [(sx+1, sy), (sx-1, sy), (sx, sy+1), (sx, sy-1)]
+      expand isValid (candidates, current, occupied) expectedCount =
+        if expectedCount < S.size occupied || S.null candidates then return (candidates, current, occupied)
+        else do
+          chosen <- elements $ S.toList candidates
+          tryDouble <- elements [True, False]
+          direction <- elements allDirections
+          let secondPosition = chosen ^+^ directionAddition direction
+              double = tryDouble && isValid secondPosition && secondPosition `S.notMember` occupied
+              item = if double then Left (chosen, direction) else Right chosen
+              positions = if double then [chosen, secondPosition] else [chosen]
+              nextCurrent = S.insert item current
+              nextOccupied = S.union (S.fromList positions) occupied
+              nextCandidates = (candidates `S.union` (S.fromList $ findNextCandidates isValid =<< positions)) `S.difference` nextOccupied
+          return (nextCandidates, nextCurrent, nextOccupied)
+  (_, cutItems, cutPositions) <- foldM (expand isValidForest) (S.singleton (2, 3), S.empty, S.empty) [1..cutForestCount]
+  (_, dugItems, dugPositions) <- foldM (expand isValidRock) (S.fromList [(4, 3), (3, 2)], S.empty, S.empty) [1..dugRockCount]
+  cutForestBuildings <- fmap mconcat $ forM (S.toList cutItems) $ \item -> case item of
+    Right position -> (:[]) <$> elements [SmallBuilding Field position, SmallBuilding Grass position, SmallBuilding SmallPasture position]
+    Left (position, direction) -> oneof [
+      return $ [LargeBuilding LargePasture position direction],
+      (\tp -> [SmallBuilding tp position, SmallBuilding tp (position ^+^ directionAddition direction)]) <$> elements [Field, Grass, SmallPasture]
+      ]
+  dugRockShuffled <- shuffle $ S.toList dugItems
   hasAdditionalRooms <- elements [True, False]
-  dugRockBuildings <- forM (drop (requiredWorkers - 2) dugRockShuffled) $ \position ->
-    if hasAdditionalRooms then elements $ [SmallBuilding Passage, SmallBuilding Cave, SmallBuilding LivingRoom] <*> pure position
-                          else elements $ [SmallBuilding Passage, SmallBuilding Cave] <*> pure position
+  let placeCaveBuilding (buildings, n) item
+        | n <= 0 = do
+            let positions = case item of
+                  Right position -> [position]
+                  Left (position, direction) -> [position, position ^+^ directionAddition direction]
+            newBuildings <- forM positions $ \position ->
+              if hasAdditionalRooms
+              then elements $ [SmallBuilding Passage, SmallBuilding Cave, SmallBuilding LivingRoom] <*> pure position
+              else elements $ [SmallBuilding Passage, SmallBuilding Cave] <*> pure position
+            return (newBuildings ++ buildings, 0)
+        | otherwise = do
+            let positions = case item of
+                  Right position -> [position]
+                  Left (position, direction) -> [position, position ^+^ directionAddition direction]
+                newBuildings = SmallBuilding LivingRoom <$>  positions
+            return (newBuildings ++ buildings, n - length newBuildings)
+  (dugRockBuildings, _) <- foldM placeCaveBuilding ([], requiredWorkers - 2) dugRockShuffled
   let rocks = SmallBuilding Rock <$> S.toList (S.fromList [(x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3)] S.\\ dugPositions)
       initialRoom = [SmallBuilding InitialRoom (3, 3)]
       forestBuildings = SmallBuilding Forest <$> S.toList (S.fromList [(x, y) | x <- [0..2], y <- [0..3]] S.\\ cutPositions)
-  return $ cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom ++ dugRockBuildings ++ mandatoryRooms
+  return $ cutForestBuildings ++ forestBuildings ++ rocks ++ initialRoom ++ dugRockBuildings
 
 generateValidOccupants :: [WorkerId] -> [AnimalId] -> [Building] -> Gen BuildingOccupants
 generateValidOccupants workerIds availableAnimalIds buildings = do

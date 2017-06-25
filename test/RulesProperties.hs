@@ -110,7 +110,7 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
                   withAddedOccupant = M.alter (Just . (occupant:) . fromMaybe []) destinationPosition withRemovedOccupant
               nextUniverse <- alterOccupants playerId withAddedOccupant universe
               let errors = getOccupantErrors nextUniverse playerId
-              return $ any ((==destinationPosition) . snd) errors
+              return $ not $ null $ errors
             where playersWithNoOccupantErrors = [plId | plId <- getPlayers universe, getOccupantErrors universe plId == []]
                   originalOccupants playerId = getBuildingOccupants universe playerId
                   occupantsToMove playerId = filter isWorker $ join $ elems $ originalOccupants playerId

@@ -107,7 +107,11 @@ isGrass :: Foldable t => t Building -> Position -> Bool
 isGrass buildingSpace pos = SmallBuilding Grass pos `elem` buildingSpace
 
 isDevelopedOutside :: [Building] -> Position -> Bool
-isDevelopedOutside buildingSpace pos = not $ null $ intersect [SmallBuilding Field pos, SmallBuilding Grass pos, SmallBuilding InitialRoom pos, SmallBuilding SmallPasture pos] buildingSpace
+isDevelopedOutside buildingSpace pos = not $ null $
+  intersect (small ++ centeredLarge ++ offsetLarge) buildingSpace
+  where centeredLarge = [LargeBuilding LargePasture pos dir | dir <- allDirections]
+        offsetLarge = [LargeBuilding LargePasture (pos ^-^ directionAddition dir) dir | dir <- allDirections]
+        small = [SmallBuilding Field pos, SmallBuilding Grass pos, SmallBuilding InitialRoom pos, SmallBuilding SmallPasture pos]
 
 availableRockPositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableRockPositions = availableSpecificPositions isDiggable isDevelopedInside False
