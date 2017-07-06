@@ -61,7 +61,16 @@ adventureTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Adventure tes
     newAnimals <- getsUniverse getAnimals <*> pure plId
     let verifyNewAnimal [(Animal (FarmAnimalType Sheep) _)] = True
         verifyNewAnimal _ = False
-    assert $ verifyNewAnimal $ S.toList $ (S.fromList newAnimals) S.\\ (S.fromList animals)
+    assert $ verifyNewAnimal $ S.toList $ (S.fromList newAnimals) S.\\ (S.fromList animals),
+  testProperty "Can build large pasture after choosing large pasture reward" $ adventureProperty $ do
+    plId <- findAdventuringPlayer
+    grassPositions <- getsUniverse availableGrassPositions <*> pure plId
+    pre $ grassPositions /= []
+    resources <- getsUniverse getPlayerResources <*> pure plId
+    pre $ getWoodAmount resources >= 2
+    applyToUniverse $ adventure plId LargePastureReward
+    builtBuildings <- getsUniverse currentlyBuiltBuildings <*> pure plId
+    assert $ builtBuildings == [LargeBuildingDesc LargePasture]
   ]
 
 findAdventuringPlayer :: UniversePropertyMonad PlayerId
