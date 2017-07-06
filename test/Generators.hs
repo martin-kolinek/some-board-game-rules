@@ -330,7 +330,7 @@ generateInteractionAction properties =
           shuffle $ catMaybes $ [addDog, payResources, setStartPlayer, collectResources, addResources]
         generateBuildingInteraction = fmap BuildBuildingsInteraction
           (elements ((SingleSmallBuildingDesc <$> [Forest ..]) ++
-                     [(DoubleSmallBuildingDesc Grass Field), (DoubleSmallBuildingDesc Cave Cave), (DoubleSmallBuildingDesc Cave Passage)]))
+                     [(DoubleSmallBuildingDesc Grass Field), (DoubleSmallBuildingDesc Cave Cave), (DoubleSmallBuildingDesc Cave Passage), (LargeBuildingDesc LargePasture)]))
 
 possibleStatuses :: GeneratorProperties -> WorkplaceId -> GeneratedPlayerStatus -> Gen PlayerStatus
 possibleStatuses properties workplaceId NotWaitingStatus = frequency $

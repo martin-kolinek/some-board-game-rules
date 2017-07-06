@@ -103,6 +103,9 @@ isCuttable buildingSpace pos = SmallBuilding Forest pos `elem` buildingSpace
 availableSingleGrassPositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableSingleGrassPositions = availableSpecificPositions isGrass isDevelopedOutside True
 
+availableGrassPositions :: Universe -> PlayerId -> [(Position, Direction)]
+availableGrassPositions = availableSpecificPositions isGrass isDevelopedOutside False
+
 isGrass :: Foldable t => t Building -> Position -> Bool
 isGrass buildingSpace pos = SmallBuilding Grass pos `elem` buildingSpace
 

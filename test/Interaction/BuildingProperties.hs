@@ -17,33 +17,29 @@ buildingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Building prope
     testProperty "Building in correct place places buildings" $ buildingProperty $ do
       (playerId, buildingOptions) <- findBuildingPlayer
       buildingDescription <- pick $ elements buildingOptions
-      let buildings = case buildingDescription of
-            SingleSmallBuildingDesc b -> [b]
-            DoubleSmallBuildingDesc b1 b2 -> [b1, b2]
-            _ -> []
-          buildingExtractor = getBuildingExtractor buildingDescription
+      let buildingExtractor = getBuildingExtractor buildingDescription
       checkResources buildingDescription
       (pos, dir) <- pickSpecificPosition buildingExtractor playerId
+      let buildings = case buildingDescription of
+            SingleSmallBuildingDesc b -> [SmallBuilding b pos]
+            DoubleSmallBuildingDesc b1 b2 -> [SmallBuilding b1 pos, SmallBuilding b2 (pos ^+^ directionAddition dir)]
+            LargeBuildingDesc b -> [LargeBuilding b pos dir]
       applyToUniverse $ buildBuildings playerId pos dir buildingDescription
       buildingSpace <- getsUniverse getBuildingSpace <*> pure playerId
       monitor $ counterexample $ "Checked buildings " ++ (show buildings)
-      forM_ (zip buildings [pos, pos ^+^ directionAddition dir]) $ \(tp, position) ->
-        assert $ (SmallBuilding tp position) `elem` buildingSpace,
+      forM_ buildings $ \building ->
+        assert $ building `elem` buildingSpace,
     testProperty "Building in correct place keeps only one building in one place" $ buildingProperty $ do
       (playerId, buildingOptions) <- findBuildingPlayer
       buildingDescription <- pick $ elements buildingOptions
-      let buildings = case buildingDescription of
-            SingleSmallBuildingDesc b -> [b]
-            DoubleSmallBuildingDesc b1 b2 -> [b1, b2]
-            _ -> []
-          buildingExtractor = getBuildingExtractor buildingDescription
+      let buildingExtractor = getBuildingExtractor buildingDescription
       checkResources buildingDescription
       (pos, dir) <- pickSpecificPosition buildingExtractor playerId
       applyToUniverse $ buildBuildings playerId pos dir buildingDescription
       buildingSpace <- getsUniverse getBuildingSpace <*> pure playerId
       let isPositioned desiredPos (SmallBuilding _ realPos) = desiredPos == realPos
           isPositioned desiredPos (LargeBuilding _ realPos direction) = desiredPos == realPos || desiredPos == realPos ^+^ directionAddition direction
-      forM_ (zip buildings [pos, pos ^+^ directionAddition dir]) $ \(_, position) ->
+      forM_ availableBuildingPositions $ \position ->
         assert $ 1 == (length $ filter (isPositioned position) buildingSpace),
     testProperty "Building in incorrect place fails" $ buildingProperty $ do
       (playerId, buildingOptions) <- findBuildingPlayer
@@ -78,6 +74,7 @@ getBuildingExtractor (SingleSmallBuildingDesc LivingRoom) = availableSingleCaveP
 getBuildingExtractor (SingleSmallBuildingDesc SmallPasture) = availableSingleGrassPositions
 getBuildingExtractor (SingleSmallBuildingDesc Grass) = availableSingleForestPositions
 getBuildingExtractor (SingleSmallBuildingDesc Field) = availableSingleForestPositions
+getBuildingExtractor (LargeBuildingDesc LargePasture) = availableGrassPositions
 getBuildingExtractor _ = const $ const []
 
 checkResources :: BuildingDescription -> UniversePropertyMonad ()

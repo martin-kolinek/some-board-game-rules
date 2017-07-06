@@ -147,7 +147,13 @@ arbitraryUniverseTests = localOption (QuickCheckMaxRatio 100) $ testGroup "Arbit
                   isCow (Animal (FarmAnimalType Cow) _) = True
                   isCow _ = False
                   currentPlayerHasCows = any isCow $ mconcat $ maybeToList (getAnimals universe <$> getCurrentPlayer universe)
-      in prop
+      in prop,
+    testProperty "Large buildings can be built" $ \(ArbitraryUniverse universe) ->
+        let currentPlayerIsBuildingLargeBuilding = any isLargeBuildingDesc $ buildings
+            buildings = fromMaybe [] $ currentlyBuiltBuildings universe <$> getCurrentPlayer universe
+            isLargeBuildingDesc (LargeBuildingDesc _) = True
+            isLargeBuildingDesc _ = False
+        in buildings /= [] ==> cover (currentPlayerIsBuildingLargeBuilding) 5 "Building large buildings" $ True
   ]
 
 findEmptyWorkplaces :: Universe -> [WorkplaceId]
