@@ -59,6 +59,7 @@ module Rules (
   getAllOccupants,
   getOccupantErrors,
   getPlantedCrops,
+  getBarns,
   -- ** Resources
   getPlayerResources,
   getWoodAmount,

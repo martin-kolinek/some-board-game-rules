@@ -60,7 +60,8 @@ data PlantedCrop = PlantedCrop CropType Int deriving (Eq, Show)
 data BuildingSpace = BuildingSpace {
   _buildingSpaceBuildings :: [Building],
   _buildingSpaceOccupants :: BuildingOccupants,
-  _buildingSpaceCrops :: M.Map Position PlantedCrop
+  _buildingSpaceCrops :: M.Map Position PlantedCrop,
+  _buildingSpaceBarns :: [Position]
 } deriving (Show, Eq)
 
 allDirections :: [Direction]
@@ -81,11 +82,11 @@ buildingSupportedWorkers (SmallBuilding InitialRoom _) = 2
 buildingSupportedWorkers (SmallBuilding LivingRoom _) = 1
 buildingSupportedWorkers _ = 0
 
-buildingSupportedAnimals :: Building -> Int
-buildingSupportedAnimals (SmallBuilding InitialRoom _) = 2
-buildingSupportedAnimals (SmallBuilding SmallPasture _) = 2
-buildingSupportedAnimals (LargeBuilding LargePasture _ _) = 4
-buildingSupportedAnimals _ = 0
+buildingSupportedAnimals :: Building -> Bool -> Int
+buildingSupportedAnimals (SmallBuilding InitialRoom _) _ = 2
+buildingSupportedAnimals (SmallBuilding SmallPasture _) hasBarn = 2 * (if hasBarn then 2 else 1)
+buildingSupportedAnimals (LargeBuilding LargePasture _ _) hasBarn = 4 * (if hasBarn then 2 else 1)
+buildingSupportedAnimals _ _ = 0
 
 makeLenses ''BuildingSpace
 
@@ -95,7 +96,7 @@ initialBuildingSpace workers =
       rocks = [SmallBuilding Rock (x, y) | x <- [3..5], y <- [0..3], (x, y) /= (3, 3), (x, y) /= (3, 2)]
       initialRoom = [SmallBuilding InitialRoom (3, 3), SmallBuilding Cave (3, 2)]
       buildings = (forests ++ rocks ++ initialRoom)
-  in BuildingSpace buildings (initialOccupants workers buildings) M.empty
+  in BuildingSpace buildings (initialOccupants workers buildings) M.empty []
 
 getBuildings :: BuildingSpace -> [Building]
 getBuildings = view buildingSpaceBuildings
@@ -149,6 +150,13 @@ isUnderlyingBuilding (SmallBuilding SmallPasture _) (SmallBuilding Grass _) = Tr
 isUnderlyingBuilding (LargeBuilding LargePasture _ _) (SmallBuilding Grass _) = True
 isUnderlyingBuilding _ _ = False
 
+canHaveBarn :: Building -> Bool
+canHaveBarn (SmallBuilding Forest _) = True
+canHaveBarn (SmallBuilding Grass _) = True
+canHaveBarn (SmallBuilding SmallPasture _) = True
+canHaveBarn (LargeBuilding LargePasture _ _) = True
+canHaveBarn _ = False
+
 canBuildNewBuildings :: BuildingDescription -> BuildingSpace -> Bool
 canBuildNewBuildings buildingDescription buildingSpace = any canBuild possibilities
   where canBuild (pos, dir) = isRight $ buildNewBuildings pos dir buildingDescription buildingSpace
@@ -161,15 +169,16 @@ buildNewBuildings ::
   -> BuildingDescription
   -> BuildingSpace
   -> f BuildingSpace
-buildNewBuildings position direction buildingDescription =
-  traverseOf buildingSpaceBuildings (buildNewBuildingsInBuildingCollection newBuildings)
-  where newBuildings = case buildingDescription of
+buildNewBuildings position direction buildingDescription buildingSpace =
+  traverseOf buildingSpaceBuildings (buildNewBuildingsInBuildingCollection barns newBuildings) buildingSpace
+  where barns = buildingSpace ^. buildingSpaceBarns
+        newBuildings = case buildingDescription of
           (SingleSmallBuildingDesc buildingType) -> [SmallBuilding buildingType position]
           (DoubleSmallBuildingDesc buildingType1 buildingType2) -> [SmallBuilding buildingType1 position, SmallBuilding buildingType2 (position ^+^ directionAddition direction)]
           (LargeBuildingDesc buildingType) -> [LargeBuilding buildingType position direction]
 
-buildNewBuildingsInBuildingCollection :: MonadError String m => [Building] -> [Building] -> m [Building]
-buildNewBuildingsInBuildingCollection newBuildings originalBuildings = do
+buildNewBuildingsInBuildingCollection :: MonadError String m => [Position] -> [Building] -> [Building] -> m [Building]
+buildNewBuildingsInBuildingCollection barns newBuildings originalBuildings = do
   let neighbourBuildings pos = catMaybes $ getBuilding originalBuildings <$> [pos ^+^ directionAddition dir | dir <- allDirections]
       developmentCheck :: Building -> Bool
       developmentCheck = any id . sequence (isDevelopedFor <$> newBuildings)
@@ -177,7 +186,9 @@ buildNewBuildingsInBuildingCollection newBuildings originalBuildings = do
   check "Cannot reach yet" (any hasDevelopedNeighbours (newBuildings >>= buildingPositions))
   buildings <- forM newBuildings $ \newBuilding -> do
     let positions = buildingPositions newBuilding
+        hasBarn = not $ null $ positions `intersect` barns
         underlyingBuildingMaybes = getBuilding originalBuildings <$> positions
+    check "Cannot build under barn" $ (not hasBarn) || canHaveBarn newBuilding
     underlyingBuildings <- checkMaybe "Invalid position" (sequence underlyingBuildingMaybes)
     check "Position not suitable" $ all (isUnderlyingBuilding newBuilding) underlyingBuildings
     return newBuilding
@@ -192,18 +203,18 @@ isDogOccupant :: BuildingOccupant -> Bool
 isDogOccupant (AnimalOccupant (Animal Dog _)) = True
 isDogOccupant _ = False
 
-areBuildingOccupantsValid :: MonadWriter [OccupantError] m => Building -> [BuildingOccupant] -> m ()
-areBuildingOccupantsValid building occupants = do
+areBuildingOccupantsValid :: MonadWriter [OccupantError] m => Building -> [BuildingOccupant] -> Bool -> m ()
+areBuildingOccupantsValid building occupants hasBarn = do
   checkWriter (length workerOccupants <= buildingSupportedWorkers building) ("Too many people here", head $ buildingPositions building)
   checkWriter (length animalOccupantGroups <= 1) ("Too many types of animals here", head $ buildingPositions building)
   let (SmallBuilding buildingType pos) = building
   forM_ animalOccupantGroups $ \(animalType, groupAnimals) -> case animalType of
     Sheep -> do
       let sheepAmount = length groupAnimals
-          sheepFit = buildingSupportedAnimals building >= sheepAmount
+          sheepFit = buildingSupportedAnimals building hasBarn >= sheepAmount
           sheepGuarded = buildingType `elem` [Grass, SmallPasture] && dogAmount >= sheepAmount - 1
       checkWriter (sheepFit || sheepGuarded) ("Too many unguarded sheep here", pos)
-    Cow -> checkWriter (buildingSupportedAnimals building >= length groupAnimals) ("Too many cows here", pos)
+    Cow -> checkWriter (buildingSupportedAnimals building hasBarn >= length groupAnimals) ("Too many cows here", pos)
   where workerOccupants = filter isWorkerOccupant occupants
         farmAnimalGroup (AnimalOccupant (Animal (FarmAnimalType animalType) _)) = Just animalType
         farmAnimalGroup _ = Nothing
@@ -211,11 +222,12 @@ areBuildingOccupantsValid building occupants = do
         animalOccupantGroups = groupSort $ catMaybes $ (\occ -> (,occ) <$> (farmAnimalGroup occ)) <$> occupants
 
 areOccupantsValid :: [BuildingOccupant] -> BuildingSpace -> [OccupantError]
-areOccupantsValid allOccupants (BuildingSpace buildings occupants _) = snd $ runWriter $ do
+areOccupantsValid allOccupants (BuildingSpace buildings occupants _ barns) = snd $ runWriter $ do
   forM_ buildings $ \building -> do
     let positions = buildingPositions building
         buildingOccupants = concat $ catMaybes $ (`M.lookup` occupants) <$> positions
-    areBuildingOccupantsValid building buildingOccupants
+        hasBarn = not $ null $ positions `intersect` barns
+    areBuildingOccupantsValid building buildingOccupants hasBarn
   let positionedOccupants = concat $ M.elems occupants
   checkWriter (null $ allOccupants \\ positionedOccupants) ("Not everyone has a place", (0, 0))
   checkWriter (null $ positionedOccupants \\ allOccupants) ("There's someone who shouldn't be there", (0, 0))
@@ -226,11 +238,11 @@ initialOccupants :: [BuildingOccupant] -> [Building] -> BuildingOccupants
 initialOccupants allOccupants _ = M.fromListWith mappend $ zip [(3, 3), (3, 3)] (pure <$> allOccupants)
 
 canSupportAdditionalWorker :: [BuildingOccupant] -> BuildingSpace -> Bool
-canSupportAdditionalWorker allOccupants (BuildingSpace buildings _ _) = length workerOccupants < (sum $ buildingSupportedWorkers <$> buildings)
+canSupportAdditionalWorker allOccupants (BuildingSpace buildings _ _ _) = length workerOccupants < (sum $ buildingSupportedWorkers <$> buildings)
   where workerOccupants = filter isWorkerOccupant allOccupants
 
 findSpaceForWorker :: BuildingOccupant -> BuildingSpace -> BuildingSpace
-findSpaceForWorker newOccupant buildSpace@(BuildingSpace buildings occupants _) = fromMaybe buildSpace $ do
+findSpaceForWorker newOccupant buildSpace@(BuildingSpace buildings occupants _ _) = fromMaybe buildSpace $ do
   let buildingHasFreeSpace building = buildingSupportedWorkers building >
         (length $ filter isWorkerOccupant $ join $ catMaybes $ (`M.lookup` occupants) <$> buildingPositions building)
   buildingToUse <- listToMaybe $ filter buildingHasFreeSpace buildings

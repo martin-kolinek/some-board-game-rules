@@ -64,7 +64,6 @@ findBuildingPlayer = do
 
 getBuildingExtractor :: BuildingDescription -> Universe -> PlayerId -> [(Position, Direction)]
 getBuildingExtractor (DoubleSmallBuildingDesc Grass Field) = availableForestPositions
-getBuildingExtractor (DoubleSmallBuildingDesc Field Grass) = availableForestPositions
 getBuildingExtractor (DoubleSmallBuildingDesc Cave Passage) = availableRockPositions
 getBuildingExtractor (DoubleSmallBuildingDesc Passage Cave) = availableRockPositions
 getBuildingExtractor (DoubleSmallBuildingDesc Cave Cave) = availableRockPositions
@@ -73,9 +72,11 @@ getBuildingExtractor (SingleSmallBuildingDesc Passage) = availableSingleRockPosi
 getBuildingExtractor (SingleSmallBuildingDesc LivingRoom) = availableSingleCavePositions
 getBuildingExtractor (SingleSmallBuildingDesc SmallPasture) = availableSingleGrassPositions
 getBuildingExtractor (SingleSmallBuildingDesc Grass) = availableSingleForestPositions
-getBuildingExtractor (SingleSmallBuildingDesc Field) = availableSingleForestPositions
+getBuildingExtractor (SingleSmallBuildingDesc Field) = \universe plId ->
+  let isNotOnBarn (pos, _) = not $ pos `elem` getBarns universe plId
+  in filter isNotOnBarn $ availableSingleForestPositions universe plId
 getBuildingExtractor (LargeBuildingDesc LargePasture) = availableGrassPositions
-getBuildingExtractor _ = const $ const []
+getBuildingExtractor bd = error $ "Unknown building type " ++ (show bd)
 
 checkResources :: BuildingDescription -> UniversePropertyMonad ()
 checkResources (SingleSmallBuildingDesc LivingRoom) =

@@ -36,5 +36,8 @@ playerCanHireWorker playerData = canSupportAdditionalWorker (getPlayerPossibleOc
 playerCanBuildBuilding :: PlayerData -> BuildingDescription -> Bool
 playerCanBuildBuilding playerData buildingDescription = canBuildNewBuildings buildingDescription $ playerData ^. buildingSpace
 
+getBarns :: Universe -> PlayerId -> [Position]
+getBarns universe plId = universe ^.. players . ix plId . buildingSpace . buildingSpaceBarns . traverse
+
 buildingAction :: CompositeActionDefinition
 buildingAction = InteractionAction (BuildBuildingsInteraction (SingleSmallBuildingDesc LivingRoom)) [PayResources (wood 4 ^+^ stone 3)]

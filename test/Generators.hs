@@ -236,6 +236,17 @@ generateEmptyResources = Resources
   <*> choose (0, 2)
   <*> choose (0, 2)
 
+generateBarns :: [Building] -> Gen [Position]
+generateBarns buildings = do
+  let validSmallType tp = tp `elem` [Grass, Forest, SmallPasture]
+      validLargeType tp = tp `elem` [LargePasture]
+      buildingBarnPositions (SmallBuilding tp pos) = if validSmallType tp then [pos] else []
+      buildingBarnPositions (LargeBuilding tp pos dir) = if validLargeType tp then [pos, pos ^+^ directionAddition dir] else []
+      availablePositions = buildingBarnPositions =<< buildings
+  barnCount <- choose (0, 2)
+  shuffled <- shuffle availablePositions
+  return $ take barnCount shuffled
+
 generatePlantedCrops :: [Building] -> Gen (Map Position PlantedCrop)
 generatePlantedCrops buildings = do
   let getValidPosition (SmallBuilding Field pos) = Just pos
@@ -329,7 +340,7 @@ generateInteractionAction properties =
           addResources <- genStep addResourcesProbability (AddResourcesStep <$> generateResources)
           shuffle $ catMaybes $ [addDog, payResources, setStartPlayer, collectResources, addResources]
         generateBuildingInteraction = fmap BuildBuildingsInteraction
-          (elements ((SingleSmallBuildingDesc <$> [Forest ..]) ++
+          (elements ((SingleSmallBuildingDesc <$> S.toList (S.fromList [Forest ..] S.\\ S.fromList [Forest, Rock, InitialRoom])) ++
                      [(DoubleSmallBuildingDesc Grass Field), (DoubleSmallBuildingDesc Cave Cave), (DoubleSmallBuildingDesc Cave Passage), (LargeBuildingDesc LargePasture)]))
 
 possibleStatuses :: GeneratorProperties -> WorkplaceId -> GeneratedPlayerStatus -> Gen PlayerStatus
@@ -366,13 +377,14 @@ generatePlayer properties generatedPlayerId availableWorkerIds availableWorkplac
   allWorkerStates <- forM allWorkerWorkplaces $ \workplace -> do
     strength <- frequency $ [(1, choose (0, 15)), (unarmedWorkerProbability properties, return 0)]
     return $ WorkerState workplace strength
+  generatedBarns <- generateBarns generatedBuildings
   generatedOccupants <- generateOccupants allWorkerIds availableAnimalIds generatedBuildings
   generatedResources <- generateResources
   generatedPlantedCrops <- generatePlantedCrops generatedBuildings
   let playerData = PlayerData
                      generatedPlayerId
                      (fromList $ zip allWorkerIds allWorkerStates)
-                     (BuildingSpace generatedBuildings generatedOccupants generatedPlantedCrops)
+                     (BuildingSpace generatedBuildings generatedOccupants generatedPlantedCrops generatedBarns)
                      selectedStatus
                      generatedResources
                      (extractAnimalsFromOccupants generatedOccupants)

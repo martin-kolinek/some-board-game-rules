@@ -5,7 +5,7 @@ import Rules
 import qualified Data.Set as S
 import Control.Monad
 import Data.Maybe
-import Data.Map hiding (null)
+import Data.Map hiding (null, filter)
 import Test.QuickCheck.Monadic
 import Test.QuickCheck
 import Data.List (intersect)
@@ -92,7 +92,9 @@ validatePlayerHasValidOccupants :: PlayerId -> UniversePropertyMonad ()
 validatePlayerHasValidOccupants plId = assert =<< null <$> (getsUniverse getOccupantErrors <*> pure plId)
 
 availableForestPositions :: Universe -> PlayerId -> [(Position, Direction)]
-availableForestPositions = availableSpecificPositions isCuttable isDevelopedOutside False
+availableForestPositions universe playerId = filter isNotOverlappingBarn positions
+  where positions = availableSpecificPositions isCuttable isDevelopedOutside False universe playerId
+        isNotOverlappingBarn (pos, dir) = not $ (pos ^+^ directionAddition dir) `elem` getBarns universe playerId
 
 availableSingleForestPositions :: Universe -> PlayerId -> [(Position, Direction)]
 availableSingleForestPositions = availableSpecificPositions isCuttable isDevelopedOutside True
