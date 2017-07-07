@@ -80,6 +80,7 @@ module Rules (
   canFinishAction,
   isArmingWorker,
   canGoOnAdventure,
+  canBuildBarn,
 
   -- * Action functions
   startWorking,

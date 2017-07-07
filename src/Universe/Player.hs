@@ -78,6 +78,9 @@ isArmingWorker = isInteractionPossible (== ArmWorkerInteraction)
 canGoOnAdventure :: Universe -> PlayerId -> Bool
 canGoOnAdventure = isInteractionPossible (== AdventureInteraction)
 
+canBuildBarn :: Universe -> PlayerId -> Bool
+canBuildBarn = isInteractionPossible (== BuildBarnInteraction)
+
 startNextPlayer :: PlayerId -> Universe -> Universe
 startNextPlayer plId universe = universe &
   players . ix plId . playerStatus .~ Waiting &
