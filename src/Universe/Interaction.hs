@@ -111,6 +111,20 @@ adventure plId reward = performInteractionWithNewInteraction plId AdventureInter
        Nothing -> return Nothing
   return $ (over (players . ix plId) (applyReward reward universe) universe, newActionDefinition)
 
+buildBarn :: MonadError String m => PlayerId -> Position -> Universe -> m Universe
+buildBarn plId position = performInteraction plId BuildBarnInteraction $ \_ _ universe -> do
+  let spaceOptic :: Traversal' Universe BuildingSpace
+      spaceOptic = players . ix plId . buildingSpace
+  check "Barn already there" $
+    hasn't (spaceOptic . buildingSpaceBarns . traverse . filtered (== position)) universe
+  check "Cannot build barn there" $
+    allOf
+      (spaceOptic . buildingSpaceBuildings . traverse . filtered ((position `elem`) . buildingPositions))
+      canHaveBarn
+      universe
+  check "Already has two barns" $ hasn't (spaceOptic . buildingSpaceBarns . filtered ((>=2) . length)) universe
+  return $ over (spaceOptic . buildingSpaceBarns) (position :) universe
+
 performInteraction :: MonadError String m => PlayerId -> ActionInteraction -> (WorkplaceId -> WorkerId -> Universe -> m Universe) -> Universe -> m Universe
 performInteraction plId int effect = performInteractionWithNewInteraction plId int $ \wpId wId u -> fmap (, Nothing) (effect wpId wId u)
 

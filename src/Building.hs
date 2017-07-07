@@ -267,3 +267,8 @@ cropResource Wheat = wheatAmount
 buildingCost :: SmallBuildingType -> Resources
 buildingCost LivingRoom = wood 4 ^+^ stone 3
 buildingCost _ = zeroV
+
+canBuildBarn :: BuildingSpace -> Bool
+canBuildBarn (BuildingSpace buildings _ _ barns) = any hasNoBarn availableBarnPositions
+  where hasNoBarn = not . (`elem` barns)
+        availableBarnPositions = [pos | building <- buildings, pos <- buildingPositions building, canHaveBarn building]

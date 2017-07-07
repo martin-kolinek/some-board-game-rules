@@ -29,6 +29,9 @@ interactionPrecondition workerId _ plId universe ArmWorkerInteraction =
   (has (players . ix plId . workers . ix workerId . workerStrength . filtered (== 0)) universe)
 interactionPrecondition workerId _ plId universe AdventureInteraction =
   (has (players . ix plId . workers . ix workerId . workerStrength . filtered (> 0)) universe)
+interactionPrecondition _ _ plId universe BuildBarnInteraction =
+  (has (players . ix plId . buildingSpace . buildingSpaceBarns . filtered ((< 2) . length)) universe) &&
+  (has (players . ix plId . buildingSpace . filtered canBuildBarn) universe)
 interactionPrecondition _ _ _ _ _ = True
 
 stepPrecondition :: WorkerId -> WorkplaceId -> PlayerId -> Universe -> ActionStep -> Bool

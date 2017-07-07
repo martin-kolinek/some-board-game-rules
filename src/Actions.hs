@@ -13,7 +13,8 @@ data ActionInteraction =
   HireWorkerInteraction |
   CollectResourcesInteraction |
   ArmWorkerInteraction |
-  AdventureInteraction
+  AdventureInteraction |
+  BuildBarnInteraction
   deriving (Show, Eq)
 
 data ActionStep =

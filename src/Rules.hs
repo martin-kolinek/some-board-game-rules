@@ -91,6 +91,7 @@ module Rules (
   alterOccupants,
   armWorker,
   adventure,
+  buildBarn,
 
   finishTurn,
 
