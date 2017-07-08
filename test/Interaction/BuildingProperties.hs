@@ -11,6 +11,7 @@ import Data.Maybe
 import Data.AdditiveGroup
 import Control.Monad
 import Data.Function
+import qualified Data.Set as S
 
 buildingTests :: TestTree
 buildingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Building properties" $ [
@@ -48,11 +49,34 @@ buildingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Building prope
       checkResources buildings
       (pos, dir) <- pickWrongPosition buildingExtractor playerId
       applyToUniverse $ buildBuildings playerId pos dir buildings
-      shouldHaveFailed
+      shouldHaveFailed,
+    testProperty "Building barn is possible" $ barnBuildingProperty $ do
+      playerId <- findBarnBuildingPlayer
+      pos <- pickValidBarnPosition playerId
+      checkCanBuildBarn playerId
+      checkPlayerHasValidOccupants playerId
+      applyToUniverse $ buildBarn playerId pos
+      barns <- getsUniverse getBarns <*> pure playerId
+      assert $ pos `elem` barns,
+    testProperty "Building barn in invalid position is not possible" $ barnBuildingProperty $ do
+      playerId <- findBarnBuildingPlayer
+      pos <- pickInvalidBarnPosition playerId
+      checkPlayerHasValidOccupants playerId
+      checkCanBuildBarn playerId
+      applyToUniverse $ buildBarn playerId pos
+      shouldHaveFailed,
+    testProperty "Building barn when there are already two barns is not possible" $ barnBuildingProperty $ do
+      playerId <- findBarnBuildingPlayer
+      barns <- getsUniverse getBarns <*> pure playerId
+      assert $ length barns < 2
   ]
 
 buildingProperty :: UniversePropertyMonad a -> Property
 buildingProperty = propertyWithProperties $ defaultGeneratorProperties &
+  withNoResourceChangeSteps
+
+barnBuildingProperty :: UniversePropertyMonad a -> Property
+barnBuildingProperty = propertyWithProperties $ defaultGeneratorProperties &
   withNoResourceChangeSteps
 
 findBuildingPlayer :: UniversePropertyMonad (PlayerId, [BuildingDescription])
@@ -61,6 +85,11 @@ findBuildingPlayer = do
   (playerId, buildings) <- preMaybe $ listToMaybe [(plId, buildings) | plId <- getPlayers universe, let buildings = currentlyBuiltBuildings universe plId, not $ null buildings]
   checkPlayerHasValidOccupants playerId
   return (playerId, buildings)
+
+findBarnBuildingPlayer :: UniversePropertyMonad PlayerId
+findBarnBuildingPlayer = do
+  universe <- getUniverse
+  preMaybe $ listToMaybe [plId | plId <- getPlayers universe, canBuildBarn universe plId]
 
 getBuildingExtractor :: BuildingDescription -> Universe -> PlayerId -> [(Position, Direction)]
 getBuildingExtractor (DoubleSmallBuildingDesc Grass Field) = availableForestPositions
@@ -82,3 +111,28 @@ checkResources :: BuildingDescription -> UniversePropertyMonad ()
 checkResources (SingleSmallBuildingDesc LivingRoom) =
   pre =<< getsUniverse currentPlayerHasEnoughResourcesForLivingRoom
 checkResources _ = return ()
+
+findValidBarnPositions :: Universe -> PlayerId -> [Position]
+findValidBarnPositions universe plId = filter hasNoBarn $ validBuildingPosition =<< getBuildingSpace universe plId
+  where validBuildingPosition (SmallBuilding Grass pos) = [pos]
+        validBuildingPosition (SmallBuilding Forest pos) = [pos]
+        validBuildingPosition (SmallBuilding SmallPasture pos) = [pos]
+        validBuildingPosition (LargeBuilding LargePasture pos dir) = [pos, pos ^+^ directionAddition dir]
+        validBuildingPosition _ = []
+        hasNoBarn pos = not $ pos `elem` getBarns universe plId
+
+pickValidBarnPosition :: PlayerId -> UniversePropertyMonad Position
+pickValidBarnPosition plId = do
+  positions <- getsUniverse findValidBarnPositions <*> pure plId
+  pre $ not $ null $ positions
+  pick $ elements positions
+
+pickInvalidBarnPosition :: PlayerId -> UniversePropertyMonad Position
+pickInvalidBarnPosition plId = do
+  positions <- getsUniverse findValidBarnPositions <*> pure plId
+  pick $ elements $ S.toList $ (S.fromList availableBuildingPositions) S.\\ (S.fromList positions)
+
+checkCanBuildBarn :: PlayerId -> UniversePropertyMonad ()
+checkCanBuildBarn plId = do
+  barns <- getsUniverse getBarns <*> pure plId
+  pre $ length barns < 2

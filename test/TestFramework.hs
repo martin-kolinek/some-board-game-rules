@@ -29,7 +29,7 @@ defaultGeneratorProperties :: GeneratorProperties
 defaultGeneratorProperties = GeneratorProperties empty defaultInteractionProbabilities 1 5 5 5 defaultStepProbabilities
 
 defaultInteractionProbabilities :: InteractionProbabilities
-defaultInteractionProbabilities = InteractionProbabilities 1 1 1 1 1 1
+defaultInteractionProbabilities = InteractionProbabilities 1 1 1 1 1 1 1
 
 defaultStepProbabilities :: StepProbabilities
 defaultStepProbabilities = StepProbabilities 1 1 1 1 1

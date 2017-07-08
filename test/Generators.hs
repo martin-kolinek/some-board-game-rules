@@ -41,7 +41,8 @@ data InteractionProbabilities = InteractionProbabilities {
   collectResourcesInteractionProbability :: Int,
   armWorkerProbability :: Int,
   adventureProbability :: Int,
-  buildProbability :: Int
+  buildProbability :: Int,
+  buildBarnProbability :: Int
   }
 
 data GeneratorProperties = GeneratorProperties {
@@ -330,6 +331,7 @@ generateInteractionAction properties =
                                  (ifreq collectResourcesInteractionProbability, return CollectResourcesInteraction),
                                  (ifreq armWorkerProbability, return ArmWorkerInteraction),
                                  (ifreq adventureProbability, return AdventureInteraction),
+                                 (ifreq buildBarnProbability, return BuildBarnInteraction),
                                  (ifreq buildProbability, generateBuildingInteraction)]
         steps = do
           let genStep freq step = frequency [(1, return Nothing), (freq (stepProbabilities properties), Just <$> step)]
