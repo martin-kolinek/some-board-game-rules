@@ -112,15 +112,6 @@ checkResources (SingleSmallBuildingDesc LivingRoom) =
   pre =<< getsUniverse currentPlayerHasEnoughResourcesForLivingRoom
 checkResources _ = return ()
 
-findValidBarnPositions :: Universe -> PlayerId -> [Position]
-findValidBarnPositions universe plId = filter hasNoBarn $ validBuildingPosition =<< getBuildingSpace universe plId
-  where validBuildingPosition (SmallBuilding Grass pos) = [pos]
-        validBuildingPosition (SmallBuilding Forest pos) = [pos]
-        validBuildingPosition (SmallBuilding SmallPasture pos) = [pos]
-        validBuildingPosition (LargeBuilding LargePasture pos dir) = [pos, pos ^+^ directionAddition dir]
-        validBuildingPosition _ = []
-        hasNoBarn pos = not $ pos `elem` getBarns universe plId
-
 pickValidBarnPosition :: PlayerId -> UniversePropertyMonad Position
 pickValidBarnPosition plId = do
   positions <- getsUniverse findValidBarnPositions <*> pure plId
@@ -132,7 +123,3 @@ pickInvalidBarnPosition plId = do
   positions <- getsUniverse findValidBarnPositions <*> pure plId
   pick $ elements $ S.toList $ (S.fromList availableBuildingPositions) S.\\ (S.fromList positions)
 
-checkCanBuildBarn :: PlayerId -> UniversePropertyMonad ()
-checkCanBuildBarn plId = do
-  barns <- getsUniverse getBarns <*> pure plId
-  pre $ length barns < 2

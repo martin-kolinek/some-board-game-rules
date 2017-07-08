@@ -9,7 +9,7 @@ import Universe.Actions
 
 import Control.Lens hiding (universe)
 
-data AdventureReward = WoodReward | GrassReward | SmallPastureReward | SheepReward | LargePastureReward
+data AdventureReward = WoodReward | GrassReward | SmallPastureReward | SheepReward | LargePastureReward | BarnReward
 
 applyReward :: AdventureReward -> Universe -> PlayerData -> PlayerData
 applyReward WoodReward _ playerData = playerData & (playerResources . woodAmount) +~ 1
@@ -20,4 +20,5 @@ rewardInteraction :: AdventureReward -> Maybe CompositeActionDefinition
 rewardInteraction GrassReward = Just $ InteractionAction (BuildBuildingsInteraction (SingleSmallBuildingDesc Grass)) []
 rewardInteraction SmallPastureReward = Just $ InteractionAction (BuildBuildingsInteraction (SingleSmallBuildingDesc SmallPasture)) [PayResources (wood 1)]
 rewardInteraction LargePastureReward = Just $ InteractionAction (BuildBuildingsInteraction (LargeBuildingDesc LargePasture)) [PayResources (wood 2)]
+rewardInteraction BarnReward = Just $ InteractionAction BuildBarnInteraction []
 rewardInteraction _ = Nothing

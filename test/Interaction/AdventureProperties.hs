@@ -70,7 +70,15 @@ adventureTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Adventure tes
     pre $ getWoodAmount resources >= 2
     applyToUniverse $ adventure plId LargePastureReward
     builtBuildings <- getsUniverse currentlyBuiltBuildings <*> pure plId
-    assert $ builtBuildings == [LargeBuildingDesc LargePasture]
+    assert $ builtBuildings == [LargeBuildingDesc LargePasture],
+  testProperty "Can build barn after choosing barn reward" $ adventureProperty $ do
+    plId <- findAdventuringPlayer
+    checkCanBuildBarn plId
+    possibleBarnPositions <- getsUniverse findValidBarnPositions <*> pure plId
+    pre $ not $ null $ possibleBarnPositions
+    applyToUniverse $ adventure plId BarnReward
+    result <- getsUniverse canBuildBarn <*> pure plId
+    assert result
   ]
 
 findAdventuringPlayer :: UniversePropertyMonad PlayerId

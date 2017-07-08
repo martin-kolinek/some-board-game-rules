@@ -173,3 +173,17 @@ currentPlayerCanArmWorker workerId universe = fromMaybe False $ do
   let hasSomeIron = getIronAmount (getPlayerResources universe currentPlayerId) > 0
       workerIsUnarmed = getWorkerStrength universe workerId == 0
   return $ hasSomeIron && workerIsUnarmed
+
+findValidBarnPositions :: Universe -> PlayerId -> [Position]
+findValidBarnPositions universe plId = filter hasNoBarn $ validBuildingPosition =<< getBuildingSpace universe plId
+  where validBuildingPosition (SmallBuilding Grass pos) = [pos]
+        validBuildingPosition (SmallBuilding Forest pos) = [pos]
+        validBuildingPosition (SmallBuilding SmallPasture pos) = [pos]
+        validBuildingPosition (LargeBuilding LargePasture pos dir) = [pos, pos ^+^ directionAddition dir]
+        validBuildingPosition _ = []
+        hasNoBarn pos = not $ pos `elem` getBarns universe plId
+
+checkCanBuildBarn :: PlayerId -> UniversePropertyMonad ()
+checkCanBuildBarn plId = do
+  barns <- getsUniverse getBarns <*> pure plId
+  pre $ length barns < 2
