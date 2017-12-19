@@ -45,6 +45,13 @@ rulesPropertiesTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Rules p
       applyToUniverse finishTurn
       currentPlayer <- getsUniverse getCurrentPlayer
       assert $ currentPlayer == Just startingPlayer,
+    testProperty "Finishing turn keeps workers armed" $ generalUniverseProperty $ do
+      pre =<< getsUniverse allPlayersWaiting
+      oldUniverse <- getUniverse
+      applyToUniverse finishTurn
+      newUniverse <- getUniverse
+      let makeMap universe = [(wId, str) | plId <- getPlayers universe, wId <- getWorkers universe plId, let str = getWorkerStrength universe wId]
+      assert $ makeMap oldUniverse == makeMap newUniverse,
     testProperty "Finishing turn is not possible without all players waiting" $ generalUniverseProperty $ do
       pre =<< getsUniverse (not . allPlayersWaiting)
       currentPlayer <- getsUniverse getCurrentPlayer

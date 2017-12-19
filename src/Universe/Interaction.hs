@@ -58,7 +58,7 @@ finishTurn universe = do
   check "Not every player finished" $ hasn't (players . traverse . playerStatus . filtered (/= Waiting)) universe
   let startPlayer = universe ^. startingPlayer
   return $ universe &
-    players . traverse . workers . traverse .~ initialWorkerState &
+    players . traverse . workers . traverse . currentWorkplace .~ Nothing &
     players . traverse %~ collectCrops &
     players . ix startPlayer . playerStatus .~ MovingWorker &
     availableWorkplaces . traverse %~ addWorkplaceResources
