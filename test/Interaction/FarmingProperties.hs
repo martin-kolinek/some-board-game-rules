@@ -71,7 +71,7 @@ farmingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Farming propert
       assert $ wheatCount == getWheatAmount originalResources - getWheatAmount newResources
   ]
 
-farmingProperty :: UniversePropertyMonad a -> Property
+farmingProperty :: Testable a => UniversePropertyMonad a -> Property
 farmingProperty = propertyWithProperties $ defaultGeneratorProperties &
   withWorkplaceProbability Farming 20 &
   withFarmingProbability 20 &

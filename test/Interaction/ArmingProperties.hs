@@ -43,7 +43,7 @@ armingTests = localOption (QuickCheckMaxRatio 500) $ testGroup "Arming tests" [
       assert (length increasedStrengths == 1)
   ]
 
-armingProperty :: UniversePropertyMonad a -> Property
+armingProperty :: Testable a => UniversePropertyMonad a -> Property
 armingProperty = propertyWithProperties $ defaultGeneratorProperties &
   withWorkplaceProbability WeaponMaking 20 &
   withArmingProbability 20 &

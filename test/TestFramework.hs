@@ -56,10 +56,10 @@ withNoResourceChangeSteps props = props {stepProbabilities = (stepProbabilities 
 withOtherWorkersNotDoneProbability :: Int -> GeneratorProperties -> GeneratorProperties
 withOtherWorkersNotDoneProbability probability props = props { otherWorkersNotDoneProbability = probability }
 
-generalUniverseProperty :: UniversePropertyMonad a -> Property
+generalUniverseProperty :: Testable a => UniversePropertyMonad a -> Property
 generalUniverseProperty = propertyWithProperties defaultGeneratorProperties
 
-movingWorkerProperty :: UniversePropertyMonad a -> Property
+movingWorkerProperty :: Testable a => UniversePropertyMonad a -> Property
 movingWorkerProperty = propertyWithProperties defaultGeneratorProperties {movingWorkerProbability = 50}
 
 newtype PrettyPrintedUniverse = PrettyUniverse { unPretty :: Universe}
@@ -67,7 +67,7 @@ newtype PrettyPrintedUniverse = PrettyUniverse { unPretty :: Universe}
 instance Show PrettyPrintedUniverse where
   show (PrettyUniverse u) = ppShow u
 
-propertyWithProperties :: GeneratorProperties -> UniversePropertyMonad a -> Property
+propertyWithProperties :: Testable a => GeneratorProperties -> UniversePropertyMonad a -> Property
 propertyWithProperties properties action = monadic extractProperty action
   where extractProperty act = forAllShrink (PrettyUniverse <$> generateUniverse properties) ((fmap PrettyUniverse) . shrinkUniverse . unPretty) (execOnUniverse act)
         execOnUniverse act (PrettyUniverse universe) = checkResult $ runState act (Right universe)

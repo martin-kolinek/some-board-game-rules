@@ -71,11 +71,11 @@ buildingTests = localOption (QuickCheckMaxRatio 200) $ testGroup "Building prope
       assert $ length barns < 2
   ]
 
-buildingProperty :: UniversePropertyMonad a -> Property
+buildingProperty :: Testable a => UniversePropertyMonad a -> Property
 buildingProperty = propertyWithProperties $ defaultGeneratorProperties &
   withNoResourceChangeSteps
 
-barnBuildingProperty :: UniversePropertyMonad a -> Property
+barnBuildingProperty :: Testable a => UniversePropertyMonad a -> Property
 barnBuildingProperty = propertyWithProperties $ defaultGeneratorProperties &
   withNoResourceChangeSteps
 

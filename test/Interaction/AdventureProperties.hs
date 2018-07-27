@@ -88,7 +88,7 @@ findAdventuringPlayer = do
   checkPlayerHasValidOccupants plId
   return plId
 
-adventureProperty :: UniversePropertyMonad a -> Property
+adventureProperty :: Testable a => UniversePropertyMonad a -> Property
 adventureProperty = propertyWithProperties $ defaultGeneratorProperties &
   withWorkplaceProbability WeaponMaking 20 &
   withAdventureProbability 20 &

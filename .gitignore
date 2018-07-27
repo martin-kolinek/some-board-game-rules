@@ -4,3 +4,4 @@ cabal.sandbox.config
 .stack-work
 .dir-locals.el
 result
+dist-newstyle/
